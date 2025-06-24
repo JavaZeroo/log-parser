@@ -162,11 +162,52 @@ export default function ChartContainer({
       tooltip: {
         mode: 'index',
         intersect: false,
+        backgroundColor: 'rgba(15, 23, 42, 0.92)',
+        titleColor: '#f1f5f9',
+        bodyColor: '#cbd5e1',
+        borderColor: 'rgba(71, 85, 105, 0.2)',
+        borderWidth: 1,
+        cornerRadius: 6,
+        displayColors: true,
+        usePointStyle: true,
+        titleFont: {
+          size: 11,
+          weight: '600',
+          family: 'Inter, system-ui, sans-serif'
+        },
+        bodyFont: {
+          size: 10,
+          weight: '400',
+          family: 'Inter, system-ui, sans-serif'
+        },
+        footerFont: {
+          size: 9,
+          weight: '300'
+        },
+        padding: {
+          top: 6,
+          bottom: 6,
+          left: 8,
+          right: 8
+        },
+        caretPadding: 4,
+        caretSize: 4,
+        multiKeyBackground: 'transparent',
         callbacks: {
+          title: function(context) {
+            return `Step ${context[0].parsed.x}`;
+          },
           label: function(context) {
-            const label = context.dataset.label;
-            const value = Number(context.parsed.y.toPrecision(3));
-            return `${label}: ${value}`;
+            const value = Number(context.parsed.y.toPrecision(4));
+            return ` ${value}`;
+          },
+          labelColor: function(context) {
+            return {
+              borderColor: context.dataset.borderColor,
+              backgroundColor: context.dataset.borderColor,
+              borderWidth: 1,
+              borderRadius: 2
+            };
           }
         }
       },
