@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles */
+.chart-container {
+  position: relative;
+  height: 350px;
+  width: 100%;
+}
+
+.resizable-chart-container {
+  position: relative;
+  min-height: 200px;
+  max-height: 600px;
+  resize: vertical;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.resize-handle {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 24px;
+  height: 24px;
+  cursor: nw-resize;
+  background: linear-gradient(-45deg, transparent 35%, #9ca3af 35%, #9ca3af 45%, transparent 45%, transparent 55%, #9ca3af 55%, #9ca3af 65%, transparent 65%);
+  opacity: 0.6;
+  transition: opacity 0.2s;
+  border-bottom-right-radius: 8px;
+}
+
+.resize-handle:hover {
+  opacity: 1;
+  background: linear-gradient(-45deg, transparent 35%, #6b7280 35%, #6b7280 45%, transparent 45%, transparent 55%, #6b7280 55%, #6b7280 65%, transparent 65%);
+}
+
+.chart-panel {
+  position: relative;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.drag-area {
+  border: 2px dashed #e2e8f0;
+  transition: all 0.3s ease;
+}
+
+.drag-area.dragover {
+  border-color: #3b82f6;
+  background-color: #dbeafe;
+}
