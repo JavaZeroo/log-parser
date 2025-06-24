@@ -57,22 +57,44 @@ export function FileUpload({ onFilesUploaded }) {
 
   return (
     <div className="bg-white rounded-lg shadow-md p-3">
-      <h3 className="text-base font-semibold text-gray-800 mb-2">文件上传</h3>
+      <h3 
+        id="file-upload-heading"
+        className="text-base font-semibold text-gray-800 mb-2"
+      >
+        📁 文件上传
+      </h3>
       <div
-        className={`drag-area border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
+        className={`drag-area border-2 border-dashed rounded-lg p-4 text-center cursor-pointer ${
           isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
         }`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={() => document.getElementById('fileInput').click()}
+        role="button"
+        tabIndex={0}
+        aria-labelledby="file-upload-heading"
+        aria-describedby="file-upload-description"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            document.getElementById('fileInput').click();
+          }
+        }}
       >
-        <Upload className="mx-auto mb-2 text-gray-400" size={32} />
+        <Upload 
+          className="mx-auto mb-2 text-gray-400" 
+          size={32} 
+          aria-hidden="true"
+        />
         <p className="text-sm text-gray-600 mb-1">
-          拖拽文件到此处或点击选择文件
+          🎯 拖拽文件到此处或点击选择文件
         </p>
-        <p className="text-xs text-gray-500">
-          支持 .log 和 .txt 格式
+        <p 
+          id="file-upload-description"
+          className="text-xs text-gray-500"
+        >
+          📄 支持 .log 和 .txt 格式
         </p>
         <input
           id="fileInput"
@@ -80,7 +102,8 @@ export function FileUpload({ onFilesUploaded }) {
           multiple
           accept=".log,.txt"
           onChange={handleFileSelect}
-          className="hidden"
+          className="sr-only"
+          aria-label="选择日志文件，支持 .log 和 .txt 格式"
         />
       </div>
     </div>

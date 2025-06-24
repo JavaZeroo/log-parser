@@ -32,8 +32,8 @@ const ChartWrapper = ({ data, options, title }) => {
     return (
       <div className="flex items-center justify-center h-full bg-gray-50 border-2 border-dashed border-gray-300 rounded">
         <div className="text-center text-gray-500">
-          <p className="text-lg mb-2">图表渲染错误</p>
-          <p className="text-sm">请检查数据格式或刷新页面重试</p>
+          <p className="text-lg mb-2">⚠️ 图表渲染错误</p>
+          <p className="text-sm">🔄 请检查数据格式或刷新页面重试</p>
         </div>
       </div>
     );
@@ -47,7 +47,9 @@ export default function ChartContainer({
   showDataPoints, 
   compareMode,
   relativeBaseline = 0.002,
-  absoluteBaseline = 0.005
+  absoluteBaseline = 0.005,
+  showLoss = true,
+  showGradNorm = false
 }) {
   const parsedData = useMemo(() => {
     return files.map(file => {
@@ -320,8 +322,25 @@ export default function ChartContainer({
     return (
       <div className="bg-white rounded-lg shadow-md p-8">
         <div className="text-center text-gray-500">
-          <p className="text-lg mb-2">暂无数据</p>
-          <p>请上传日志文件开始分析</p>
+          <p className="text-lg mb-2">📊 暂无数据</p>
+          <p>📁 请上传日志文件开始分析</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 检查是否有任何图表可以显示
+  if (!showLoss && !showGradNorm) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-8">
+        <div className="text-center text-gray-500">
+          <div className="mb-4">
+            <svg className="mx-auto h-16 w-16 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+          </div>
+          <p className="text-lg mb-2 font-medium">🎯 请选择要显示的图表</p>
+          <p className="text-sm">👈 在左侧显示选项中勾选 "显示 Loss 函数" 或 "显示 Grad Norm"</p>
         </div>
       </div>
     );
@@ -330,110 +349,129 @@ export default function ChartContainer({
   const lossDataArray = parsedData.map(file => file.lossData).filter(data => data && data.length > 0);
   const gradNormDataArray = parsedData.map(file => file.gradNormData).filter(data => data && data.length > 0);
 
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-      {/* Loss Charts Column */}
-      <div className="space-y-3">
-        {lossDataArray.length > 0 && (
-          <ResizablePanel title="Loss Function" initialHeight={350}>
-            <ChartWrapper
-              data={createChartData(lossDataArray, 'Loss', 'Loss Value')}
-              options={{
-                ...chartOptions,
-                scales: {
-                  ...chartOptions.scales,
-                  y: {
-                    ...chartOptions.scales.y,
-                    title: {
-                      display: true,
-                      text: 'Loss Value',
-                    },
-                  },
-                },
-              }}
-              title="Loss Function"
-            />
-          </ResizablePanel>
-        )}
+  // 计算显示的图表数量来决定布局
+  const showingLossCharts = showLoss && lossDataArray.length > 0;
+  const showingGradNormCharts = showGradNorm && gradNormDataArray.length > 0;
+  const showingLossComparison = showLoss && lossDataArray.length === 2;
+  const showingGradNormComparison = showGradNorm && gradNormDataArray.length === 2;
+  
+  // 计算实际显示的图表列数（不是图表总数）
+  const showingLossColumn = showingLossCharts || showingLossComparison;
+  const showingGradNormColumn = showingGradNormCharts || showingGradNormComparison;
+  const columnsShowing = (showingLossColumn ? 1 : 0) + (showingGradNormColumn ? 1 : 0);
+  
+  // 动态决定布局：如果只显示一列，使用全宽；否则使用两列
+  const useFullWidth = columnsShowing <= 1;
+  const gridCols = useFullWidth ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2';
 
-        {/* Loss Comparison Chart (for 2 files) */}
-        {lossDataArray.length === 2 && (
-          <ResizablePanel title={`Loss 对比分析 (${compareMode})`} initialHeight={350}>
-            <ChartWrapper
-              data={createComparisonChartData(lossDataArray[0], lossDataArray[1], 'Loss')}
-              options={{
-                ...chartOptions,
-                scales: {
-                  ...chartOptions.scales,
-                  y: {
-                    ...chartOptions.scales.y,
-                    title: {
-                      display: true,
-                      text: compareMode === 'relative' ? 'Relative Error' : 'Loss Difference',
+  return (
+    <div className={`grid ${gridCols} gap-3`}>
+      {/* Loss Charts Column */}
+      {(showingLossCharts || showingLossComparison) && (
+        <div className="space-y-3">
+          {showingLossCharts && (
+            <ResizablePanel title="📉 Loss Function" initialHeight={440}>
+              <ChartWrapper
+                data={createChartData(lossDataArray, 'Loss', 'Loss Value')}
+                options={{
+                  ...chartOptions,
+                  scales: {
+                    ...chartOptions.scales,
+                    y: {
+                      ...chartOptions.scales.y,
+                      title: {
+                        display: true,
+                        text: 'Loss Value',
+                      },
                     },
                   },
-                },
-              }}
-              title="Loss Comparison"
-            />
-          </ResizablePanel>
-        )}
-      </div>
+                }}
+                title="Loss Function"
+              />
+            </ResizablePanel>
+          )}
+
+          {/* Loss Comparison Chart (for 2 files) */}
+          {showingLossComparison && (
+            <ResizablePanel title={`⚖️ Loss 对比分析 (${compareMode})`} initialHeight={440}>
+              <ChartWrapper
+                data={createComparisonChartData(lossDataArray[0], lossDataArray[1], 'Loss')}
+                options={{
+                  ...chartOptions,
+                  scales: {
+                    ...chartOptions.scales,
+                    y: {
+                      ...chartOptions.scales.y,
+                      title: {
+                        display: true,
+                        text: compareMode === 'relative' ? 'Relative Error' : 'Loss Difference',
+                      },
+                    },
+                  },
+                }}
+                title="Loss Comparison"
+              />
+            </ResizablePanel>
+          )}
+        </div>
+      )}
 
       {/* Grad Norm Charts Column */}
-      <div className="space-y-3">
-        {gradNormDataArray.length > 0 && (
-          <ResizablePanel title="Gradient Norm" initialHeight={350}>
-            <ChartWrapper
-              data={createChartData(gradNormDataArray, 'Grad Norm', 'Grad Norm Value')}
-              options={{
-                ...chartOptions,
-                scales: {
-                  ...chartOptions.scales,
-                  y: {
-                    ...chartOptions.scales.y,
-                    title: {
-                      display: true,
-                      text: 'Grad Norm Value',
+      {(showingGradNormCharts || showingGradNormComparison) && (
+        <div className="space-y-3">
+          {showingGradNormCharts && (
+            <ResizablePanel title="📈 Gradient Norm" initialHeight={440}>
+              <ChartWrapper
+                data={createChartData(gradNormDataArray, 'Grad Norm', 'Grad Norm Value')}
+                options={{
+                  ...chartOptions,
+                  scales: {
+                    ...chartOptions.scales,
+                    y: {
+                      ...chartOptions.scales.y,
+                      title: {
+                        display: true,
+                        text: 'Grad Norm Value',
+                      },
                     },
                   },
-                },
-              }}
-              title="Gradient Norm"
-            />
-          </ResizablePanel>
-        )}
+                }}
+                title="Gradient Norm"
+              />
+            </ResizablePanel>
+          )}
 
-        {/* Grad Norm Comparison Chart (for 2 files) */}
-        {gradNormDataArray.length === 2 && (
-          <ResizablePanel title={`Grad Norm 对比分析 (${compareMode})`} initialHeight={350}>
-            <ChartWrapper
-              data={createComparisonChartData(gradNormDataArray[0], gradNormDataArray[1], 'Grad Norm')}
-              options={{
-                ...chartOptions,
-                scales: {
-                  ...chartOptions.scales,
-                  y: {
-                    ...chartOptions.scales.y,
-                    title: {
-                      display: true,
-                      text: compareMode === 'relative' ? 'Relative Error' : 'Grad Norm Difference',
+          {/* Grad Norm Comparison Chart (for 2 files) */}
+          {showingGradNormComparison && (
+            <ResizablePanel title={`⚖️ Grad Norm 对比分析 (${compareMode})`} initialHeight={440}>
+              <ChartWrapper
+                data={createComparisonChartData(gradNormDataArray[0], gradNormDataArray[1], 'Grad Norm')}
+                options={{
+                  ...chartOptions,
+                  scales: {
+                    ...chartOptions.scales,
+                    y: {
+                      ...chartOptions.scales.y,
+                      title: {
+                        display: true,
+                        text: compareMode === 'relative' ? 'Relative Error' : 'Grad Norm Difference',
+                      },
                     },
                   },
-                },
-              }}
-              title="Grad Norm Comparison"
-            />
-          </ResizablePanel>
-        )}
-      </div>
+                }}
+                title="Grad Norm Comparison"
+              />
+            </ResizablePanel>
+          )}
+        </div>
+      )}
 
-      {/* Statistics for comparison - spans both columns */}
-      {parsedData.length === 2 && (lossDataArray.length === 2 || gradNormDataArray.length === 2) && (
-        <div className="lg:col-span-2 bg-white rounded-lg shadow-md p-3">
+      {/* Statistics for comparison - spans all columns when showing both types */}
+      {parsedData.length === 2 && (showingLossComparison || showingGradNormComparison) && (
+        <div className={`${useFullWidth ? '' : 'lg:col-span-2'} bg-white rounded-lg shadow-md p-3`}>
           <h3 className="text-base font-semibold text-gray-800 mb-2">差值分析统计</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {lossDataArray.length === 2 && (
+            {showingLossComparison && (
               <div>
                 <h4 className="text-sm font-medium text-gray-700 mb-1">Loss 差值统计</h4>
                 <div className="space-y-1 text-xs">
@@ -457,7 +495,7 @@ export default function ChartContainer({
                 </div>
               </div>
             )}
-            {gradNormDataArray.length === 2 && (
+            {showingGradNormComparison && (
               <div>
                 <h4 className="text-sm font-medium text-gray-700 mb-1">Grad Norm 差值统计</h4>
                 <div className="space-y-1 text-xs">

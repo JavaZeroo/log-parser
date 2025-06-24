@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 
-export function ResizablePanel({ children, title, initialHeight = 350, minHeight = 200, maxHeight = 600 }) {
+export function ResizablePanel({ children, title, initialHeight = 440, minHeight = 200, maxHeight = 800 }) {
   const [height, setHeight] = useState(initialHeight);
   const [isResizing, setIsResizing] = useState(false);
   const panelRef = useRef(null);
@@ -42,27 +42,45 @@ export function ResizablePanel({ children, title, initialHeight = 350, minHeight
   }, [height]);
 
   return (
-    <div 
+    <section 
       ref={panelRef}
       className="chart-panel p-3"
       style={{ height: `${height}px` }}
+      aria-labelledby={`panel-title-${title.replace(/\s+/g, '-').toLowerCase()}`}
     >
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-base font-semibold text-gray-800">{title}</h3>
+        <h3 
+          id={`panel-title-${title.replace(/\s+/g, '-').toLowerCase()}`}
+          className="text-base font-semibold text-gray-800"
+        >
+          📊 {title}
+        </h3>
       </div>
       
       <div 
         className="chart-container" 
         style={{ height: `${height - 60}px` }}
+        role="img"
+        aria-label={`${title} 图表`}
       >
         {children}
       </div>
       
-      <div
+      <button
         className="resize-handle"
         onMouseDown={handleMouseDown}
-        title="拖拽调整高度"
+        title="拖拽调整图表高度"
+        aria-label={`调整 ${title} 图表高度`}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            const delta = e.key === 'ArrowUp' ? -10 : 10;
+            const newHeight = Math.min(Math.max(height + delta, minHeight), maxHeight);
+            setHeight(newHeight);
+          }
+        }}
+        tabIndex={0}
       />
-    </div>
+    </section>
   );
 }

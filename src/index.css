@@ -2,11 +2,85 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Accessibility improvements */
+@layer base {
+  /* Screen reader only content */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* Focus styles for better keyboard navigation */
+  :focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+  }
+
+  /* High contrast mode support */
+  @media (prefers-contrast: high) {
+    .bg-gray-50 {
+      background-color: #ffffff;
+    }
+    .text-gray-500 {
+      color: #000000;
+    }
+    .border-gray-300 {
+      border-color: #000000;
+    }
+  }
+
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+
+  /* Skip link for keyboard navigation */
+  .skip-link {
+    position: absolute;
+    top: -40px;
+    left: 6px;
+    background: #000;
+    color: #fff;
+    padding: 8px;
+    text-decoration: none;
+    z-index: 1000;
+    border-radius: 4px;
+  }
+
+  .skip-link:focus {
+    top: 6px;
+  }
+}
+
 /* Custom styles */
 .chart-container {
   position: relative;
-  height: 350px;
+  height: 440px;
   width: 100%;
+}
+
+/* Custom styles */
+.chart-container {
+  position: relative;
+  height: 440px;
+  width: 100%;
+}
+
+.chart-panel {
+  position: relative;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
 .resizable-chart-container {
@@ -28,13 +102,16 @@
   cursor: nw-resize;
   background: linear-gradient(-45deg, transparent 35%, #9ca3af 35%, #9ca3af 45%, transparent 45%, transparent 55%, #9ca3af 55%, #9ca3af 65%, transparent 65%);
   opacity: 0.6;
-  transition: opacity 0.2s;
   border-bottom-right-radius: 8px;
+  border: none;
 }
 
-.resize-handle:hover {
+.resize-handle:hover,
+.resize-handle:focus {
   opacity: 1;
   background: linear-gradient(-45deg, transparent 35%, #6b7280 35%, #6b7280 45%, transparent 45%, transparent 55%, #6b7280 55%, #6b7280 65%, transparent 65%);
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
 }
 
 .chart-panel {
@@ -46,10 +123,47 @@
 
 .drag-area {
   border: 2px dashed #e2e8f0;
-  transition: all 0.3s ease;
 }
 
 .drag-area.dragover {
   border-color: #3b82f6;
   background-color: #dbeafe;
+}
+
+/* Enhanced focus indicators for interactive elements */
+button:focus,
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+/* Enhanced hover effects for interactive elements */
+label:hover input[type="checkbox"] + span,
+label:hover input[type="radio"] + span {
+  color: #1f2937;
+}
+
+/* Improved contrast for links */
+a {
+  text-decoration-skip-ink: auto;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Better button accessibility */
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Form improvements */
+input[type="radio"]:focus,
+input[type="checkbox"]:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
 }
