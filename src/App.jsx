@@ -5,6 +5,7 @@ import { FileList } from './components/FileList';
 import ChartContainer from './components/ChartContainer';
 import { ComparisonControls } from './components/ComparisonControls';
 import { Header } from './components/Header';
+import { FileConfigModal } from './components/FileConfigModal';
 
 function App() {
   const [uploadedFiles, setUploadedFiles] = useState([]);
@@ -16,13 +17,50 @@ function App() {
   const [absoluteBaseline, setAbsoluteBaseline] = useState(0.005);
   const [showLoss, setShowLoss] = useState(true);
   const [showGradNorm, setShowGradNorm] = useState(false);
+  const [configModalOpen, setConfigModalOpen] = useState(false);
+  const [configFile, setConfigFile] = useState(null);
 
   const handleFilesUploaded = useCallback((files) => {
-    setUploadedFiles(prev => [...prev, ...files]);
+    const filesWithDefaults = files.map(file => ({
+      ...file,
+      enabled: true,
+      config: {
+        lossRegex: 'loss:\\s*([\\d.]+)',
+        gradNormRegex: 'grad norm:\\s*([\\d.]+)',
+        dataRange: {
+          start: '',
+          end: '',
+          useRange: false
+        }
+      }
+    }));
+    setUploadedFiles(prev => [...prev, ...filesWithDefaults]);
   }, []);
 
   const handleFileRemove = useCallback((index) => {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const handleFileToggle = useCallback((index, enabled) => {
+    setUploadedFiles(prev => prev.map((file, i) => 
+      i === index ? { ...file, enabled } : file
+    ));
+  }, []);
+
+  const handleFileConfig = useCallback((file) => {
+    setConfigFile(file);
+    setConfigModalOpen(true);
+  }, []);
+
+  const handleConfigSave = useCallback((fileId, config) => {
+    setUploadedFiles(prev => prev.map(file => 
+      file.id === fileId ? { ...file, config } : file
+    ));
+  }, []);
+
+  const handleConfigClose = useCallback(() => {
+    setConfigModalOpen(false);
+    setConfigFile(null);
   }, []);
 
   const handleRegexChange = useCallback((type, value) => {
@@ -59,6 +97,8 @@ function App() {
             <FileList
               files={uploadedFiles}
               onFileRemove={handleFileRemove}
+              onFileToggle={handleFileToggle}
+              onFileConfig={handleFileConfig}
             />
 
             {uploadedFiles.length === 2 && (
@@ -212,6 +252,13 @@ function App() {
           </section>
         </main>
       </div>
+      
+      <FileConfigModal
+        file={configFile}
+        isOpen={configModalOpen}
+        onClose={handleConfigClose}
+        onSave={handleConfigSave}
+      />
     </div>
   );
 }

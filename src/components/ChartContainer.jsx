@@ -52,7 +52,10 @@ export default function ChartContainer({
   showGradNorm = false
 }) {
   const parsedData = useMemo(() => {
-    return files.map(file => {
+    // 只处理已启用的文件
+    const enabledFiles = files.filter(file => file.enabled !== false);
+    
+    return enabledFiles.map(file => {
       if (!file.content) return { ...file, lossData: [], gradNormData: [] };
 
       const lines = file.content.split('\n');
@@ -60,8 +63,12 @@ export default function ChartContainer({
       const gradNormData = [];
 
       try {
-        const lossRegexObj = new RegExp(lossRegex);
-        const gradNormRegexObj = new RegExp(gradNormRegex);
+        // 使用文件的独立配置，如果没有则使用全局配置
+        const fileLossRegex = file.config?.lossRegex || lossRegex;
+        const fileGradNormRegex = file.config?.gradNormRegex || gradNormRegex;
+        
+        const lossRegexObj = new RegExp(fileLossRegex);
+        const gradNormRegexObj = new RegExp(fileGradNormRegex);
 
         lines.forEach((line, index) => {
           // Reset regex lastIndex for global flag
@@ -87,6 +94,41 @@ export default function ChartContainer({
         });
       } catch (error) {
         console.error('Regex error:', error);
+      }
+
+      // 应用数据范围过滤
+      const dataRange = file.config?.dataRange;
+      if (dataRange && dataRange.useRange) {
+        const applyRangeFilter = (data) => {
+          if (data.length === 0) return data;
+          
+          const start = dataRange.start ? Math.max(1, parseInt(dataRange.start)) : 1;
+          const end = dataRange.end ? Math.max(1, parseInt(dataRange.end)) : data.length;
+          
+          // 验证范围有效性
+          if (start > end || start > data.length) {
+            console.warn(`Invalid range for file ${file.name}: start=${start}, end=${end}, length=${data.length}`);
+            return data; // 返回原始数据
+          }
+          
+          // 转换为0基索引并切片 (start-1 到 end，包含end)
+          const startIndex = Math.max(0, start - 1);
+          const endIndex = Math.min(data.length, end);
+          
+          return data.slice(startIndex, endIndex);
+        };
+        
+        const filteredLossData = applyRangeFilter(lossData);
+        const filteredGradNormData = applyRangeFilter(gradNormData);
+        
+        // 重新索引数据点
+        const reindexData = (data) => data.map((point, index) => ({ x: index, y: point.y }));
+        
+        return { 
+          ...file, 
+          lossData: reindexData(filteredLossData), 
+          gradNormData: reindexData(filteredGradNormData) 
+        };
       }
 
       return { ...file, lossData, gradNormData };
