@@ -9,8 +9,8 @@ import { FileConfigModal } from './components/FileConfigModal';
 
 function App() {
   const [uploadedFiles, setUploadedFiles] = useState([]);
-  const [lossRegex, setLossRegex] = useState('loss:\\s*([\\d.]+)');
-  const [gradNormRegex, setGradNormRegex] = useState('grad norm:\\s*([\\d.]+)');
+  const [lossRegex, setLossRegex] = useState('loss:\\s*([\\d.eE+-]+)');
+  const [gradNormRegex, setGradNormRegex] = useState('grad[\\s_]norm:\\s*([\\d.eE+-]+)');
   const [showDataPoints, setShowDataPoints] = useState(true);
   const [compareMode, setCompareMode] = useState('normal');
   const [relativeBaseline, setRelativeBaseline] = useState(0.002);
@@ -27,8 +27,8 @@ function App() {
       ...file,
       enabled: true,
       config: {
-        lossRegex: 'loss:\\s*([\\d.]+)',
-        gradNormRegex: 'grad norm:\\s*([\\d.]+)',
+        lossRegex: 'loss:\\s*([\\d.eE+-]+)',
+        gradNormRegex: 'grad[\\s_]norm:\\s*([\\d.eE+-]+)',
         dataRange: {
           start: '',
           end: '',
@@ -229,6 +229,7 @@ function App() {
               lossRegex={lossRegex}
               gradNormRegex={gradNormRegex}
               onRegexChange={handleRegexChange}
+              uploadedFiles={uploadedFiles}
             />
             
             <FileList
@@ -238,7 +239,7 @@ function App() {
               onFileConfig={handleFileConfig}
             />
 
-            {uploadedFiles.length === 2 && (
+            {uploadedFiles.filter(file => file.enabled).length === 2 && (
               <ComparisonControls
                 compareMode={compareMode}
                 onCompareModeChange={setCompareMode}

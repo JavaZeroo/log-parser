@@ -392,10 +392,11 @@ export default function ChartContainer({
   const gradNormDataArray = parsedData.map(file => file.gradNormData).filter(data => data && data.length > 0);
 
   // 计算显示的图表数量来决定布局
+  const enabledFiles = files.filter(file => file.enabled !== false);
   const showingLossCharts = showLoss && lossDataArray.length > 0;
   const showingGradNormCharts = showGradNorm && gradNormDataArray.length > 0;
-  const showingLossComparison = showLoss && lossDataArray.length === 2;
-  const showingGradNormComparison = showGradNorm && gradNormDataArray.length === 2;
+  const showingLossComparison = showLoss && enabledFiles.length === 2 && lossDataArray.length === 2;
+  const showingGradNormComparison = showGradNorm && enabledFiles.length === 2 && gradNormDataArray.length === 2;
   
   // 计算实际显示的图表列数（不是图表总数）
   const showingLossColumn = showingLossCharts || showingLossComparison;
@@ -509,7 +510,7 @@ export default function ChartContainer({
       )}
 
       {/* Statistics for comparison - spans all columns when showing both types */}
-      {parsedData.length === 2 && (showingLossComparison || showingGradNormComparison) && (
+      {enabledFiles.length === 2 && (showingLossComparison || showingGradNormComparison) && (
         <div className={`${useFullWidth ? '' : 'lg:col-span-2'} bg-white rounded-lg shadow-md p-3`}>
           <h3 className="text-base font-semibold text-gray-800 mb-2">差值分析统计</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
