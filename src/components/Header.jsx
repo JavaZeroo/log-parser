@@ -12,7 +12,7 @@ export function Header() {
           role="img"
         />
         <h1 className="text-2xl font-bold text-gray-800">
-          🤖 ML Log Analyzer
+          Log Analyzer
         </h1>
       </div>
       <p className="text-sm text-gray-600 mb-2" role="doc-subtitle">
