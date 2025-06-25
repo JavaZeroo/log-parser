@@ -9,8 +9,25 @@ import { FileConfigModal } from './components/FileConfigModal';
 
 function App() {
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  
+  // 全局解析配置状态
+  const [globalParsingConfig, setGlobalParsingConfig] = useState({
+    loss: {
+      mode: 'keyword', // 'keyword' | 'regex'
+      keyword: 'loss',
+      regex: 'loss:\\s*([\\d.eE+-]+)'
+    },
+    gradNorm: {
+      mode: 'keyword', // 'keyword' | 'regex'
+      keyword: 'global_norm',
+      regex: 'grad[\\s_]norm:\\s*([\\d.eE+-]+)'
+    }
+  });
+  
+  // 兼容旧版本的正则表达式状态（供ChartContainer使用）
   const [lossRegex, setLossRegex] = useState('loss:\\s*([\\d.eE+-]+)');
   const [gradNormRegex, setGradNormRegex] = useState('grad[\\s_]norm:\\s*([\\d.eE+-]+)');
+  
   const [showDataPoints, setShowDataPoints] = useState(true);
   const [compareMode, setCompareMode] = useState('normal');
   const [relativeBaseline, setRelativeBaseline] = useState(0.002);
@@ -27,17 +44,18 @@ function App() {
       ...file,
       enabled: true,
       config: {
-        lossRegex: 'loss:\\s*([\\d.eE+-]+)',
-        gradNormRegex: 'grad[\\s_]norm:\\s*([\\d.eE+-]+)',
+        // 使用全局解析配置作为默认值
+        loss: { ...globalParsingConfig.loss },
+        gradNorm: { ...globalParsingConfig.gradNorm },
         dataRange: {
-          start: '',
-          end: '',
-          useRange: false
+          start: 0,        // 默认从第一个数据点开始
+          end: undefined,  // 默认到最后一个数据点
+          useRange: false  // 保留这个字段用于向后兼容，但默认不启用
         }
       }
     }));
     setUploadedFiles(prev => [...prev, ...filesWithDefaults]);
-  }, []);
+  }, [globalParsingConfig]);
 
   // 全局文件处理函数
   const processGlobalFiles = useCallback((files) => {
@@ -96,6 +114,25 @@ function App() {
   const handleConfigClose = useCallback(() => {
     setConfigModalOpen(false);
     setConfigFile(null);
+  }, []);
+
+  // 全局解析配置变更处理
+  const handleGlobalParsingConfigChange = useCallback((newConfig) => {
+    setGlobalParsingConfig(newConfig);
+    
+    // 同步更新兼容的正则表达式状态
+    setLossRegex(newConfig.loss.mode === 'regex' ? newConfig.loss.regex : 'loss:\\s*([\\d.eE+-]+)');
+    setGradNormRegex(newConfig.gradNorm.mode === 'regex' ? newConfig.gradNorm.regex : 'grad[\\s_]norm:\\s*([\\d.eE+-]+)');
+    
+    // 同步所有文件的解析配置
+    setUploadedFiles(prev => prev.map(file => ({
+      ...file,
+      config: {
+        ...file.config,
+        loss: { ...newConfig.loss },
+        gradNorm: { ...newConfig.gradNorm }
+      }
+    })));
   }, []);
 
   const handleRegexChange = useCallback((type, value) => {
@@ -226,6 +263,8 @@ function App() {
             <FileUpload onFilesUploaded={handleFilesUploaded} />
             
             <RegexControls
+              globalParsingConfig={globalParsingConfig}
+              onGlobalParsingConfigChange={handleGlobalParsingConfigChange}
               lossRegex={lossRegex}
               gradNormRegex={gradNormRegex}
               onRegexChange={handleRegexChange}
@@ -396,6 +435,7 @@ function App() {
         isOpen={configModalOpen}
         onClose={handleConfigClose}
         onSave={handleConfigSave}
+        globalParsingConfig={globalParsingConfig}
       />
     </div>
   );

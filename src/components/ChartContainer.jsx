@@ -63,59 +63,150 @@ export default function ChartContainer({
       const gradNormData = [];
 
       try {
-        // 使用文件的独立配置，如果没有则使用全局配置
-        const fileLossRegex = file.config?.lossRegex || lossRegex;
-        const fileGradNormRegex = file.config?.gradNormRegex || gradNormRegex;
+        // 使用新的配置格式，同时保持向后兼容
+        let fileLossConfig, fileGradNormConfig;
         
-        const lossRegexObj = new RegExp(fileLossRegex);
-        const gradNormRegexObj = new RegExp(fileGradNormRegex);
+        if (file.config?.loss && file.config?.gradNorm) {
+          // 新配置格式
+          fileLossConfig = file.config.loss;
+          fileGradNormConfig = file.config.gradNorm;
+        } else {
+          // 旧配置格式，转换为新格式
+          fileLossConfig = {
+            mode: 'regex',
+            regex: file.config?.lossRegex || lossRegex
+          };
+          fileGradNormConfig = {
+            mode: 'regex',
+            regex: file.config?.gradNormRegex || gradNormRegex
+          };
+        }
 
-        lines.forEach((line, index) => {
-          // Reset regex lastIndex for global flag
-          lossRegexObj.lastIndex = 0;
-          gradNormRegexObj.lastIndex = 0;
+        // 处理Loss数据
+        if (fileLossConfig.mode === 'keyword') {
+          // 关键词匹配
+          const extractByKeyword = (content, keyword) => {
+            const results = [];
+            const lines = content.split('\n');
+            
+            // 数值正则：支持各种数值格式，包括科学计数法
+            const numberRegex = /[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/;
+            
+            lines.forEach((line, lineIndex) => {
+              // 查找关键词（忽略大小写）
+              const keywordIndex = line.toLowerCase().indexOf(keyword.toLowerCase());
+              if (keywordIndex !== -1) {
+                // 从关键词后开始查找第一个数字
+                const afterKeyword = line.substring(keywordIndex + keyword.length);
+                const numberMatch = afterKeyword.match(numberRegex);
+                
+                if (numberMatch) {
+                  const value = parseFloat(numberMatch[0]);
+                  if (!isNaN(value)) {
+                    results.push(value);
+                  }
+                }
+              }
+            });
+            
+            return results;
+          };
           
-          const lossMatch = lossRegexObj.exec(line);
-          const gradNormMatch = gradNormRegexObj.exec(line);
-
-          if (lossMatch && lossMatch[1]) {
-            const value = parseFloat(lossMatch[1]);
+          const lossValues = extractByKeyword(file.content, fileLossConfig.keyword);
+          lossValues.forEach((value, index) => {
             if (!isNaN(value)) {
-              lossData.push({ x: lossData.length, y: value });
+              lossData.push({ x: index, y: value });
             }
-          }
+          });
+        } else {
+          // 正则表达式匹配
+          const lossRegexObj = new RegExp(fileLossConfig.regex);
+          lines.forEach((line, index) => {
+            lossRegexObj.lastIndex = 0;
+            const lossMatch = lossRegexObj.exec(line);
+            if (lossMatch && lossMatch[1]) {
+              const value = parseFloat(lossMatch[1]);
+              if (!isNaN(value)) {
+                lossData.push({ x: lossData.length, y: value });
+              }
+            }
+          });
+        }
 
-          if (gradNormMatch && gradNormMatch[1]) {
-            const value = parseFloat(gradNormMatch[1]);
+        // 处理Grad Norm数据
+        if (fileGradNormConfig.mode === 'keyword') {
+          // 关键词匹配
+          const extractByKeyword = (content, keyword) => {
+            const results = [];
+            const lines = content.split('\n');
+            
+            // 数值正则：支持各种数值格式，包括科学计数法
+            const numberRegex = /[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/;
+            
+            lines.forEach((line, lineIndex) => {
+              // 查找关键词（忽略大小写）
+              const keywordIndex = line.toLowerCase().indexOf(keyword.toLowerCase());
+              if (keywordIndex !== -1) {
+                // 从关键词后开始查找第一个数字
+                const afterKeyword = line.substring(keywordIndex + keyword.length);
+                const numberMatch = afterKeyword.match(numberRegex);
+                
+                if (numberMatch) {
+                  const value = parseFloat(numberMatch[0]);
+                  if (!isNaN(value)) {
+                    results.push(value);
+                  }
+                }
+              }
+            });
+            
+            return results;
+          };
+          
+          const gradNormValues = extractByKeyword(file.content, fileGradNormConfig.keyword);
+          gradNormValues.forEach((value, index) => {
             if (!isNaN(value)) {
-              gradNormData.push({ x: gradNormData.length, y: value });
+              gradNormData.push({ x: index, y: value });
             }
-          }
-        });
+          });
+        } else {
+          // 正则表达式匹配
+          const gradNormRegexObj = new RegExp(fileGradNormConfig.regex);
+          lines.forEach((line, index) => {
+            gradNormRegexObj.lastIndex = 0;
+            const gradNormMatch = gradNormRegexObj.exec(line);
+            if (gradNormMatch && gradNormMatch[1]) {
+              const value = parseFloat(gradNormMatch[1]);
+              if (!isNaN(value)) {
+                gradNormData.push({ x: gradNormData.length, y: value });
+              }
+            }
+          });
+        }
       } catch (error) {
         console.error('Regex error:', error);
       }
 
       // 应用数据范围过滤
       const dataRange = file.config?.dataRange;
-      if (dataRange && dataRange.useRange) {
+      if (dataRange && (dataRange.start > 0 || dataRange.end !== undefined)) {
         const applyRangeFilter = (data) => {
           if (data.length === 0) return data;
           
-          const start = dataRange.start ? Math.max(1, parseInt(dataRange.start)) : 1;
-          const end = dataRange.end ? Math.max(1, parseInt(dataRange.end)) : data.length;
+          const start = Math.max(0, parseInt(dataRange.start) || 0);
+          const end = dataRange.end !== undefined ? parseInt(dataRange.end) : data.length;
           
           // 验证范围有效性
-          if (start > end || start > data.length) {
+          if (start >= data.length || (end !== undefined && start >= end)) {
             console.warn(`Invalid range for file ${file.name}: start=${start}, end=${end}, length=${data.length}`);
             return data; // 返回原始数据
           }
           
-          // 转换为0基索引并切片 (start-1 到 end，包含end)
-          const startIndex = Math.max(0, start - 1);
+          // 切片数据（start到end，不包含end）
           const endIndex = Math.min(data.length, end);
+          const slicedData = data.slice(start, endIndex);
           
-          return data.slice(startIndex, endIndex);
+          return slicedData;
         };
         
         const filteredLossData = applyRangeFilter(lossData);

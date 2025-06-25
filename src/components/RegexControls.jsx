@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Settings, Zap, Eye, ChevronDown, ChevronUp, Target, Grid, Brain, Code } from 'lucide-react';
+import { Settings, Zap, Eye, ChevronDown, ChevronUp, Target, Code } from 'lucide-react';
 
 // 匹配模式枚举
 const MATCH_MODES = {
   KEYWORD: 'keyword',
-  COLUMN: 'column', 
-  SMART: 'smart',
   REGEX: 'regex'
 };
 
@@ -16,18 +14,6 @@ const MODE_CONFIG = {
     icon: Target,
     description: '输入关键词，自动查找并提取数值',
     example: '输入 "loss" 匹配 "loss: 0.123"'
-  },
-  [MATCH_MODES.COLUMN]: {
-    name: '列位置匹配', 
-    icon: Grid,
-    description: '指定列号和分隔符来提取数值',
-    example: '第2列，以空格分隔'
-  },
-  [MATCH_MODES.SMART]: {
-    name: '智能解析',
-    icon: Brain, 
-    description: '自动识别各种常见格式',
-    example: '自动检测JSON、键值对等格式'
   },
   [MATCH_MODES.REGEX]: {
     name: '正则表达式',
@@ -44,25 +30,25 @@ class ValueExtractor {
     const results = [];
     const lines = content.split('\n');
     
-    // 数值正则：支持各种数值格式
-    const numberRegex = /[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/g;
+    // 数值正则：支持各种数值格式，包括科学计数法
+    const numberRegex = /[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/;
     
     lines.forEach((line, lineIndex) => {
-      // 模糊匹配关键词（忽略大小写、下划线、空格）
-      const normalizedLine = line.toLowerCase().replace(/[_\s]/g, '');
-      const normalizedKeyword = keyword.toLowerCase().replace(/[_\s]/g, '');
-      
-      if (normalizedLine.includes(normalizedKeyword)) {
-        // 查找关键词后的数值
-        const keywordIndex = line.toLowerCase().indexOf(keyword.toLowerCase());
-        if (keywordIndex !== -1) {
-          const afterKeyword = line.substring(keywordIndex + keyword.length);
-          const numberMatch = afterKeyword.match(numberRegex);
-          if (numberMatch) {
+      // 查找关键词（忽略大小写）
+      const keywordIndex = line.toLowerCase().indexOf(keyword.toLowerCase());
+      if (keywordIndex !== -1) {
+        // 从关键词后开始查找第一个数字
+        const afterKeyword = line.substring(keywordIndex + keyword.length);
+        const numberMatch = afterKeyword.match(numberRegex);
+        
+        if (numberMatch) {
+          const value = parseFloat(numberMatch[0]);
+          if (!isNaN(value)) {
             results.push({
-              value: parseFloat(numberMatch[0]),
+              value,
               line: lineIndex + 1,
-              text: line.trim()
+              text: line.trim(),
+              format: 'Keyword Match'
             });
           }
         }
@@ -107,7 +93,7 @@ class ValueExtractor {
     // 智能关键词列表
     const keywords = type === 'loss' 
       ? ['loss', 'training_loss', 'train_loss', 'val_loss', 'validation_loss']
-      : ['grad_norm', 'gradient_norm', 'gnorm', 'grad norm', 'gradient norm'];
+      : ['grad_norm', 'gradient_norm', 'gnorm', 'grad norm', 'gradient norm', 'global_norm'];
     
     lines.forEach((line, lineIndex) => {
       // 尝试JSON解析
@@ -134,12 +120,17 @@ class ValueExtractor {
         // 不是JSON，继续其他格式
       }
       
-      // 尝试键值对格式
+      // 尝试键值对格式和特殊格式
       for (const keyword of keywords) {
         const patterns = [
+          // 标准键值对格式
           new RegExp(`${keyword}\\s*[:=]\\s*([\\d.eE+-]+)`, 'i'),
           new RegExp(`"${keyword}"\\s*:\\s*([\\d.eE+-]+)`, 'i'),
-          new RegExp(`${keyword}\\s+([\\d.eE+-]+)`, 'i')
+          new RegExp(`${keyword}\\s+([\\d.eE+-]+)`, 'i'),
+          // MindFormers特殊格式：global_norm: [1.6887678]
+          new RegExp(`${keyword}\\s*:\\s*\\[([\\d.eE+-]+)\\]`, 'i'),
+          // 其他可能的数组格式
+          new RegExp(`${keyword}\\s*:\\s*\\[\\s*([\\d.eE+-]+)\\s*\\]`, 'i')
         ];
         
         for (const pattern of patterns) {
@@ -151,7 +142,7 @@ class ValueExtractor {
                 value,
                 line: lineIndex + 1,
                 text: line.trim(),
-                format: 'Key-Value'
+                format: keyword.includes('global_norm') ? 'MindFormers' : 'Key-Value'
               });
               return;
             }
@@ -193,35 +184,22 @@ class ValueExtractor {
   }
 }
 
-export function RegexControls({ lossRegex, gradNormRegex, onRegexChange, uploadedFiles = [] }) {
+export function RegexControls({ 
+  globalParsingConfig, 
+  onGlobalParsingConfigChange,
+  lossRegex, 
+  gradNormRegex, 
+  onRegexChange, 
+  uploadedFiles = [] 
+}) {
   const [showPreview, setShowPreview] = useState(false);
   const [previewResults, setPreviewResults] = useState({ loss: [], gradNorm: [] });
-  
-  // 新增状态：匹配模式和配置
-  const [lossMode, setLossMode] = useState(MATCH_MODES.REGEX);
-  const [gradNormMode, setGradNormMode] = useState(MATCH_MODES.REGEX);
-  const [lossConfig, setLossConfig] = useState({
-    keyword: 'loss',
-    columnIndex: 1,
-    separator: ' ',
-    regex: lossRegex
-  });
-  const [gradNormConfig, setGradNormConfig] = useState({
-    keyword: 'grad_norm', 
-    columnIndex: 2,
-    separator: ' ',
-    regex: gradNormRegex
-  });
 
   // 提取数值的通用函数
   const extractValues = useCallback((content, mode, config, type) => {
     switch (mode) {
       case MATCH_MODES.KEYWORD:
         return ValueExtractor.extractByKeyword(content, config.keyword);
-      case MATCH_MODES.COLUMN:
-        return ValueExtractor.extractByColumn(content, config.columnIndex, config.separator);
-      case MATCH_MODES.SMART:
-        return ValueExtractor.extractBySmart(content, type);
       case MATCH_MODES.REGEX:
         return ValueExtractor.extractByRegex(content, config.regex);
       default:
@@ -236,7 +214,12 @@ export function RegexControls({ lossRegex, gradNormRegex, onRegexChange, uploade
     uploadedFiles.forEach(file => {
       if (file.content) {
         // Loss匹配
-        const lossMatches = extractValues(file.content, lossMode, lossConfig, 'loss');
+        const lossMatches = extractValues(
+          file.content, 
+          globalParsingConfig.loss.mode, 
+          globalParsingConfig.loss, 
+          'loss'
+        );
         results.loss.push({
           fileName: file.name,
           count: lossMatches.length,
@@ -249,7 +232,12 @@ export function RegexControls({ lossRegex, gradNormRegex, onRegexChange, uploade
         });
 
         // Grad Norm匹配
-        const gradNormMatches = extractValues(file.content, gradNormMode, gradNormConfig, 'gradnorm');
+        const gradNormMatches = extractValues(
+          file.content, 
+          globalParsingConfig.gradNorm.mode, 
+          globalParsingConfig.gradNorm, 
+          'gradnorm'
+        );
         results.gradNorm.push({
           fileName: file.name,
           count: gradNormMatches.length,
@@ -264,7 +252,7 @@ export function RegexControls({ lossRegex, gradNormRegex, onRegexChange, uploade
     });
 
     setPreviewResults(results);
-  }, [uploadedFiles, lossMode, lossConfig, gradNormMode, gradNormConfig, extractValues]);
+  }, [uploadedFiles, globalParsingConfig, extractValues]);
 
   // 智能推荐最佳配置
   const smartRecommend = useCallback(() => {
@@ -277,56 +265,46 @@ export function RegexControls({ lossRegex, gradNormRegex, onRegexChange, uploade
 
     const allContent = uploadedFiles.map(f => f.content).join('\n');
     
-    // 测试不同模式和配置
-    Object.values(MATCH_MODES).forEach(mode => {
-      if (mode === MATCH_MODES.KEYWORD) {
-        // 测试不同关键词
-        ['loss', 'training_loss', 'train_loss'].forEach(keyword => {
-          const matches = ValueExtractor.extractByKeyword(allContent, keyword);
-          if (matches.length > maxLossCount) {
-            maxLossCount = matches.length;
-            bestLossConfig = { mode, config: { keyword } };
-          }
-        });
-        
-        ['grad_norm', 'gradient_norm', 'gnorm'].forEach(keyword => {
-          const matches = ValueExtractor.extractByKeyword(allContent, keyword);
-          if (matches.length > maxGradNormCount) {
-            maxGradNormCount = matches.length;
-            bestGradNormConfig = { mode, config: { keyword } };
-          }
-        });
-      } else if (mode === MATCH_MODES.SMART) {
-        const lossMatches = ValueExtractor.extractBySmart(allContent, 'loss');
-        const gradNormMatches = ValueExtractor.extractBySmart(allContent, 'gradnorm');
-        
-        if (lossMatches.length > maxLossCount) {
-          maxLossCount = lossMatches.length;
-          bestLossConfig = { mode, config: {} };
-        }
-        
-        if (gradNormMatches.length > maxGradNormCount) {
-          maxGradNormCount = gradNormMatches.length;
-          bestGradNormConfig = { mode, config: {} };
-        }
+    // 测试关键词模式
+    const lossKeywords = ['loss', 'training_loss', 'train_loss'];
+    const gradNormKeywords = ['grad_norm', 'gradient_norm', 'gnorm', 'global_norm'];
+    
+    lossKeywords.forEach(keyword => {
+      const matches = ValueExtractor.extractByKeyword(allContent, keyword);
+      if (matches.length > maxLossCount) {
+        maxLossCount = matches.length;
+        bestLossConfig = { mode: MATCH_MODES.KEYWORD, keyword };
+      }
+    });
+    
+    gradNormKeywords.forEach(keyword => {
+      const matches = ValueExtractor.extractByKeyword(allContent, keyword);
+      if (matches.length > maxGradNormCount) {
+        maxGradNormCount = matches.length;
+        bestGradNormConfig = { mode: MATCH_MODES.KEYWORD, keyword };
       }
     });
 
-    // 应用最佳配置
+    // 应用最佳配置到全局配置
+    const newConfig = { ...globalParsingConfig };
     if (bestLossConfig) {
-      setLossMode(bestLossConfig.mode);
-      if (bestLossConfig.config.keyword) {
-        setLossConfig(prev => ({ ...prev, keyword: bestLossConfig.config.keyword }));
-      }
+      newConfig.loss = {
+        ...newConfig.loss,
+        mode: bestLossConfig.mode,
+        keyword: bestLossConfig.keyword
+      };
     }
     
     if (bestGradNormConfig) {
-      setGradNormMode(bestGradNormConfig.mode);
-      if (bestGradNormConfig.config.keyword) {
-        setGradNormConfig(prev => ({ ...prev, keyword: bestGradNormConfig.config.keyword }));
-      }
+      newConfig.gradNorm = {
+        ...newConfig.gradNorm,
+        mode: bestGradNormConfig.mode,
+        keyword: bestGradNormConfig.keyword
+      };
     }
-  }, [uploadedFiles]);
+    
+    onGlobalParsingConfigChange(newConfig);
+  }, [uploadedFiles, globalParsingConfig, onGlobalParsingConfigChange]);
 
   // 当配置变化时更新预览
   useEffect(() => {
@@ -335,32 +313,25 @@ export function RegexControls({ lossRegex, gradNormRegex, onRegexChange, uploade
     }
   }, [showPreview, previewMatches]);
 
-  // 当正则表达式从外部更新时同步到内部状态
-  useEffect(() => {
-    setLossConfig(prev => ({ ...prev, regex: lossRegex }));
-  }, [lossRegex]);
-
-  useEffect(() => {
-    setGradNormConfig(prev => ({ ...prev, regex: gradNormRegex }));
-  }, [gradNormRegex]);
-
   // 处理配置变化
-  const handleLossConfigChange = (field, value) => {
-    setLossConfig(prev => ({ ...prev, [field]: value }));
-    if (lossMode === MATCH_MODES.REGEX && field === 'regex') {
-      onRegexChange('loss', value);
+  const handleConfigChange = (type, field, value) => {
+    const newConfig = { ...globalParsingConfig };
+    newConfig[type] = { ...newConfig[type], [field]: value };
+    
+    // 如果是正则表达式模式的变更，同时更新兼容的正则状态
+    if (field === 'regex') {
+      if (type === 'loss') {
+        onRegexChange('loss', value);
+      } else {
+        onRegexChange('gradNorm', value);
+      }
     }
-  };
-
-  const handleGradNormConfigChange = (field, value) => {
-    setGradNormConfig(prev => ({ ...prev, [field]: value }));
-    if (gradNormMode === MATCH_MODES.REGEX && field === 'regex') {
-      onRegexChange('gradNorm', value);
-    }
+    
+    onGlobalParsingConfigChange(newConfig);
   };
   // 渲染配置项的函数
-  const renderConfigPanel = (type, mode, config, onModeChange, onConfigChange) => {
-    const ModeIcon = MODE_CONFIG[mode].icon;
+  const renderConfigPanel = (type, config, onConfigChange) => {
+    const ModeIcon = MODE_CONFIG[config.mode].icon;
     
     return (
       <div className="space-y-2">
@@ -370,24 +341,24 @@ export function RegexControls({ lossRegex, gradNormRegex, onRegexChange, uploade
             匹配模式
           </label>
           <select
-            value={mode}
-            onChange={(e) => onModeChange(e.target.value)}
+            value={config.mode}
+            onChange={(e) => onConfigChange('mode', e.target.value)}
             className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
           >
-            {Object.entries(MODE_CONFIG).map(([key, config]) => (
+            {Object.entries(MODE_CONFIG).map(([key, modeConfig]) => (
               <option key={key} value={key}>
-                {config.name}
+                {modeConfig.name}
               </option>
             ))}
           </select>
           <p className="text-xs text-gray-500 mt-1">
             <ModeIcon size={10} className="inline mr-1" />
-            {MODE_CONFIG[mode].description}
+            {MODE_CONFIG[config.mode].description}
           </p>
         </div>
 
         {/* 根据模式显示不同的配置项 */}
-        {mode === MATCH_MODES.KEYWORD && (
+        {config.mode === MATCH_MODES.KEYWORD && (
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">
               关键词
@@ -397,7 +368,7 @@ export function RegexControls({ lossRegex, gradNormRegex, onRegexChange, uploade
               value={config.keyword}
               onChange={(e) => onConfigChange('keyword', e.target.value)}
               className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
-              placeholder={type === 'loss' ? 'loss' : 'grad_norm'}
+              placeholder={type === 'loss' ? 'loss' : 'global_norm'}
             />
             <p className="text-xs text-gray-500 mt-1">
               支持模糊匹配，如 "loss" 可匹配 "training_loss"
@@ -405,48 +376,7 @@ export function RegexControls({ lossRegex, gradNormRegex, onRegexChange, uploade
           </div>
         )}
 
-        {mode === MATCH_MODES.COLUMN && (
-          <div className="space-y-2">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                列索引 (从0开始)
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={config.columnIndex}
-                onChange={(e) => onConfigChange('columnIndex', parseInt(e.target.value) || 0)}
-                className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                分隔符
-              </label>
-              <select
-                value={config.separator}
-                onChange={(e) => onConfigChange('separator', e.target.value)}
-                className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
-              >
-                <option value=" ">空格</option>
-                <option value=",">逗号</option>
-                <option value="\t">制表符</option>
-                <option value="|">竖线</option>
-              </select>
-            </div>
-          </div>
-        )}
-
-        {mode === MATCH_MODES.SMART && (
-          <div className="p-2 bg-blue-50 rounded border border-blue-200">
-            <p className="text-xs text-blue-700">
-              <Brain size={12} className="inline mr-1" />
-              智能模式会自动检测JSON、键值对等格式，无需额外配置
-            </p>
-          </div>
-        )}
-
-        {mode === MATCH_MODES.REGEX && (
+        {config.mode === MATCH_MODES.REGEX && (
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">
               正则表达式
@@ -511,7 +441,7 @@ export function RegexControls({ lossRegex, gradNormRegex, onRegexChange, uploade
             <span className="w-3 h-3 bg-red-500 rounded-full"></span>
             Loss 解析配置
           </h4>
-          {renderConfigPanel('loss', lossMode, lossConfig, setLossMode, handleLossConfigChange)}
+          {renderConfigPanel('loss', globalParsingConfig.loss, (field, value) => handleConfigChange('loss', field, value))}
         </div>
         
         {/* Grad Norm 配置 */}
@@ -520,7 +450,7 @@ export function RegexControls({ lossRegex, gradNormRegex, onRegexChange, uploade
             <span className="w-3 h-3 bg-green-500 rounded-full"></span>
             Grad Norm 解析配置
           </h4>
-          {renderConfigPanel('gradnorm', gradNormMode, gradNormConfig, setGradNormMode, handleGradNormConfigChange)}
+          {renderConfigPanel('gradnorm', globalParsingConfig.gradNorm, (field, value) => handleConfigChange('gradNorm', field, value))}
         </div>
 
         {/* 预览结果 */}
@@ -584,9 +514,7 @@ export function RegexControls({ lossRegex, gradNormRegex, onRegexChange, uploade
         >
           <p><strong>🎯 增强解析功能：</strong></p>
           <ul role="list" className="mt-1 space-y-1">
-            <li>• <Target size={10} className="inline" /> <strong>关键词匹配</strong>：简单输入关键词，自动提取数值</li>
-            <li>• <Grid size={10} className="inline" /> <strong>列位置匹配</strong>：适合结构化日志，指定列号和分隔符</li>
-            <li>• <Brain size={10} className="inline" /> <strong>智能解析</strong>：自动识别JSON、键值对等格式</li>
+            <li>• <Target size={10} className="inline" /> <strong>关键词匹配</strong>：简单输入关键词，自动提取数值（默认模式）</li>
             <li>• <Code size={10} className="inline" /> <strong>正则表达式</strong>：高级用户可使用复杂模式</li>
             <li>• <Zap size={10} className="inline" /> <strong>智能推荐</strong>：一键获得最佳解析配置</li>
           </ul>

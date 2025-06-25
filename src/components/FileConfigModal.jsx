@@ -1,34 +1,76 @@
 import React, { useState, useEffect } from 'react';
-import { X, Settings, TrendingDown, TrendingUp, Sliders, BarChart3, Play, Square } from 'lucide-react';
+import { X, Settings, TrendingDown, TrendingUp, Sliders, BarChart3, Target, Code, Zap } from 'lucide-react';
 
-export function FileConfigModal({ file, isOpen, onClose, onSave }) {
+// 匹配模式枚举
+const MATCH_MODES = {
+  KEYWORD: 'keyword',
+  REGEX: 'regex'
+};
+
+// 模式配置
+const MODE_CONFIG = {
+  [MATCH_MODES.KEYWORD]: {
+    name: '关键词匹配',
+    icon: Target,
+    description: '输入关键词，自动查找并提取数值',
+    example: '输入 "loss" 匹配 "loss: 0.123"'
+  },
+  [MATCH_MODES.REGEX]: {
+    name: '正则表达式',
+    icon: Code,
+    description: '使用正则表达式进行高级匹配',
+    example: 'loss:\\s*([\\d.eE+-]+)'
+  }
+};
+
+export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingConfig }) {
   const [config, setConfig] = useState({
-    lossRegex: '',
-    gradNormRegex: '',
+    loss: {
+      mode: 'keyword',
+      keyword: 'loss',
+      regex: 'loss:\\s*([\\d.eE+-]+)'
+    },
+    gradNorm: {
+      mode: 'keyword',
+      keyword: 'global_norm',
+      regex: 'grad[\\s_]norm:\\s*([\\d.eE+-]+)'
+    },
     dataRange: {
-      start: '', // 起始位置 (可选，留空表示从开头)
-      end: '',   // 结束位置 (可选，留空表示到结尾)
-      useRange: false // 是否启用范围限制
+      start: 0,        // 起始位置，默认为0（第一个数据点）
+      end: undefined,  // 结束位置，默认为undefined（最后一个数据点）
+      useRange: false  // 保留用于向后兼容
     }
   });
 
   useEffect(() => {
     if (file && isOpen) {
+      // 如果文件有配置，使用文件配置，否则使用全局配置
+      const fileConfig = file.config || {};
       setConfig({
-        lossRegex: file.config?.lossRegex || 'loss:\\s*([\\d.]+)',
-        gradNormRegex: file.config?.gradNormRegex || 'grad_norm:\\s*([\\d.]+)',
-        dataRange: file.config?.dataRange || {
-          start: '',
-          end: '',
+        loss: fileConfig.loss || globalParsingConfig.loss,
+        gradNorm: fileConfig.gradNorm || globalParsingConfig.gradNorm,
+        dataRange: fileConfig.dataRange || {
+          start: 0,
+          end: undefined,
           useRange: false
         }
       });
     }
-  }, [file, isOpen]);
+  }, [file, isOpen, globalParsingConfig]);
 
   const handleSave = () => {
     onSave(file.id, config);
     onClose();
+  };
+
+  const handleConfigChange = (type, field, value) => {
+    setConfig(prev => ({
+      ...prev,
+      [type]: {
+        ...prev[type],
+        [field]: value
+      }
+    }));
   };
 
   const handleRangeChange = (field, value) => {
@@ -41,17 +83,81 @@ export function FileConfigModal({ file, isOpen, onClose, onSave }) {
     }));
   };
 
-  const handleUseRangeToggle = (useRange) => {
+  // 从全局配置同步
+  const syncFromGlobal = () => {
     setConfig(prev => ({
       ...prev,
-      dataRange: {
-        ...prev.dataRange,
-        useRange,
-        // 如果禁用范围，清空输入值
-        start: useRange ? prev.dataRange.start : '',
-        end: useRange ? prev.dataRange.end : ''
-      }
+      loss: { ...globalParsingConfig.loss },
+      gradNorm: { ...globalParsingConfig.gradNorm }
     }));
+  };
+
+  // 渲染配置项的函数
+  const renderConfigPanel = (type, configItem) => {
+    const ModeIcon = MODE_CONFIG[configItem.mode].icon;
+    
+    return (
+      <div className="space-y-2">
+        {/* 模式选择 */}
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">
+            匹配模式
+          </label>
+          <select
+            value={configItem.mode}
+            onChange={(e) => handleConfigChange(type, 'mode', e.target.value)}
+            className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+          >
+            {Object.entries(MODE_CONFIG).map(([key, modeConfig]) => (
+              <option key={key} value={key}>
+                {modeConfig.name}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500 mt-1">
+            <ModeIcon size={10} className="inline mr-1" />
+            {MODE_CONFIG[configItem.mode].description}
+          </p>
+        </div>
+
+        {/* 根据模式显示不同的配置项 */}
+        {configItem.mode === MATCH_MODES.KEYWORD && (
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              关键词
+            </label>
+            <input
+              type="text"
+              value={configItem.keyword}
+              onChange={(e) => handleConfigChange(type, 'keyword', e.target.value)}
+              className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+              placeholder={type === 'loss' ? 'loss' : 'global_norm'}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              支持模糊匹配，如 "loss" 可匹配 "training_loss"
+            </p>
+          </div>
+        )}
+
+        {configItem.mode === MATCH_MODES.REGEX && (
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              正则表达式
+            </label>
+            <input
+              type="text"
+              value={configItem.regex}
+              onChange={(e) => handleConfigChange(type, 'regex', e.target.value)}
+              className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none font-mono"
+              placeholder={type === 'loss' ? 'loss:\\s*([\\d.eE+-]+)' : 'grad[\\s_]norm:\\s*([\\d.eE+-]+)'}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              使用捕获组 () 来提取数值
+            </p>
+          </div>
+        )}
+      </div>
+    );
   };
 
   if (!isOpen || !file) return null;
@@ -85,54 +191,41 @@ export function FileConfigModal({ file, isOpen, onClose, onSave }) {
         </div>
 
         <div className="p-6 space-y-6">
-          {/* 正则表达式配置 */}
+          {/* 解析配置 */}
           <section>
-            <h3 className="text-base font-medium text-gray-800 mb-4 flex items-center gap-2">
-              <BarChart3 size={16} className="text-indigo-600" aria-hidden="true" />
-              正则表达式配置
-            </h3>
+            {/* 全局同步按钮 */}
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-medium text-gray-800 flex items-center gap-2">
+                <BarChart3 size={16} className="text-indigo-600" aria-hidden="true" />
+                解析配置
+              </h3>
+              <button
+                onClick={syncFromGlobal}
+                className="flex items-center gap-1 px-3 py-1 text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-md transition-colors"
+                title="从全局配置同步"
+              >
+                <Zap size={12} />
+                同步全局配置
+              </button>
+            </div>
             
             <div className="space-y-4">
-              <div>
-                <label 
-                  htmlFor="config-loss-regex"
-                  className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1"
-                >
+              {/* Loss 配置 */}
+              <div className="border rounded-lg p-3">
+                <h4 className="text-sm font-medium text-gray-800 mb-2 flex items-center gap-1">
                   <TrendingDown size={16} className="text-red-500" aria-hidden="true" />
-                  Loss 匹配规则
-                </label>
-                <input
-                  id="config-loss-regex"
-                  type="text"
-                  value={config.lossRegex}
-                  onChange={(e) => setConfig(prev => ({ ...prev, lossRegex: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm font-mono"
-                  placeholder="loss:\\s*([\\d.]+)"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  用于匹配日志中的损失函数值，括号内为捕获组
-                </p>
+                  Loss 解析配置
+                </h4>
+                {renderConfigPanel('loss', config.loss)}
               </div>
 
-              <div>
-                <label 
-                  htmlFor="config-gradnorm-regex"
-                  className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1"
-                >
+              {/* Grad Norm 配置 */}
+              <div className="border rounded-lg p-3">
+                <h4 className="text-sm font-medium text-gray-800 mb-2 flex items-center gap-1">
                   <TrendingUp size={16} className="text-green-500" aria-hidden="true" />
-                  Grad Norm 匹配规则
-                </label>
-                <input
-                  id="config-gradnorm-regex"
-                  type="text"
-                  value={config.gradNormRegex}
-                  onChange={(e) => setConfig(prev => ({ ...prev, gradNormRegex: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm font-mono"
-                  placeholder="grad_norm:\\s*([\\d.]+)"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  用于匹配日志中的梯度范数值，括号内为捕获组
-                </p>
+                  Grad Norm 解析配置
+                </h4>
+                {renderConfigPanel('gradNorm', config.gradNorm)}
               </div>
             </div>
           </section>
@@ -145,82 +238,66 @@ export function FileConfigModal({ file, isOpen, onClose, onSave }) {
             </h3>
             
             <div className="space-y-4">
-              <div>
-                <label className="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded">
-                  <input
-                    type="checkbox"
-                    checked={config.dataRange.useRange}
-                    onChange={(e) => handleUseRangeToggle(e.target.checked)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
-                  />
-                  <span className="ml-2 text-sm font-medium">启用数据范围限制</span>
-                </label>
-                <p className="text-xs text-gray-500 mt-1 ml-6">
-                  勾选后可以指定要显示的数据点范围
-                </p>
-              </div>
-
-              {config.dataRange.useRange && (
-                <div className="bg-gray-50 p-4 rounded-lg border">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label 
-                        htmlFor="range-start"
-                        className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1"
-                      >
-                        <Play size={14} className="text-green-600" aria-hidden="true" />
-                        起始位置
-                      </label>
-                      <input
-                        id="range-start"
-                        type="number"
-                        min="1"
-                        placeholder="留空表示从开头"
-                        value={config.dataRange.start}
-                        onChange={(e) => handleRangeChange('start', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        第几个数据点开始（从1开始）
-                      </p>
-                    </div>
-
-                    <div>
-                      <label 
-                        htmlFor="range-end"
-                        className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1"
-                      >
-                        <Square size={14} className="text-red-600" aria-hidden="true" />
-                        结束位置
-                      </label>
-                      <input
-                        id="range-end"
-                        type="number"
-                        min="1"
-                        placeholder="留空表示到结尾"
-                        value={config.dataRange.end}
-                        onChange={(e) => handleRangeChange('end', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        第几个数据点结束（包含该点）
-                      </p>
-                    </div>
+              <p className="text-sm text-gray-600">
+                配置要显示的数据点范围。默认显示全部数据（从第一个到最后一个数据点）。
+              </p>
+              
+              <div className="bg-gray-50 p-4 rounded-lg border">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label 
+                      htmlFor="range-start"
+                      className="block text-sm font-medium text-gray-700 mb-2"
+                    >
+                      起始位置
+                    </label>
+                    <input
+                      id="range-start"
+                      type="number"
+                      min="0"
+                      placeholder="0（默认从第一个数据点）"
+                      value={config.dataRange.start || ''}
+                      onChange={(e) => handleRangeChange('start', parseInt(e.target.value) || 0)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      第几个数据点开始（从0开始计数）
+                    </p>
                   </div>
 
-                  <div className="mt-3 p-3 bg-blue-50 rounded border border-blue-200">
-                    <p className="text-sm text-blue-800 font-medium">
-                      示例说明：
+                  <div>
+                    <label 
+                      htmlFor="range-end"
+                      className="block text-sm font-medium text-gray-700 mb-2"
+                    >
+                      结束位置
+                    </label>
+                    <input
+                      id="range-end"
+                      type="number"
+                      min="0"
+                      placeholder="留空显示到最后"
+                      value={config.dataRange.end || ''}
+                      onChange={(e) => handleRangeChange('end', e.target.value ? parseInt(e.target.value) : undefined)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      第几个数据点结束（不包含该点）
                     </p>
-                    <ul className="text-xs text-blue-700 mt-2 space-y-1">
-                      <li>• 起始: 1, 结束: 100 → 显示第1到第100个数据点</li>
-                      <li>• 起始: 50, 结束: 留空 → 显示第50个数据点到结尾</li>
-                      <li>• 起始: 留空, 结束: 200 → 显示开头到第200个数据点</li>
-                      <li>• 起始: 100, 结束: 50 → 无效范围，将显示所有数据</li>
-                    </ul>
                   </div>
                 </div>
-              )}
+
+                <div className="mt-3 p-3 bg-blue-50 rounded border border-blue-200">
+                  <p className="text-sm text-blue-800 font-medium">
+                    示例说明：
+                  </p>
+                  <ul className="text-xs text-blue-700 mt-2 space-y-1">
+                    <li>• 起始: 0, 结束: 100 → 显示第1到第100个数据点</li>
+                    <li>• 起始: 50, 结束: 留空 → 显示第51个数据点到结尾</li>
+                    <li>• 起始: 0, 结束: 留空 → 显示全部数据点（默认）</li>
+                  </ul>
+                </div>
+              </div>
             </div>
           </section>
         </div>
