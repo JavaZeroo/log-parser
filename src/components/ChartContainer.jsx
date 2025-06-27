@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useRef, useCallback } from 'react';
 import { Line } from 'react-chartjs-2';
 import { ResizablePanel } from './ResizablePanel';
 import {
@@ -24,9 +24,44 @@ ChartJS.register(
 );
 
 // Chart wrapper component with error boundary
-const ChartWrapper = ({ data, options, title }) => {
+const ChartWrapper = ({ data, options, title, chartId, onRegisterChart, onSyncHover }) => {
+  const chartRef = useRef(null);
+  
+  const handleChartRef = useCallback((ref) => {
+    if (ref) {
+      chartRef.current = ref;
+      onRegisterChart(chartId, ref);
+    }
+  }, [chartId, onRegisterChart]);
+
+  const enhancedOptions = {
+    ...options,
+    onHover: (event, activeElements, chart) => {
+      if (activeElements.length > 0) {
+        const step = activeElements[0].index;
+        onSyncHover(step, chartId);
+      } else {
+        onSyncHover(null, chartId);
+      }
+    },
+    // 添加额外的事件处理确保清除状态
+    events: ['mousemove', 'mouseout', 'click', 'touchstart', 'touchmove'],
+  };
+
+  // 添加容器的鼠标离开事件
+  const handleContainerMouseLeave = useCallback(() => {
+    onSyncHover(null, chartId);
+  }, [onSyncHover, chartId]);
+
   try {
-    return <Line data={data} options={options} />;
+    return (
+      <div 
+        onMouseLeave={handleContainerMouseLeave}
+        style={{ width: '100%', height: '100%' }}
+      >
+        <Line ref={handleChartRef} data={data} options={enhancedOptions} />
+      </div>
+    );
   } catch (error) {
     console.error('Chart rendering error:', error);
     return (
@@ -44,13 +79,58 @@ export default function ChartContainer({
   files, 
   lossRegex, 
   gradNormRegex, 
-  showDataPoints, 
   compareMode,
   relativeBaseline = 0.002,
   absoluteBaseline = 0.005,
   showLoss = true,
   showGradNorm = false
 }) {
+  // 同步hover状态管理
+  const [syncHoverStep, setSyncHoverStep] = useState(null);
+  const chartRefs = useRef(new Map()); // 存储所有图表实例的引用
+  
+  // 注册图表实例
+  const registerChart = useCallback((chartId, chartInstance) => {
+    chartRefs.current.set(chartId, chartInstance);
+  }, []);
+  
+  // 同步所有图表的hover状态
+  const syncHoverToAllCharts = useCallback((step, sourceChartId) => {
+    if (step === null) {
+      // 清除所有图表的hover状态（包括源图表）
+      chartRefs.current.forEach((chart, chartId) => {
+        if (chart) {
+          chart.setActiveElements([]);
+          chart.tooltip.setActiveElements([]);
+          chart.update('none');
+        }
+      });
+      setSyncHoverStep(null);
+    } else {
+      // 同步hover到所有图表（不包括源图表，避免重复操作）
+      chartRefs.current.forEach((chart, chartId) => {
+        if (chart && chartId !== sourceChartId) {
+          const activeElements = [];
+          
+          // 为每个数据集找到对应step的数据点
+          chart.data.datasets.forEach((dataset, datasetIndex) => {
+            if (dataset.data && dataset.data.length > step) {
+              activeElements.push({
+                datasetIndex,
+                index: step
+              });
+            }
+          });
+          
+          chart.setActiveElements(activeElements);
+          chart.tooltip.setActiveElements(activeElements, { x: 0, y: 0 });
+          chart.update('none');
+        }
+      });
+      setSyncHoverStep(step);
+    }
+  }, []);
+
   const parsedData = useMemo(() => {
     // 只处理已启用的文件
     const enabledFiles = files.filter(file => file.enabled !== false);
@@ -267,6 +347,19 @@ export default function ChartContainer({
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
+    animation: {
+      duration: 0, // 禁用默认动画
+    },
+    animations: {
+      // 禁用所有动画，包括hover动画
+      colors: false,
+      x: false,
+      y: false,
+    },
+    hover: {
+      animationDuration: 0, // 禁用hover动画
+    },
+    responsiveAnimationDuration: 0, // 禁用响应式动画
     interaction: {
       mode: 'index',
       intersect: false,
@@ -297,6 +390,7 @@ export default function ChartContainer({
       tooltip: {
         mode: 'index',
         intersect: false,
+        animation: false, // 禁用tooltip动画
         backgroundColor: 'rgba(15, 23, 42, 0.92)',
         titleColor: '#f1f5f9',
         bodyColor: '#cbd5e1',
@@ -356,7 +450,7 @@ export default function ChartContainer({
           text: 'Step',
         },
         min: 0,
-        bounds: 'data',
+        bounds: 'data'
       },
       y: {
         type: 'linear',
@@ -375,7 +469,7 @@ export default function ChartContainer({
     },
     elements: {
       point: {
-        radius: showDataPoints ? 2 : 0,
+        radius: 0, // 默认不显示数据点
       },
     },
   };
@@ -404,8 +498,21 @@ export default function ChartContainer({
         borderWidth: 2,
         fill: false,
         tension: 0.1,
-        pointRadius: showDataPoints ? 2 : 0,
-        pointHoverRadius: 4,
+        pointRadius: 0, // 默认不显示数据点
+        pointHoverRadius: 4, // hover时显示实心圆点，半径为4
+        pointBackgroundColor: color, // 设置点的背景色
+        pointBorderColor: color, // 设置点的边框色
+        pointBorderWidth: 1, // 设置点的边框宽度
+        pointHoverBackgroundColor: color, // hover时的背景色
+        pointHoverBorderColor: color, // hover时的边框色
+        pointHoverBorderWidth: 1, // hover时的边框宽度
+        // 禁用所有动画，确保响应迅速
+        animation: false,
+        animations: {
+          colors: false,
+          x: false,
+          y: false,
+        },
       });
     });
 
@@ -428,7 +535,21 @@ export default function ChartContainer({
         borderWidth: 2,
         fill: false,
         tension: 0.1,
-        pointRadius: showDataPoints ? 2 : 0,
+        pointRadius: 0, // 默认不显示数据点
+        pointHoverRadius: 4, // hover时显示实心圆点
+        pointBackgroundColor: '#dc2626', // 设置点的背景色
+        pointBorderColor: '#dc2626', // 设置点的边框色
+        pointBorderWidth: 1, // 设置点的边框宽度
+        pointHoverBackgroundColor: '#dc2626', // hover时的背景色
+        pointHoverBorderColor: '#dc2626', // hover时的边框色
+        pointHoverBorderWidth: 1, // hover时的边框宽度
+        // 禁用所有动画，确保响应迅速
+        animation: false,
+        animations: {
+          colors: false,
+          x: false,
+          y: false,
+        },
       }
     ];
 
@@ -436,16 +557,30 @@ export default function ChartContainer({
     if (baseline > 0 && (compareMode === 'relative' || compareMode === 'absolute')) {
       const baselineData = comparisonData.map(point => ({ x: point.x, y: baseline }));
       datasets.push({
-        label: `Baseline`,
-        data: baselineData,
-        borderColor: '#10b981',
-        backgroundColor: '#10b981',
-        borderWidth: 2,
-        borderDash: [5, 5],
-        fill: false,
-        tension: 0,
-        pointRadius: 0,
-      });
+          label: `Baseline`,
+          data: baselineData,
+          borderColor: '#10b981',
+          backgroundColor: '#10b981',
+          borderWidth: 2,
+          borderDash: [5, 5],
+          fill: false,
+          tension: 0,
+          pointRadius: 0, // 默认不显示数据点
+          pointHoverRadius: 4, // hover时显示实心圆点
+          pointBackgroundColor: '#10b981', // 设置点的背景色
+          pointBorderColor: '#10b981', // 设置点的边框色
+          pointBorderWidth: 1, // 设置点的边框宽度
+          pointHoverBackgroundColor: '#10b981', // hover时的背景色
+          pointHoverBorderColor: '#10b981', // hover时的边框色
+          pointHoverBorderWidth: 1, // hover时的边框宽度
+          // 禁用所有动画，确保响应迅速
+          animation: false,
+          animations: {
+            colors: false,
+            x: false,
+            y: false,
+          },
+        });
     }
     
     return { datasets };
@@ -506,6 +641,9 @@ export default function ChartContainer({
           {showingLossCharts && (
             <ResizablePanel title="📉 Loss Function" initialHeight={440}>
               <ChartWrapper
+                chartId="loss-main"
+                onRegisterChart={registerChart}
+                onSyncHover={syncHoverToAllCharts}
                 data={createChartData(lossDataArray, 'Loss', 'Loss Value')}
                 options={{
                   ...chartOptions,
@@ -529,6 +667,9 @@ export default function ChartContainer({
           {showingLossComparison && (
             <ResizablePanel title={`⚖️ Loss 对比分析 (${compareMode})`} initialHeight={440}>
               <ChartWrapper
+                chartId="loss-comparison"
+                onRegisterChart={registerChart}
+                onSyncHover={syncHoverToAllCharts}
                 data={createComparisonChartData(lossDataArray[0], lossDataArray[1], 'Loss')}
                 options={{
                   ...chartOptions,
@@ -556,6 +697,9 @@ export default function ChartContainer({
           {showingGradNormCharts && (
             <ResizablePanel title="📈 Gradient Norm" initialHeight={440}>
               <ChartWrapper
+                chartId="gradnorm-main"
+                onRegisterChart={registerChart}
+                onSyncHover={syncHoverToAllCharts}
                 data={createChartData(gradNormDataArray, 'Grad Norm', 'Grad Norm Value')}
                 options={{
                   ...chartOptions,
@@ -579,6 +723,9 @@ export default function ChartContainer({
           {showingGradNormComparison && (
             <ResizablePanel title={`⚖️ Grad Norm 对比分析 (${compareMode})`} initialHeight={440}>
               <ChartWrapper
+                chartId="gradnorm-comparison"
+                onRegisterChart={registerChart}
+                onSyncHover={syncHoverToAllCharts}
                 data={createComparisonChartData(gradNormDataArray[0], gradNormDataArray[1], 'Grad Norm')}
                 options={{
                   ...chartOptions,

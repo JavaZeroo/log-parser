@@ -5,9 +5,7 @@ export function FileUpload({ onFilesUploaded }) {
   const [isDragOver, setIsDragOver] = useState(false);
 
   const processFiles = useCallback((files) => {
-    const fileArray = Array.from(files).filter(file => 
-      file.type === 'text/plain' || file.name.endsWith('.log') || file.name.endsWith('.txt')
-    );
+    const fileArray = Array.from(files);
 
     const processedFiles = fileArray.map(file => ({
       file,
@@ -104,16 +102,15 @@ export function FileUpload({ onFilesUploaded }) {
           id="file-upload-description"
           className="text-xs text-gray-500"
         >
-          📄 支持 .log 和 .txt 格式
+          📄 支持所有文本格式文件
         </p>
         <input
           id="fileInput"
           type="file"
           multiple
-          accept=".log,.txt"
           onChange={handleFileSelect}
           className="sr-only"
-          aria-label="选择日志文件，支持 .log 和 .txt 格式"
+          aria-label="选择日志文件，支持所有文本格式"
         />
       </div>
     </div>

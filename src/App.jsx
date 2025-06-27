@@ -28,7 +28,6 @@ function App() {
   const [lossRegex, setLossRegex] = useState('loss:\\s*([\\d.eE+-]+)');
   const [gradNormRegex, setGradNormRegex] = useState('grad[\\s_]norm:\\s*([\\d.eE+-]+)');
   
-  const [showDataPoints, setShowDataPoints] = useState(true);
   const [compareMode, setCompareMode] = useState('normal');
   const [relativeBaseline, setRelativeBaseline] = useState(0.002);
   const [absoluteBaseline, setAbsoluteBaseline] = useState(0.005);
@@ -59,9 +58,7 @@ function App() {
 
   // 全局文件处理函数
   const processGlobalFiles = useCallback((files) => {
-    const fileArray = Array.from(files).filter(file => 
-      file.type === 'text/plain' || file.name.endsWith('.log') || file.name.endsWith('.txt')
-    );
+    const fileArray = Array.from(files);
 
     if (fileArray.length === 0) return;
 
@@ -238,21 +235,20 @@ function App() {
               🎯 释放文件以上传
             </h3>
             <p className="text-sm text-gray-600 mb-2">
-              支持 <span className="font-semibold text-blue-600">.log</span> 和 <span className="font-semibold text-blue-600">.txt</span> 格式
+              支持 <span className="font-semibold text-blue-600">所有文本格式</span> 文件
             </p>
             <p className="text-xs text-gray-500">
-              拖拽到页面任意位置即可快速上传日志文件
+              拖拽到页面任意位置即可快速上传文件
             </p>
           </div>
         </div>
       )}
 
       <div className="w-full px-3 py-3">
-        <Header />
         
         <main 
           id="main-content"
-          className="grid grid-cols-1 xl:grid-cols-5 gap-3 mt-4" 
+          className="grid grid-cols-1 xl:grid-cols-5 gap-3" 
           role="main"
         >
           <aside 
@@ -260,6 +256,46 @@ function App() {
             role="complementary"
             aria-label="控制面板"
           >
+            {/* 标题信息 */}
+            <div className="bg-white rounded-lg shadow-md p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <h1 className="text-lg font-bold text-gray-800">
+                  Log Analyzer
+                </h1>
+              </div>
+              <p className="text-sm text-gray-600 mb-3">
+                📊 分析和可视化大模型训练日志中的损失函数和梯度范数数据
+              </p>
+              
+              {/* 状态和链接按钮 */}
+              <div className="flex items-center gap-2" role="group" aria-label="工具状态和链接">
+                <span 
+                  className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"
+                  aria-label="当前为在线版本"
+                >
+                  <span aria-hidden="true">🌐</span>
+                  <span className="ml-1">在线使用</span>
+                </span>
+                <a
+                  href="https://github.com/JavaZeroo/compare_tool"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  aria-label="访问 GitHub 仓库（在新窗口中打开）"
+                >
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 0C4.477 0 0 4.484 0 10.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0110 4.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.942.359.31.678.921.678 1.856 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0020 10.017C20 4.484 15.522 0 10 0z" clipRule="evenodd" />
+                  </svg>
+                  <span>GitHub</span>
+                </a>
+              </div>
+            </div>
+            
             <FileUpload onFilesUploaded={handleFilesUploaded} />
             
             <RegexControls
@@ -331,26 +367,6 @@ function App() {
                     </label>
                   </div>
                 </div>
-
-                <div className="border-t pt-3">
-                  <h4 className="text-xs font-medium text-gray-700 mb-2">⚙️ 图表选项</h4>
-                  <label className="flex items-center cursor-pointer hover:bg-gray-50 p-1 rounded">
-                    <input
-                      type="checkbox"
-                      checked={showDataPoints}
-                      onChange={(e) => setShowDataPoints(e.target.checked)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                      aria-describedby="show-data-points-description"
-                    />
-                    <span className="ml-2 text-xs text-gray-700">🔵 显示数据点</span>
-                    <span 
-                      id="show-data-points-description" 
-                      className="sr-only"
-                    >
-                      控制是否在图表上显示原始数据点
-                    </span>
-                  </label>
-                </div>
                 
                 <div className="border-t pt-3">
                   <h4 className="text-xs font-medium text-gray-700 mb-2">基准线设置</h4>
@@ -419,7 +435,6 @@ function App() {
               files={uploadedFiles}
               lossRegex={lossRegex}
               gradNormRegex={gradNormRegex}
-              showDataPoints={showDataPoints}
               compareMode={compareMode}
               relativeBaseline={relativeBaseline}
               absoluteBaseline={absoluteBaseline}
