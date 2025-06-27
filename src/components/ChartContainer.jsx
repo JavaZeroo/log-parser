@@ -12,7 +12,6 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
-import zoomPlugin from 'chartjs-plugin-zoom';
 
 ChartJS.register(
   CategoryScale,
@@ -21,8 +20,7 @@ ChartJS.register(
   LineElement,
   Title,
   Tooltip,
-  Legend,
-  zoomPlugin
+  Legend
 );
 
 // Chart wrapper component with error boundary
@@ -542,7 +540,7 @@ export default function ChartContainer({
         backgroundColor: `${color}33`, // Add transparency
         borderWidth: 2,
         fill: false,
-        tension: 0.1,
+        tension: 0, // 设置 tension 为 0，绘制直线段
         pointRadius: 0, // 默认不显示数据点
         pointHoverRadius: 4, // hover时显示实心圆点，半径为4
         pointBackgroundColor: color, // 设置点的背景色
@@ -579,7 +577,7 @@ export default function ChartContainer({
         backgroundColor: '#dc2626',
         borderWidth: 2,
         fill: false,
-        tension: 0.1,
+        tension: 0, // 设置 tension 为 0，绘制直线段
         pointRadius: 0, // 默认不显示数据点
         pointHoverRadius: 4, // hover时显示实心圆点
         pointBackgroundColor: '#dc2626', // 设置点的背景色
