@@ -1,7 +1,10 @@
 import React from 'react';
 import { BarChart2 } from 'lucide-react';
 
-export function ComparisonControls({ compareMode, onCompareModeChange }) {
+export function ComparisonControls({ 
+  compareMode, 
+  onCompareModeChange
+}) {
   const modes = [
     { value: 'normal', label: '📊 Normal', description: '原始差值' },
     { value: 'absolute', label: '📈 Absolute', description: '绝对差值' },

@@ -37,6 +37,8 @@ function App() {
   const [configFile, setConfigFile] = useState(null);
   const [globalDragOver, setGlobalDragOver] = useState(false);
   const [dragCounter, setDragCounter] = useState(0);
+  const [xRange, setXRange] = useState({ min: undefined, max: undefined });
+  const [maxStep, setMaxStep] = useState(0);
 
   const handleFilesUploaded = useCallback((files) => {
     const filesWithDefaults = files.map(file => ({
@@ -305,6 +307,9 @@ function App() {
               gradNormRegex={gradNormRegex}
               onRegexChange={handleRegexChange}
               uploadedFiles={uploadedFiles}
+              xRange={xRange}
+              onXRangeChange={setXRange}
+              maxStep={maxStep}
             />
             
             <FileList
@@ -440,6 +445,9 @@ function App() {
               absoluteBaseline={absoluteBaseline}
               showLoss={showLoss}
               showGradNorm={showGradNorm}
+              xRange={xRange}
+              onXRangeChange={setXRange}
+              onMaxStepChange={setMaxStep}
             />
           </section>
         </main>

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useCallback } from 'react';
+import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { Line } from 'react-chartjs-2';
 import { ResizablePanel } from './ResizablePanel';
 import {
@@ -12,6 +12,7 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
+import zoomPlugin from 'chartjs-plugin-zoom';
 
 ChartJS.register(
   CategoryScale,
@@ -20,7 +21,8 @@ ChartJS.register(
   LineElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  zoomPlugin
 );
 
 // Chart wrapper component with error boundary
@@ -83,7 +85,10 @@ export default function ChartContainer({
   relativeBaseline = 0.002,
   absoluteBaseline = 0.005,
   showLoss = true,
-  showGradNorm = false
+  showGradNorm = false,
+  xRange = { min: undefined, max: undefined },
+  onXRangeChange,
+  onMaxStepChange
 }) {
   // 同步hover状态管理
   const [syncHoverStep, setSyncHoverStep] = useState(null);
@@ -306,6 +311,15 @@ export default function ChartContainer({
     });
   }, [files, lossRegex, gradNormRegex]);
 
+  useEffect(() => {
+    const maxStep = parsedData.reduce((max, file) => {
+        const maxLoss = file.lossData.length > 0 ? file.lossData[file.lossData.length - 1].x : 0;
+        const maxGrad = file.gradNormData.length > 0 ? file.gradNormData[file.gradNormData.length - 1].x : 0;
+        return Math.max(max, maxLoss, maxGrad);
+    }, 0);
+    onMaxStepChange(maxStep);
+  }, [parsedData, onMaxStepChange]);
+
   const movingAverage = (data, windowSize = 10) => {
     return data.map((point, index) => {
       const start = Math.max(0, index - windowSize + 1);
@@ -365,6 +379,36 @@ export default function ChartContainer({
       intersect: false,
     },
     plugins: {
+      zoom: {
+        pan: {
+          enabled: true,
+          mode: 'x',
+          onPanComplete: ({chart}) => {
+            const {min, max} = chart.scales.x;
+            onXRangeChange({min: Math.round(min), max: Math.round(max)});
+          }
+        },
+        zoom: {
+          drag: {
+            enabled: true,
+            borderColor: 'rgba(225,225,225,0.2)',
+            borderWidth: 1,
+            backgroundColor: 'rgba(225,225,225,0.2)',
+            modifierKey: 'shift',
+          },
+          wheel: {
+            enabled: true,
+          },
+          pinch: {
+            enabled: true
+          },
+          mode: 'x',
+          onZoomComplete: ({chart}) => {
+            const {min, max} = chart.scales.x;
+            onXRangeChange({min: Math.round(min), max: Math.round(max)});
+          }
+        }
+      },
       legend: {
         position: 'top',
         labels: {
@@ -449,7 +493,8 @@ export default function ChartContainer({
           display: true,
           text: 'Step',
         },
-        min: 0,
+        min: xRange.min,
+        max: xRange.max,
         bounds: 'data'
       },
       y: {

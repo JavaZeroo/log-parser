@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Settings, Zap, Eye, ChevronDown, ChevronUp, Target, Code } from 'lucide-react';
+import { Settings, Zap, Eye, ChevronDown, ChevronUp, Target, Code, ZoomIn } from 'lucide-react';
 
 // 匹配模式枚举
 const MATCH_MODES = {
@@ -190,7 +190,10 @@ export function RegexControls({
   lossRegex, 
   gradNormRegex, 
   onRegexChange, 
-  uploadedFiles = [] 
+  uploadedFiles = [],
+  xRange,
+  onXRangeChange,
+  maxStep
 }) {
   const [showPreview, setShowPreview] = useState(false);
   const [previewResults, setPreviewResults] = useState({ loss: [], gradNorm: [] });
@@ -329,6 +332,12 @@ export function RegexControls({
     
     onGlobalParsingConfigChange(newConfig);
   };
+
+  const handleXRangeChange = (field, value) => {
+    const newRange = { ...xRange, [field]: value === '' ? undefined : Number(value) };
+    onXRangeChange(newRange);
+  };
+
   // 渲染配置项的函数
   const renderConfigPanel = (type, config, onConfigChange) => {
     const ModeIcon = MODE_CONFIG[config.mode].icon;
@@ -451,6 +460,45 @@ export function RegexControls({
             Grad Norm 解析配置
           </h4>
           {renderConfigPanel('gradnorm', globalParsingConfig.gradNorm, (field, value) => handleConfigChange('gradNorm', field, value))}
+        </div>
+
+        <div className="border rounded-lg p-3">
+            <div className="flex items-center gap-2 mb-2">
+                <ZoomIn 
+                    size={16} 
+                    className="text-gray-600" 
+                    aria-hidden="true"
+                />
+                <h4 className="text-base font-semibold text-gray-800">
+                    X轴范围
+                </h4>
+            </div>
+            <div className="flex items-center gap-2">
+                <input
+                    type="number"
+                    placeholder="Min"
+                    value={xRange.min === undefined ? 0 : xRange.min}
+                    onChange={(e) => handleXRangeChange('min', e.target.value)}
+                    className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+                />
+                <span className="text-gray-500">-</span>
+                <input
+                    type="number"
+                    placeholder={xRange.max === undefined && maxStep !== undefined ? `${maxStep}` : 'Max'}
+                    value={xRange.max === undefined ? maxStep : xRange.max}
+                    onChange={(e) => handleXRangeChange('max', e.target.value)}
+                    className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+                />
+                <button
+                    onClick={() => onXRangeChange({ min: undefined, max: undefined })}
+                    className="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 whitespace-nowrap"
+                >
+                    复位
+                </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+                在图表上按住 <kbd>Shift</kbd> 键并拖动鼠标可选择范围，或直接输入数值。
+            </p>
         </div>
 
         {/* 预览结果 */}
