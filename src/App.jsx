@@ -282,7 +282,7 @@ function App() {
                   <span className="ml-1">在线使用</span>
                 </span>
                 <a
-                  href="https://github.com/JavaZeroo/compare_tool"
+                  href="https://github.com/JavaZeroo/log-parser"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
