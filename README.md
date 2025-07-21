@@ -78,6 +78,10 @@
 3. 选择 GitHub Actions 作为部署源
 4. 推送代码时将自动触发构建和部署
 
+### PR 预览
+
+在每个 Pull Request 上，GitHub Actions 会使用 **Netlify** 自动部署预览站点，并在 PR 中评论预览链接，方便开发者快速验证功能是否正常。要启用此功能，需要在仓库的 `Secrets` 中配置 `NETLIFY_AUTH_TOKEN` 和 `NETLIFY_SITE_ID`。
+
 ## 📝 使用指南
 
 ### 🎯 快速上手

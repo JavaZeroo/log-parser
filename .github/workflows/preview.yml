@@ -1,0 +1,39 @@
+name: Deploy Preview
+
+on:
+  pull_request:
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm install
+      - run: npm run build
+      - name: Deploy to Netlify
+        id: netlify
+        uses: netlify/actions/cli@master
+        with:
+          args: deploy --dir=dist --json
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+      - name: Comment preview URL
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const url = process.env.NETLIFY_URL || '${{ steps.netlify.outputs.NETLIFY_URL }}';
+            if (url) {
+              github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: `🧪 Preview deployed: ${url}`
+              });
+            } else {
+              core.warning('No preview URL found.');
+            }
