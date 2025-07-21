@@ -529,13 +529,12 @@ export default function ChartContainer({
   const createChartData = (dataArray, title, yAxisLabel) => {
     const datasets = [];
 
-    dataArray.forEach((data, index) => {
+    dataArray.forEach((item, index) => {
       const color = colors[index % colors.length];
-      
-      // Chart data without smoothing
+
       datasets.push({
-        label: `${parsedData[index]?.name?.replace(/\.(log|txt)$/i, '') || `File ${index + 1}`}`,
-        data: data,
+        label: `${item.name?.replace(/\.(log|txt)$/i, '') || `File ${index + 1}`}`,
+        data: item.data,
         borderColor: color,
         backgroundColor: `${color}33`, // Add transparency
         borderWidth: 2,
@@ -564,8 +563,8 @@ export default function ChartContainer({
     };
   };
 
-  const createComparisonChartData = (data1, data2, title) => {
-    const comparisonData = getComparisonData(data1, data2, compareMode);
+  const createComparisonChartData = (item1, item2, title) => {
+    const comparisonData = getComparisonData(item1.data, item2.data, compareMode);
     const baseline = compareMode === 'relative' ? relativeBaseline : 
                     compareMode === 'absolute' ? absoluteBaseline : 0;
     
@@ -657,8 +656,13 @@ export default function ChartContainer({
     );
   }
 
-  const lossDataArray = parsedData.map(file => file.lossData).filter(data => data && data.length > 0);
-  const gradNormDataArray = parsedData.map(file => file.gradNormData).filter(data => data && data.length > 0);
+  const lossDataArray = parsedData
+    .filter(file => file.lossData && file.lossData.length > 0)
+    .map(file => ({ name: file.name, data: file.lossData }));
+
+  const gradNormDataArray = parsedData
+    .filter(file => file.gradNormData && file.gradNormData.length > 0)
+    .map(file => ({ name: file.name, data: file.gradNormData }));
 
   // 计算显示的图表数量来决定布局
   const enabledFiles = files.filter(file => file.enabled !== false);
