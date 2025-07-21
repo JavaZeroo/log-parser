@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
+import React, { useMemo, useRef, useCallback, useEffect } from 'react';
 import { Line } from 'react-chartjs-2';
 import { ResizablePanel } from './ResizablePanel';
 import {
@@ -12,6 +12,7 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
+import zoomPlugin from 'chartjs-plugin-zoom';
 
 ChartJS.register(
   CategoryScale,
@@ -20,11 +21,12 @@ ChartJS.register(
   LineElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  zoomPlugin
 );
 
 // Chart wrapper component with error boundary
-const ChartWrapper = ({ data, options, title, chartId, onRegisterChart, onSyncHover }) => {
+const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover }) => {
   const chartRef = useRef(null);
   
   const handleChartRef = useCallback((ref) => {
@@ -36,7 +38,7 @@ const ChartWrapper = ({ data, options, title, chartId, onRegisterChart, onSyncHo
 
   const enhancedOptions = {
     ...options,
-    onHover: (event, activeElements, chart) => {
+    onHover: (event, activeElements) => {
       if (activeElements.length > 0) {
         const step = activeElements[0].index;
         onSyncHover(step, chartId);
@@ -89,7 +91,6 @@ export default function ChartContainer({
   onMaxStepChange
 }) {
   // 同步hover状态管理
-  const [syncHoverStep, setSyncHoverStep] = useState(null);
   const chartRefs = useRef(new Map()); // 存储所有图表实例的引用
   
   // 注册图表实例
@@ -101,14 +102,13 @@ export default function ChartContainer({
   const syncHoverToAllCharts = useCallback((step, sourceChartId) => {
     if (step === null) {
       // 清除所有图表的hover状态（包括源图表）
-      chartRefs.current.forEach((chart, chartId) => {
+      chartRefs.current.forEach((chart) => {
         if (chart) {
           chart.setActiveElements([]);
           chart.tooltip.setActiveElements([]);
           chart.update('none');
         }
       });
-      setSyncHoverStep(null);
     } else {
       // 同步hover到所有图表（不包括源图表，避免重复操作）
       chartRefs.current.forEach((chart, chartId) => {
@@ -130,7 +130,6 @@ export default function ChartContainer({
           chart.update('none');
         }
       });
-      setSyncHoverStep(step);
     }
   }, []);
 
@@ -175,7 +174,7 @@ export default function ChartContainer({
             // 数值正则：支持各种数值格式，包括科学计数法
             const numberRegex = /[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/;
             
-            lines.forEach((line, lineIndex) => {
+            lines.forEach((line) => {
               // 查找关键词（忽略大小写）
               const keywordIndex = line.toLowerCase().indexOf(keyword.toLowerCase());
               if (keywordIndex !== -1) {
@@ -204,7 +203,7 @@ export default function ChartContainer({
         } else {
           // 正则表达式匹配
           const lossRegexObj = new RegExp(fileLossConfig.regex);
-          lines.forEach((line, index) => {
+          lines.forEach((line) => {
             lossRegexObj.lastIndex = 0;
             const lossMatch = lossRegexObj.exec(line);
             if (lossMatch && lossMatch[1]) {
@@ -226,7 +225,7 @@ export default function ChartContainer({
             // 数值正则：支持各种数值格式，包括科学计数法
             const numberRegex = /[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/;
             
-            lines.forEach((line, lineIndex) => {
+            lines.forEach((line) => {
               // 查找关键词（忽略大小写）
               const keywordIndex = line.toLowerCase().indexOf(keyword.toLowerCase());
               if (keywordIndex !== -1) {
@@ -255,7 +254,7 @@ export default function ChartContainer({
         } else {
           // 正则表达式匹配
           const gradNormRegexObj = new RegExp(fileGradNormConfig.regex);
-          lines.forEach((line, index) => {
+          lines.forEach((line) => {
             gradNormRegexObj.lastIndex = 0;
             const gradNormMatch = gradNormRegexObj.exec(line);
             if (gradNormMatch && gradNormMatch[1]) {
@@ -318,15 +317,6 @@ export default function ChartContainer({
     onMaxStepChange(maxStep);
   }, [parsedData, onMaxStepChange]);
 
-  const movingAverage = (data, windowSize = 10) => {
-    return data.map((point, index) => {
-      const start = Math.max(0, index - windowSize + 1);
-      const end = index + 1;
-      const window = data.slice(start, end);
-      const avg = window.reduce((sum, p) => sum + p.y, 0) / window.length;
-      return { x: point.x, y: avg };
-    });
-  };
 
   const getComparisonData = (data1, data2, mode) => {
     const minLength = Math.min(data1.length, data2.length);
@@ -341,11 +331,12 @@ export default function ChartContainer({
         case 'absolute':
           diff = Math.abs(val2 - val1);
           break;
-        case 'relative':
+        case 'relative': {
           // 相对误差：先计算绝对差值，再计算相对误差（不使用百分号）
           const absoluteDiff = Math.abs(val2 - val1);
-          diff = val1 !== 0 ? (absoluteDiff / Math.abs(val1)) : 0;
+          diff = val1 !== 0 ? absoluteDiff / Math.abs(val1) : 0;
           break;
+        }
         default: // normal
           diff = val2 - val1;
       }
@@ -526,7 +517,7 @@ export default function ChartContainer({
     '#f97316', // orange
   ];
 
-  const createChartData = (dataArray, title, yAxisLabel) => {
+  const createChartData = (dataArray) => {
     const datasets = [];
 
     dataArray.forEach((item, index) => {
@@ -691,7 +682,7 @@ export default function ChartContainer({
                 chartId="loss-main"
                 onRegisterChart={registerChart}
                 onSyncHover={syncHoverToAllCharts}
-                data={createChartData(lossDataArray, 'Loss', 'Loss Value')}
+                data={createChartData(lossDataArray)}
                 options={{
                   ...chartOptions,
                   scales: {
@@ -705,7 +696,6 @@ export default function ChartContainer({
                     },
                   },
                 }}
-                title="Loss Function"
               />
             </ResizablePanel>
           )}
@@ -731,7 +721,6 @@ export default function ChartContainer({
                     },
                   },
                 }}
-                title="Loss Comparison"
               />
             </ResizablePanel>
           )}
@@ -747,7 +736,7 @@ export default function ChartContainer({
                 chartId="gradnorm-main"
                 onRegisterChart={registerChart}
                 onSyncHover={syncHoverToAllCharts}
-                data={createChartData(gradNormDataArray, 'Grad Norm', 'Grad Norm Value')}
+                data={createChartData(gradNormDataArray)}
                 options={{
                   ...chartOptions,
                   scales: {
@@ -761,7 +750,6 @@ export default function ChartContainer({
                     },
                   },
                 }}
-                title="Gradient Norm"
               />
             </ResizablePanel>
           )}
@@ -787,7 +775,6 @@ export default function ChartContainer({
                     },
                   },
                 }}
-                title="Grad Norm Comparison"
               />
             </ResizablePanel>
           )}

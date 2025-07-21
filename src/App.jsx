@@ -36,7 +36,7 @@ function App() {
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [configFile, setConfigFile] = useState(null);
   const [globalDragOver, setGlobalDragOver] = useState(false);
-  const [dragCounter, setDragCounter] = useState(0);
+  const [, setDragCounter] = useState(0);
   const [xRange, setXRange] = useState({ min: undefined, max: undefined });
   const [maxStep, setMaxStep] = useState(0);
 
