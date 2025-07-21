@@ -70,6 +70,7 @@
 ## 🚀 部署说明
 
 本项目采用 GitHub Actions 自动化部署到 GitHub Pages，每次推送到主分支时自动构建和部署。
+在每个 Pull Request 上也会自动构建预览，并在 PR 评论中提供访问链接。
 
 如需 fork 此项目进行自定义开发：
 
