@@ -116,7 +116,7 @@ export class ValueExtractor {
             }
           }
         }
-      } catch (e) {
+      } catch {
         // 不是JSON，继续其他格式
       }
       
@@ -176,7 +176,7 @@ export class ValueExtractor {
           }
         });
       });
-    } catch (e) {
+    } catch {
       // 无效正则表达式
     }
     
@@ -184,12 +184,10 @@ export class ValueExtractor {
   }
 }
 
-export function RegexControls({ 
-  globalParsingConfig, 
+export function RegexControls({
+  globalParsingConfig,
   onGlobalParsingConfigChange,
-  lossRegex, 
-  gradNormRegex, 
-  onRegexChange, 
+  onRegexChange,
   uploadedFiles = [],
   xRange,
   onXRangeChange,
@@ -199,7 +197,7 @@ export function RegexControls({
   const [previewResults, setPreviewResults] = useState({ loss: [], gradNorm: [] });
 
   // 提取数值的通用函数
-  const extractValues = useCallback((content, mode, config, type) => {
+  const extractValues = useCallback((content, mode, config) => {
     switch (mode) {
       case MATCH_MODES.KEYWORD:
         return ValueExtractor.extractByKeyword(content, config.keyword);
@@ -218,10 +216,9 @@ export function RegexControls({
       if (file.content) {
         // Loss匹配
         const lossMatches = extractValues(
-          file.content, 
-          globalParsingConfig.loss.mode, 
-          globalParsingConfig.loss, 
-          'loss'
+          file.content,
+          globalParsingConfig.loss.mode,
+          globalParsingConfig.loss
         );
         results.loss.push({
           fileName: file.name,
@@ -236,10 +233,9 @@ export function RegexControls({
 
         // Grad Norm匹配
         const gradNormMatches = extractValues(
-          file.content, 
-          globalParsingConfig.gradNorm.mode, 
-          globalParsingConfig.gradNorm, 
-          'gradnorm'
+          file.content,
+          globalParsingConfig.gradNorm.mode,
+          globalParsingConfig.gradNorm
         );
         results.gradNorm.push({
           fileName: file.name,
