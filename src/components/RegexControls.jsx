@@ -24,7 +24,7 @@ const MODE_CONFIG = {
 };
 
 // 数值提取器类
-class ValueExtractor {
+export class ValueExtractor {
   // 关键词匹配
   static extractByKeyword(content, keyword) {
     const results = [];
