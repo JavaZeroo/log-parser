@@ -1,9 +1,17 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* Accessibility improvements */
 @layer base {
+  body {
+    font-family: 'Noto Sans SC', ui-sans-serif, system-ui, Helvetica Neue, Arial, Noto Sans, sans-serif;
+    background-color: #f9fafb;
+    color: #1f2937;
+    line-height: 1.5;
+  }
   /* Screen reader only content */
   .sr-only {
     position: absolute;
