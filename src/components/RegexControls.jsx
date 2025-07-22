@@ -373,7 +373,7 @@ export function RegexControls({
               value={config.keyword}
               onChange={(e) => onConfigChange('keyword', e.target.value)}
               className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
-              placeholder={type === 'loss' ? 'loss' : 'global_norm'}
+              placeholder={type === 'loss' ? 'loss:' : 'norm:'}
             />
             <p className="text-xs text-gray-500 mt-1">
               支持模糊匹配，如 "loss" 可匹配 "training_loss"
