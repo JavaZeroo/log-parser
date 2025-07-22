@@ -1,9 +1,10 @@
 import React from 'react';
 import { BarChart2 } from 'lucide-react';
 
-export function ComparisonControls({ 
-  compareMode, 
-  onCompareModeChange
+export function ComparisonControls({
+  compareMode,
+  onCompareModeChange,
+  showTitle = true
 }) {
   const modes = [
     { value: 'normal', label: '📊 Normal', description: '原始差值' },
@@ -13,19 +14,21 @@ export function ComparisonControls({
 
   return (
     <section className="bg-white rounded-lg shadow-md p-3" aria-labelledby="comparison-controls-heading">
-      <div className="flex items-center gap-2 mb-2">
-        <BarChart2 
-          size={16} 
-          className="text-gray-600" 
-          aria-hidden="true"
-        />
-        <h3 
-          id="comparison-controls-heading"
-          className="text-base font-semibold text-gray-800"
-        >
-          ⚖️ 对比模式
-        </h3>
-      </div>
+      {showTitle && (
+        <div className="flex items-center gap-2 mb-2">
+          <BarChart2
+            size={16}
+            className="text-gray-600"
+            aria-hidden="true"
+          />
+          <h3
+            id="comparison-controls-heading"
+            className="text-base font-semibold text-gray-800"
+          >
+            ⚖️ 对比模式
+          </h3>
+        </div>
+      )}
       
       <fieldset className="space-y-2">
         <legend className="sr-only">选择数据对比模式</legend>

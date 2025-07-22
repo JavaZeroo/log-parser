@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { Upload, FileText } from 'lucide-react';
 
-export function FileUpload({ onFilesUploaded }) {
+export function FileUpload({ onFilesUploaded, showTitle = true }) {
   const [isDragOver, setIsDragOver] = useState(false);
 
   const processFiles = useCallback((files) => {
@@ -64,12 +64,14 @@ export function FileUpload({ onFilesUploaded }) {
 
   return (
     <div className="bg-white rounded-lg shadow-md p-3">
-      <h3 
-        id="file-upload-heading"
-        className="text-base font-semibold text-gray-800 mb-2"
-      >
-        📁 文件上传
-      </h3>
+      {showTitle && (
+        <h3
+          id="file-upload-heading"
+          className="text-base font-semibold text-gray-800 mb-2"
+        >
+          📁 文件上传
+        </h3>
+      )}
       <div
         className={`drag-area border-2 border-dashed rounded-lg p-4 text-center cursor-pointer ${
           isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'

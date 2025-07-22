@@ -6,9 +6,13 @@ import ChartContainer from './components/ChartContainer';
 import { ComparisonControls } from './components/ComparisonControls';
 import { Header } from './components/Header';
 import { FileConfigModal } from './components/FileConfigModal';
+import CollapsibleSection from './components/CollapsibleSection';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 function App() {
   const [uploadedFiles, setUploadedFiles] = useState([]);
+
+  const [sidebarVisible, setSidebarVisible] = useState(true);
   
   // 全局解析配置状态
   const [globalParsingConfig, setGlobalParsingConfig] = useState({
@@ -231,17 +235,25 @@ function App() {
       )}
 
       <div className="w-full px-3 py-3">
-        
-        <main 
+
+        <main
           id="main-content"
-          className="grid grid-cols-1 xl:grid-cols-5 gap-3" 
+          className="grid grid-cols-1 xl:grid-cols-5 gap-3 h-[calc(100vh-2rem)]"
           role="main"
         >
-          <aside 
-            className="xl:col-span-1 space-y-3"
-            role="complementary"
-            aria-label="控制面板"
-          >
+          {sidebarVisible && (
+            <aside
+              className="xl:col-span-1 space-y-3 overflow-y-auto pr-2"
+              role="complementary"
+              aria-label="控制面板"
+            >
+              <button
+                onClick={() => setSidebarVisible(false)}
+                className="absolute -right-3 top-3 bg-white border rounded-r px-1 py-0.5 shadow"
+                aria-label="隐藏侧边栏"
+              >
+                <ChevronLeft size={14} />
+              </button>
             {/* 标题信息 */}
             <div className="bg-white rounded-lg shadow-md p-3">
               <div className="flex items-center gap-2 mb-2">
@@ -282,38 +294,43 @@ function App() {
               </div>
             </div>
             
-            <FileUpload onFilesUploaded={handleFilesUploaded} />
-            
-            <RegexControls
-              globalParsingConfig={globalParsingConfig}
-              onGlobalParsingConfigChange={handleGlobalParsingConfigChange}
-              uploadedFiles={uploadedFiles}
-              xRange={xRange}
-              onXRangeChange={setXRange}
-              maxStep={maxStep}
-            />
-            
-            <FileList
-              files={uploadedFiles}
-              onFileRemove={handleFileRemove}
-              onFileToggle={handleFileToggle}
-              onFileConfig={handleFileConfig}
-            />
+            <CollapsibleSection id="file-list" title="📋 已加载文件" defaultCollapsed={false}>
+              <FileList
+                files={uploadedFiles}
+                onFileRemove={handleFileRemove}
+                onFileToggle={handleFileToggle}
+                onFileConfig={handleFileConfig}
+                showTitle={false}
+              />
+            </CollapsibleSection>
+
+            <CollapsibleSection id="file-upload" title="📁 文件上传" defaultCollapsed={true}>
+              <FileUpload onFilesUploaded={handleFilesUploaded} showTitle={false} />
+            </CollapsibleSection>
+
+            <CollapsibleSection id="regex-controls" title="⚙️ 数据解析配置" defaultCollapsed={true}>
+              <RegexControls
+                globalParsingConfig={globalParsingConfig}
+                onGlobalParsingConfigChange={handleGlobalParsingConfigChange}
+                uploadedFiles={uploadedFiles}
+                xRange={xRange}
+                onXRangeChange={setXRange}
+                maxStep={maxStep}
+                showTitle={false}
+              />
+            </CollapsibleSection>
 
             {uploadedFiles.filter(file => file.enabled).length === 2 && (
-              <ComparisonControls
-                compareMode={compareMode}
-                onCompareModeChange={setCompareMode}
-              />
+              <CollapsibleSection id="comparison-controls" title="⚖️ 对比模式" defaultCollapsed={true}>
+                <ComparisonControls
+                  compareMode={compareMode}
+                  onCompareModeChange={setCompareMode}
+                  showTitle={false}
+                />
+              </CollapsibleSection>
             )}
 
-            <section className="bg-white rounded-lg shadow-md p-3" aria-labelledby="display-options-heading">
-              <h3 
-                id="display-options-heading"
-                className="text-base font-semibold text-gray-800 mb-2"
-              >
-                🎛️ 显示选项
-              </h3>
+            <CollapsibleSection id="display-options-heading" title="🎛️ 显示选项" defaultCollapsed={true}>
               <div className="space-y-3">
                 <div>
                   <h4 className="text-xs font-medium text-gray-700 mb-2">📊 图表显示</h4>
@@ -375,11 +392,11 @@ function App() {
                   </div>
                 </div>
               </div>
-            </section>
-          </aside>
+            </CollapsibleSection>
+          </aside>)}
 
-          <section 
-            className="xl:col-span-4"
+          <section
+            className={`${sidebarVisible ? 'xl:col-span-4' : 'xl:col-span-5'} overflow-y-auto`}
             role="region"
             aria-label="图表显示区域"
           >
@@ -395,6 +412,15 @@ function App() {
             />
           </section>
         </main>
+        {!sidebarVisible && (
+          <button
+            onClick={() => setSidebarVisible(true)}
+            className="fixed left-0 top-1/2 -translate-y-1/2 bg-white border rounded-r px-1 py-0.5 shadow z-10"
+            aria-label="显示侧边栏"
+          >
+            <ChevronRight size={14} />
+          </button>
+        )}
       </div>
       
       <FileConfigModal

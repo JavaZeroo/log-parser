@@ -202,7 +202,8 @@ export function RegexControls({
   uploadedFiles = [],
   xRange,
   onXRangeChange,
-  maxStep
+  maxStep,
+  showTitle = true
 }) {
   const [showPreview, setShowPreview] = useState(false);
   const [previewResults, setPreviewResults] = useState({});
@@ -413,20 +414,21 @@ export function RegexControls({
 
   return (
     <section className="bg-white rounded-lg shadow-md p-3" aria-labelledby="regex-controls-heading">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <Settings 
-            size={16} 
-            className="text-gray-600" 
-            aria-hidden="true"
-          />
-          <h3 
-            id="regex-controls-heading"
-            className="text-base font-semibold text-gray-800"
-          >
-            数据解析配置
-          </h3>
-        </div>
+      {showTitle && (
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Settings
+              size={16}
+              className="text-gray-600"
+              aria-hidden="true"
+            />
+            <h3
+              id="regex-controls-heading"
+              className="text-base font-semibold text-gray-800"
+            >
+              数据解析配置
+            </h3>
+          </div>
         
         <div className="flex items-center gap-1">
           {uploadedFiles.length > 0 && (
@@ -446,7 +448,8 @@ export function RegexControls({
             <Eye size={14} />
           </button>
         </div>
-      </div>
+        </div>
+      )}
       
       <div className="space-y-4">
         {globalParsingConfig.metrics.map((cfg, idx) => (

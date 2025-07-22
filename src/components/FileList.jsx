@@ -1,16 +1,18 @@
 import React from 'react';
 import { FileText, X, Settings } from 'lucide-react';
 
-export function FileList({ files, onFileRemove, onFileToggle, onFileConfig }) {
+export function FileList({ files, onFileRemove, onFileToggle, onFileConfig, showTitle = true }) {
   if (files.length === 0) {
     return (
       <section className="bg-white rounded-lg shadow-md p-3" aria-labelledby="file-list-heading">
-        <h3 
-          id="file-list-heading"
-          className="text-base font-semibold text-gray-800 mb-2"
-        >
-          📋 已加载文件
-        </h3>
+        {showTitle && (
+          <h3
+            id="file-list-heading"
+            className="text-base font-semibold text-gray-800 mb-2"
+          >
+            📋 已加载文件
+          </h3>
+        )}
         <p className="text-gray-500 text-center py-4 text-sm" role="status">
           📂 暂无文件
         </p>
@@ -20,12 +22,14 @@ export function FileList({ files, onFileRemove, onFileToggle, onFileConfig }) {
 
   return (
     <section className="bg-white rounded-lg shadow-md p-3" aria-labelledby="file-list-heading">
-      <h3 
-        id="file-list-heading"
-        className="text-base font-semibold text-gray-800 mb-2"
-      >
-        📋 已加载文件 ({files.length})
-      </h3>
+      {showTitle && (
+        <h3
+          id="file-list-heading"
+          className="text-base font-semibold text-gray-800 mb-2"
+        >
+          📋 已加载文件 ({files.length})
+        </h3>
+      )}
       <ul className="space-y-2" role="list" aria-label={`已加载 ${files.length} 个文件`}>
         {files.map((file, index) => (
           <li
