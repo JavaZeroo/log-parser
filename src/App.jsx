@@ -6,6 +6,7 @@ import ChartContainer from './components/ChartContainer';
 import { ComparisonControls } from './components/ComparisonControls';
 import { Header } from './components/Header';
 import { FileConfigModal } from './components/FileConfigModal';
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
 function App() {
   const [uploadedFiles, setUploadedFiles] = useState([]);
@@ -37,6 +38,7 @@ function App() {
   const [, setDragCounter] = useState(0);
   const [xRange, setXRange] = useState({ min: undefined, max: undefined });
   const [maxStep, setMaxStep] = useState(0);
+  const [sidebarVisible, setSidebarVisible] = useState(true);
 
   const handleFilesUploaded = useCallback((files) => {
     const filesWithDefaults = files.map(file => ({
@@ -188,7 +190,7 @@ function App() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 relative">
       {/* 全页面拖拽覆盖层 */}
       {globalDragOver && (
-        <div 
+        <div
           className="fixed inset-0 bg-blue-600 bg-opacity-95 z-50 flex items-center justify-center backdrop-blur-sm drag-overlay-fade-in"
         >
           <div 
@@ -230,20 +232,31 @@ function App() {
         </div>
       )}
 
+      {!sidebarVisible && (
+        <button
+          onClick={() => setSidebarVisible(true)}
+          className="fixed top-3 left-3 z-40 p-2 bg-white rounded-full shadow-md text-gray-600 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          aria-label="显示工具栏"
+        >
+          <PanelLeftOpen size={20} aria-hidden="true" />
+        </button>
+      )}
+
       <div className="w-full px-3 py-3">
-        
-        <main 
+
+        <main
           id="main-content"
-          className="grid grid-cols-1 xl:grid-cols-5 gap-3" 
+          className="grid grid-cols-1 xl:grid-cols-5 gap-3"
           role="main"
         >
-          <aside 
-            className="xl:col-span-1 space-y-3"
-            role="complementary"
-            aria-label="控制面板"
-          >
-            {/* 标题信息 */}
-            <div className="bg-white rounded-lg shadow-md p-3">
+          {sidebarVisible && (
+            <aside
+              className="xl:col-span-1 space-y-3"
+              role="complementary"
+              aria-label="控制面板"
+            >
+              {/* 标题信息 */}
+              <div className="bg-white rounded-lg shadow-md p-3">
               <div className="flex items-center gap-2 mb-2">
                 <div className="p-2 bg-blue-100 rounded-lg">
                   <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -253,6 +266,13 @@ function App() {
                 <h1 className="text-lg font-bold text-gray-800">
                   Log Analyzer
                 </h1>
+                <button
+                  onClick={() => setSidebarVisible(false)}
+                  className="ml-auto p-1 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                  aria-label="隐藏工具栏"
+                >
+                  <PanelLeftClose size={16} aria-hidden="true" />
+                </button>
               </div>
               <p className="text-sm text-gray-600 mb-3">
                 📊 分析和可视化大模型训练日志中的损失函数和梯度范数数据
@@ -375,10 +395,11 @@ function App() {
                   </div>
                 </div>
               </div>
-            </section>
-          </aside>
+              </section>
+            </aside>
+          )}
 
-          <section 
+          <section
             className="xl:col-span-4"
             role="region"
             aria-label="图表显示区域"
