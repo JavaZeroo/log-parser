@@ -67,6 +67,8 @@ export default function ChartContainer({
   absoluteBaseline = 0.005,
   showLoss = true,
   showGradNorm = false,
+  xRange = { min: undefined, max: undefined },
+  onXRangeChange,
   onMaxStepChange
 }) {
   const chartRefs = useRef(new Map());
@@ -214,6 +216,123 @@ export default function ChartContainer({
     return result;
   };
 
+  const chartOptions = useMemo(() => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 0 },
+    animations: { colors: false, x: false, y: false },
+    hover: { animationDuration: 0 },
+    responsiveAnimationDuration: 0,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      zoom: {
+        pan: {
+          enabled: true,
+          mode: 'x',
+          onPanComplete: ({ chart }) => {
+            const { min, max } = chart.scales.x;
+            onXRangeChange({ min: Math.round(min), max: Math.round(max) });
+          }
+        },
+        zoom: {
+          drag: {
+            enabled: true,
+            borderColor: 'rgba(225,225,225,0.2)',
+            borderWidth: 1,
+            backgroundColor: 'rgba(225,225,225,0.2)',
+            modifierKey: 'shift'
+          },
+          wheel: { enabled: true },
+          pinch: { enabled: true },
+          mode: 'x',
+          onZoomComplete: ({ chart }) => {
+            const { min, max } = chart.scales.x;
+            onXRangeChange({ min: Math.round(min), max: Math.round(max) });
+          }
+        }
+      },
+      legend: {
+        position: 'top',
+        labels: {
+          boxWidth: 40,
+          boxHeight: 2,
+          padding: 10,
+          usePointStyle: false,
+          generateLabels: function (chart) {
+            const original = Chart.defaults.plugins.legend.labels.generateLabels;
+            const labels = original.call(this, chart);
+            labels.forEach((label, index) => {
+              const dataset = chart.data.datasets[index];
+              if (dataset && dataset.borderDash && dataset.borderDash.length > 0) {
+                label.lineDash = dataset.borderDash;
+              }
+            });
+            return labels;
+          }
+        }
+      },
+      tooltip: {
+        mode: 'index',
+        intersect: false,
+        animation: false,
+        backgroundColor: 'rgba(15, 23, 42, 0.92)',
+        titleColor: '#f1f5f9',
+        bodyColor: '#cbd5e1',
+        borderColor: 'rgba(71, 85, 105, 0.2)',
+        borderWidth: 1,
+        cornerRadius: 6,
+        displayColors: true,
+        usePointStyle: true,
+        titleFont: { size: 11, weight: '600', family: 'Inter, system-ui, sans-serif' },
+        bodyFont: { size: 10, weight: '400', family: 'Inter, system-ui, sans-serif' },
+        footerFont: { size: 9, weight: '300' },
+        padding: { top: 6, bottom: 6, left: 8, right: 8 },
+        caretPadding: 4,
+        caretSize: 4,
+        multiKeyBackground: 'transparent',
+        callbacks: {
+          title: function (context) {
+            return `Step ${context[0].parsed.x}`;
+          },
+          label: function (context) {
+            const value = Number(context.parsed.y.toPrecision(4));
+            return ` ${value}`;
+          },
+          labelColor: function (context) {
+            return {
+              borderColor: context.dataset.borderColor,
+              backgroundColor: context.dataset.borderColor,
+              borderWidth: 1,
+              borderRadius: 2
+            };
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        type: 'linear',
+        display: true,
+        title: { display: true, text: 'Step' },
+        min: xRange.min,
+        max: xRange.max,
+        bounds: 'data'
+      },
+      y: {
+        type: 'linear',
+        display: true,
+        title: { display: true, text: 'Value' },
+        bounds: 'data',
+        ticks: {
+          callback: function (value) {
+            return Number(value.toPrecision(2));
+          }
+        }
+      }
+    },
+    elements: { point: { radius: 0 } }
+  }), [xRange, onXRangeChange]);
+
   const createComparisonChartData = (item1, item2, title) => {
     const comparisonData = getComparisonData(item1.data, item2.data, compareMode);
     const baseline = compareMode === 'relative' ? relativeBaseline : compareMode === 'absolute' ? absoluteBaseline : 0;
@@ -299,49 +418,74 @@ export default function ChartContainer({
     );
   }
 
+  const stats = [];
+
+  const metricElements = metricsToShow.map((metric, idx) => {
+    const key = metric.name || metric.keyword || `metric${idx + 1}`;
+    const dataArray = metricDataArrays[key] || [];
+    const showComparison = dataArray.length === 2;
+
+    if (showComparison) {
+      const normalDiff = getComparisonData(dataArray[0].data, dataArray[1].data, 'normal');
+      const absDiff = getComparisonData(dataArray[0].data, dataArray[1].data, 'absolute');
+      const relDiff = getComparisonData(dataArray[0].data, dataArray[1].data, 'relative');
+      const mean = arr => (arr.reduce((s, p) => s + p.y, 0) / arr.length) || 0;
+      stats.push({
+        label: key,
+        meanNormal: mean(normalDiff),
+        meanAbsolute: mean(absDiff),
+        meanRelative: mean(relDiff)
+      });
+    }
+
+    return (
+      <div key={key} className="min-w-[600px] flex flex-col gap-3">
+        <ResizablePanel title={key} initialHeight={440}>
+          <ChartWrapper
+            chartId={`metric-${idx}`}
+            onRegisterChart={registerChart}
+            onSyncHover={syncHoverToAllCharts}
+            data={createChartData(dataArray)}
+            options={chartOptions}
+          />
+        </ResizablePanel>
+        {showComparison && (
+          <ResizablePanel title={`⚖️ ${key} 对比分析 (${compareMode})`} initialHeight={440}>
+            <ChartWrapper
+              chartId={`metric-comp-${idx}`}
+              onRegisterChart={registerChart}
+              onSyncHover={syncHoverToAllCharts}
+              data={createComparisonChartData(dataArray[0], dataArray[1], key)}
+              options={chartOptions}
+            />
+          </ResizablePanel>
+        )}
+      </div>
+    );
+  });
+
   return (
     <div className="overflow-x-auto">
       <div className="flex gap-3 w-max">
-        {metricsToShow.map((metric, idx) => {
-          const key = metric.name || metric.keyword || `metric${idx+1}`;
-          const dataArray = metricDataArrays[key] || [];
-          const showComparison = dataArray.length === 2;
-          return (
-            <div key={key} className="w-96 flex flex-col gap-3">
-              <ResizablePanel title={key} initialHeight={440}>
-                <ChartWrapper
-                  chartId={`metric-${idx}`}
-                  onRegisterChart={registerChart}
-                  onSyncHover={syncHoverToAllCharts}
-                  data={createChartData(dataArray)}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: { x: { type: 'linear' } },
-                    plugins: { zoom: { zoom: { enabled: false }, pan: { enabled: false } } }
-                  }}
-                />
-              </ResizablePanel>
-              {showComparison && (
-                <ResizablePanel title={`⚖️ ${key} 对比分析 (${compareMode})`} initialHeight={440}>
-                  <ChartWrapper
-                    chartId={`metric-comp-${idx}`}
-                    onRegisterChart={registerChart}
-                    onSyncHover={syncHoverToAllCharts}
-                    data={createComparisonChartData(dataArray[0], dataArray[1], key)}
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      scales: { x: { type: 'linear' } },
-                      plugins: { zoom: { zoom: { enabled: false }, pan: { enabled: false } } }
-                    }}
-                  />
-                </ResizablePanel>
-              )}
-            </div>
-          );
-        })}
+        {metricElements}
       </div>
+      {stats.length > 0 && (
+        <div className="bg-white rounded-lg shadow-md p-3 mt-3">
+          <h3 className="text-base font-semibold text-gray-800 mb-2">差值分析统计</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {stats.map(s => (
+              <div key={s.label}>
+                <h4 className="text-sm font-medium text-gray-700 mb-1">{s.label} 差值统计</h4>
+                <div className="space-y-1 text-xs">
+                  <p>Mean Difference: {s.meanNormal.toFixed(6)}</p>
+                  <p>Mean Absolute Error: {s.meanAbsolute.toFixed(6)}</p>
+                  <p>Mean Relative Error: {s.meanRelative.toFixed(6)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
