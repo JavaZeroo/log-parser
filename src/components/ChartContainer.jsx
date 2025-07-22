@@ -314,13 +314,20 @@ export default function ChartContainer({
         title: { display: true, text: 'Step' },
         min: xRange.min,
         max: xRange.max,
-        bounds: 'data'
+        bounds: 'data',
+        grace: '2%',
+        ticks: {
+          callback: function (value) {
+            return Math.round(value);
+          }
+        }
       },
       y: {
         type: 'linear',
         display: true,
         title: { display: true, text: 'Value' },
         bounds: 'data',
+        grace: '5%',
         ticks: {
           callback: function (value) {
             return Number(value.toPrecision(2));
