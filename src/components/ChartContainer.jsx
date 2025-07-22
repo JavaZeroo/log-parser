@@ -410,28 +410,26 @@ export default function ChartContainer({
     );
   }
 
-  const stats = [];
-
   const metricElements = metrics.map((metric, idx) => {
     const key = metric.name || metric.keyword || `metric${idx + 1}`;
     const dataArray = metricDataArrays[key] || [];
     const showComparison = dataArray.length === 2;
 
+    let stats = null;
     if (showComparison) {
       const normalDiff = getComparisonData(dataArray[0].data, dataArray[1].data, 'normal');
       const absDiff = getComparisonData(dataArray[0].data, dataArray[1].data, 'absolute');
       const relDiff = getComparisonData(dataArray[0].data, dataArray[1].data, 'relative');
       const mean = arr => (arr.reduce((s, p) => s + p.y, 0) / arr.length) || 0;
-      stats.push({
-        label: key,
+      stats = {
         meanNormal: mean(normalDiff),
         meanAbsolute: mean(absDiff),
         meanRelative: mean(relDiff)
-      });
+      };
     }
 
     return (
-      <div key={key} className="min-w-[600px] flex flex-col gap-3">
+      <div key={key} className="flex flex-col gap-3">
         <ResizablePanel title={key} initialHeight={440}>
           <ChartWrapper
             chartId={`metric-${idx}`}
@@ -452,32 +450,23 @@ export default function ChartContainer({
             />
           </ResizablePanel>
         )}
+        {stats && (
+          <div className="bg-white rounded-lg shadow-md p-3">
+            <h4 className="text-sm font-medium text-gray-700 mb-1">{key} 差值统计</h4>
+            <div className="space-y-1 text-xs">
+              <p>Mean Difference: {stats.meanNormal.toFixed(6)}</p>
+              <p>Mean Absolute Error: {stats.meanAbsolute.toFixed(6)}</p>
+              <p>Mean Relative Error: {stats.meanRelative.toFixed(6)}</p>
+            </div>
+          </div>
+        )}
       </div>
     );
   });
 
   return (
-    <div className="overflow-x-auto">
-      <div className="flex gap-3 w-max">
-        {metricElements}
-      </div>
-      {stats.length > 0 && (
-        <div className="bg-white rounded-lg shadow-md p-3 mt-3">
-          <h3 className="text-base font-semibold text-gray-800 mb-2">差值分析统计</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {stats.map(s => (
-              <div key={s.label}>
-                <h4 className="text-sm font-medium text-gray-700 mb-1">{s.label} 差值统计</h4>
-                <div className="space-y-1 text-xs">
-                  <p>Mean Difference: {s.meanNormal.toFixed(6)}</p>
-                  <p>Mean Absolute Error: {s.meanAbsolute.toFixed(6)}</p>
-                  <p>Mean Relative Error: {s.meanRelative.toFixed(6)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+    <div className="grid grid-cols-2 gap-3">
+      {metricElements}
     </div>
   );
 }
