@@ -326,7 +326,7 @@ export default function ChartContainer({
         display: true,
         title: { display: true, text: 'Value' },
         bounds: 'data',
-        grace: '20%',
+        grace: '5%',
         ticks: {
           callback: function (value) {
             return Number(value.toPrecision(2));
