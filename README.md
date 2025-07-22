@@ -71,6 +71,8 @@
 
 本项目采用 GitHub Actions 自动化部署到 GitHub Pages，每次推送到主分支时自动构建和部署。
 
+同时，每个 Pull Request 都会自动构建并生成预览页面，方便审核。
+
 如需 fork 此项目进行自定义开发：
 
 1. Fork 本仓库到你的 GitHub 账户
