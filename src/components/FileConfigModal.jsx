@@ -27,12 +27,12 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
   const [config, setConfig] = useState({
     loss: {
       mode: 'keyword',
-      keyword: 'loss',
+      keyword: 'loss:',
       regex: 'loss:\\s*([\\d.eE+-]+)'
     },
     gradNorm: {
       mode: 'keyword',
-      keyword: 'global_norm',
+      keyword: 'norm:',
       regex: 'grad[\\s_]norm:\\s*([\\d.eE+-]+)'
     },
     dataRange: {
@@ -131,7 +131,7 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
               value={configItem.keyword}
               onChange={(e) => handleConfigChange(type, 'keyword', e.target.value)}
               className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
-              placeholder={type === 'loss' ? 'loss' : 'global_norm'}
+              placeholder={type === 'loss' ? 'loss:' : 'norm:'}
             />
             <p className="text-xs text-gray-500 mt-1">
               支持模糊匹配，如 "loss" 可匹配 "training_loss"

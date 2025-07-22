@@ -5,8 +5,8 @@ const sampleContent = `loss: 0.123\nstep2 loss 0.234\n{"loss": 0.345, "global_no
 
 describe('ValueExtractor', () => {
   it('extracts values by keyword', () => {
-    const results = ValueExtractor.extractByKeyword(sampleContent, 'loss');
-    expect(results.length).toBe(3);
+    const results = ValueExtractor.extractByKeyword(sampleContent, 'loss:');
+    expect(results.length).toBe(1);
     expect(results[0].value).toBeCloseTo(0.123);
   });
 

@@ -14,12 +14,12 @@ function App() {
   const [globalParsingConfig, setGlobalParsingConfig] = useState({
     loss: {
       mode: 'keyword', // 'keyword' | 'regex'
-      keyword: 'loss',
+      keyword: 'loss:',
       regex: 'loss:\\s*([\\d.eE+-]+)'
     },
     gradNorm: {
       mode: 'keyword', // 'keyword' | 'regex'
-      keyword: 'global_norm',
+      keyword: 'norm:',
       regex: 'grad[\\s_]norm:\\s*([\\d.eE+-]+)'
     }
   });
