@@ -12,27 +12,25 @@ function App() {
   
   // 全局解析配置状态
   const [globalParsingConfig, setGlobalParsingConfig] = useState({
-    loss: {
-      mode: 'keyword', // 'keyword' | 'regex'
-      keyword: 'loss:',
-      regex: 'loss:\\s*([\\d.eE+-]+)'
-    },
-    gradNorm: {
-      mode: 'keyword', // 'keyword' | 'regex'
-      keyword: 'norm:',
-      regex: 'grad[\\s_]norm:\\s*([\\d.eE+-]+)'
-    }
+    metrics: [
+      {
+        name: 'Loss',
+        mode: 'keyword', // 'keyword' | 'regex'
+        keyword: 'loss:',
+        regex: 'loss:\\s*([\\d.eE+-]+)'
+      },
+      {
+        name: 'Grad Norm',
+        mode: 'keyword',
+        keyword: 'norm:',
+        regex: 'grad[\\s_]norm:\\s*([\\d.eE+-]+)'
+      }
+    ]
   });
-  
-  // 兼容旧版本的正则表达式状态（供ChartContainer使用）
-  const [lossRegex, setLossRegex] = useState('loss:\\s*([\\d.eE+-]+)');
-  const [gradNormRegex, setGradNormRegex] = useState('grad[\\s_]norm:\\s*([\\d.eE+-]+)');
   
   const [compareMode, setCompareMode] = useState('normal');
   const [relativeBaseline, setRelativeBaseline] = useState(0.002);
   const [absoluteBaseline, setAbsoluteBaseline] = useState(0.005);
-  const [showLoss, setShowLoss] = useState(true);
-  const [showGradNorm, setShowGradNorm] = useState(false);
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [configFile, setConfigFile] = useState(null);
   const [globalDragOver, setGlobalDragOver] = useState(false);
@@ -46,8 +44,7 @@ function App() {
       enabled: true,
       config: {
         // 使用全局解析配置作为默认值
-        loss: { ...globalParsingConfig.loss },
-        gradNorm: { ...globalParsingConfig.gradNorm },
+        metrics: globalParsingConfig.metrics.map(m => ({ ...m })),
         dataRange: {
           start: 0,        // 默认从第一个数据点开始
           end: undefined,  // 默认到最后一个数据点
@@ -118,28 +115,15 @@ function App() {
   // 全局解析配置变更处理
   const handleGlobalParsingConfigChange = useCallback((newConfig) => {
     setGlobalParsingConfig(newConfig);
-    
-    // 同步更新兼容的正则表达式状态
-    setLossRegex(newConfig.loss.mode === 'regex' ? newConfig.loss.regex : 'loss:\\s*([\\d.eE+-]+)');
-    setGradNormRegex(newConfig.gradNorm.mode === 'regex' ? newConfig.gradNorm.regex : 'grad[\\s_]norm:\\s*([\\d.eE+-]+)');
-    
+
     // 同步所有文件的解析配置
     setUploadedFiles(prev => prev.map(file => ({
       ...file,
       config: {
         ...file.config,
-        loss: { ...newConfig.loss },
-        gradNorm: { ...newConfig.gradNorm }
+        metrics: newConfig.metrics.map(m => ({ ...m }))
       }
     })));
-  }, []);
-
-  const handleRegexChange = useCallback((type, value) => {
-    if (type === 'loss') {
-      setLossRegex(value);
-    } else {
-      setGradNormRegex(value);
-    }
   }, []);
 
   // 全局拖拽事件处理
@@ -303,9 +287,6 @@ function App() {
             <RegexControls
               globalParsingConfig={globalParsingConfig}
               onGlobalParsingConfigChange={handleGlobalParsingConfigChange}
-              lossRegex={lossRegex}
-              gradNormRegex={gradNormRegex}
-              onRegexChange={handleRegexChange}
               uploadedFiles={uploadedFiles}
               xRange={xRange}
               onXRangeChange={setXRange}
@@ -336,41 +317,7 @@ function App() {
               <div className="space-y-3">
                 <div>
                   <h4 className="text-xs font-medium text-gray-700 mb-2">📊 图表显示</h4>
-                  <div className="space-y-2">
-                    <label className="flex items-center cursor-pointer hover:bg-gray-50 p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={showLoss}
-                        onChange={(e) => setShowLoss(e.target.checked)}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                        aria-describedby="show-loss-description"
-                      />
-                      <span className="ml-2 text-xs text-gray-700">📉 显示 Loss 函数</span>
-                      <span 
-                        id="show-loss-description" 
-                        className="sr-only"
-                      >
-                        控制是否显示损失函数图表
-                      </span>
-                    </label>
-                    
-                    <label className="flex items-center cursor-pointer hover:bg-gray-50 p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={showGradNorm}
-                        onChange={(e) => setShowGradNorm(e.target.checked)}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                        aria-describedby="show-gradnorm-description"
-                      />
-                      <span className="ml-2 text-xs text-gray-700">📈 显示 Grad Norm</span>
-                      <span 
-                        id="show-gradnorm-description" 
-                        className="sr-only"
-                      >
-                        控制是否显示梯度范数图表
-                      </span>
-                    </label>
-                  </div>
+                  <p className="text-xs text-gray-500">上传文件后自动展示所有已配置的指标图表</p>
                 </div>
                 
                 <div className="border-t pt-3">
@@ -438,13 +385,10 @@ function App() {
           >
             <ChartContainer
               files={uploadedFiles}
-              lossRegex={lossRegex}
-              gradNormRegex={gradNormRegex}
+              metrics={globalParsingConfig.metrics}
               compareMode={compareMode}
               relativeBaseline={relativeBaseline}
               absoluteBaseline={absoluteBaseline}
-              showLoss={showLoss}
-              showGradNorm={showGradNorm}
               xRange={xRange}
               onXRangeChange={setXRange}
               onMaxStepChange={setMaxStep}

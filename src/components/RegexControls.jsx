@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Settings, Zap, Eye, ChevronDown, ChevronUp, Target, Code, ZoomIn } from 'lucide-react';
+import { METRIC_PRESETS } from '../metricPresets.js';
 
 // 匹配模式枚举
 const MATCH_MODES = {
@@ -22,6 +23,17 @@ const MODE_CONFIG = {
     example: 'loss:\\s*([\\d.eE+-]+)'
   }
 };
+
+// 根据配置生成友好的标题
+function getMetricTitle(metric, index) {
+  if (metric.name && metric.name.trim()) return metric.name.trim();
+  if (metric.keyword) return metric.keyword.replace(/[:：]/g, '').trim();
+  if (metric.regex) {
+    const sanitized = metric.regex.replace(/[^a-zA-Z0-9_]/g, '').trim();
+    return sanitized || `Metric ${index + 1}`;
+  }
+  return `Metric ${index + 1}`;
+}
 
 // 数值提取器类
 export class ValueExtractor {
@@ -187,14 +199,13 @@ export class ValueExtractor {
 export function RegexControls({
   globalParsingConfig,
   onGlobalParsingConfigChange,
-  onRegexChange,
   uploadedFiles = [],
   xRange,
   onXRangeChange,
   maxStep
 }) {
   const [showPreview, setShowPreview] = useState(false);
-  const [previewResults, setPreviewResults] = useState({ loss: [], gradNorm: [] });
+  const [previewResults, setPreviewResults] = useState({});
 
   // 提取数值的通用函数
   const extractValues = useCallback((content, mode, config) => {
@@ -210,42 +221,24 @@ export function RegexControls({
 
   // 预览匹配结果
   const previewMatches = useCallback(() => {
-    const results = { loss: [], gradNorm: [] };
+    const results = {};
 
     uploadedFiles.forEach(file => {
       if (file.content) {
-        // Loss匹配
-        const lossMatches = extractValues(
-          file.content,
-          globalParsingConfig.loss.mode,
-          globalParsingConfig.loss
-        );
-        results.loss.push({
-          fileName: file.name,
-          count: lossMatches.length,
-          examples: lossMatches.slice(0, 3).map(m => ({
-            value: m.value,
-            line: m.line,
-            text: m.text,
-            format: m.format
-          }))
-        });
-
-        // Grad Norm匹配
-        const gradNormMatches = extractValues(
-          file.content,
-          globalParsingConfig.gradNorm.mode,
-          globalParsingConfig.gradNorm
-        );
-        results.gradNorm.push({
-          fileName: file.name,
-          count: gradNormMatches.length,
-          examples: gradNormMatches.slice(0, 3).map(m => ({
-            value: m.value,
-            line: m.line,
-            text: m.text,
-            format: m.format
-          }))
+        globalParsingConfig.metrics.forEach((cfg, idx) => {
+          const matches = extractValues(file.content, cfg.mode, cfg);
+          const key = getMetricTitle(cfg, idx);
+          if (!results[key]) results[key] = [];
+          results[key].push({
+            fileName: file.name,
+            count: matches.length,
+            examples: matches.slice(0, 3).map(m => ({
+              value: m.value,
+              line: m.line,
+              text: m.text,
+              format: m.format
+            }))
+          });
         });
       }
     });
@@ -257,52 +250,33 @@ export function RegexControls({
   const smartRecommend = useCallback(() => {
     if (uploadedFiles.length === 0) return;
 
-    let bestLossConfig = null;
-    let bestGradNormConfig = null;
-    let maxLossCount = 0;
-    let maxGradNormCount = 0;
-
     const allContent = uploadedFiles.map(f => f.content).join('\n');
-    
-    // 测试关键词模式
-    const lossKeywords = ['loss', 'training_loss', 'train_loss'];
-    const gradNormKeywords = ['grad_norm', 'gradient_norm', 'gnorm', 'global_norm'];
-    
-    lossKeywords.forEach(keyword => {
-      const matches = ValueExtractor.extractByKeyword(allContent, keyword);
-      if (matches.length > maxLossCount) {
-        maxLossCount = matches.length;
-        bestLossConfig = { mode: MATCH_MODES.KEYWORD, keyword };
-      }
-    });
-    
-    gradNormKeywords.forEach(keyword => {
-      const matches = ValueExtractor.extractByKeyword(allContent, keyword);
-      if (matches.length > maxGradNormCount) {
-        maxGradNormCount = matches.length;
-        bestGradNormConfig = { mode: MATCH_MODES.KEYWORD, keyword };
-      }
-    });
 
-    // 应用最佳配置到全局配置
-    const newConfig = { ...globalParsingConfig };
-    if (bestLossConfig) {
-      newConfig.loss = {
-        ...newConfig.loss,
-        mode: bestLossConfig.mode,
-        keyword: bestLossConfig.keyword
-      };
+    const newMetrics = globalParsingConfig.metrics.map(m => ({ ...m }));
+
+    if (newMetrics[0]) {
+      let maxCount = 0;
+      ['loss', 'training_loss', 'train_loss'].forEach(keyword => {
+        const matches = ValueExtractor.extractByKeyword(allContent, keyword);
+        if (matches.length > maxCount) {
+          maxCount = matches.length;
+          newMetrics[0] = { ...newMetrics[0], mode: MATCH_MODES.KEYWORD, keyword };
+        }
+      });
     }
-    
-    if (bestGradNormConfig) {
-      newConfig.gradNorm = {
-        ...newConfig.gradNorm,
-        mode: bestGradNormConfig.mode,
-        keyword: bestGradNormConfig.keyword
-      };
+
+    if (newMetrics[1]) {
+      let maxCount = 0;
+      ['grad_norm', 'gradient_norm', 'gnorm', 'global_norm'].forEach(keyword => {
+        const matches = ValueExtractor.extractByKeyword(allContent, keyword);
+        if (matches.length > maxCount) {
+          maxCount = matches.length;
+          newMetrics[1] = { ...newMetrics[1], mode: MATCH_MODES.KEYWORD, keyword };
+        }
+      });
     }
-    
-    onGlobalParsingConfigChange(newConfig);
+
+    onGlobalParsingConfigChange({ metrics: newMetrics });
   }, [uploadedFiles, globalParsingConfig, onGlobalParsingConfigChange]);
 
   // 当配置变化时更新预览
@@ -313,20 +287,36 @@ export function RegexControls({
   }, [showPreview, previewMatches]);
 
   // 处理配置变化
-  const handleConfigChange = (type, field, value) => {
-    const newConfig = { ...globalParsingConfig };
-    newConfig[type] = { ...newConfig[type], [field]: value };
-    
-    // 如果是正则表达式模式的变更，同时更新兼容的正则状态
-    if (field === 'regex') {
-      if (type === 'loss') {
-        onRegexChange('loss', value);
-      } else {
-        onRegexChange('gradNorm', value);
+  const handleMetricChange = (index, field, value) => {
+    const newMetrics = [...globalParsingConfig.metrics];
+    newMetrics[index] = { ...newMetrics[index], [field]: value };
+    onGlobalParsingConfigChange({ metrics: newMetrics });
+  };
+
+  const addMetric = () => {
+    const newMetrics = [
+      ...globalParsingConfig.metrics,
+      {
+        name: `metric${globalParsingConfig.metrics.length + 1}`,
+        mode: 'keyword',
+        keyword: '',
+        regex: ''
       }
-    }
-    
-    onGlobalParsingConfigChange(newConfig);
+    ];
+    onGlobalParsingConfigChange({ metrics: newMetrics });
+  };
+
+  const removeMetric = (index) => {
+    const newMetrics = globalParsingConfig.metrics.filter((_, i) => i !== index);
+    onGlobalParsingConfigChange({ metrics: newMetrics });
+  };
+
+  const applyPreset = (index, presetLabel) => {
+    const preset = METRIC_PRESETS.find(p => p.label === presetLabel);
+    if (!preset) return;
+    const newMetrics = [...globalParsingConfig.metrics];
+    newMetrics[index] = { ...newMetrics[index], ...preset };
+    onGlobalParsingConfigChange({ metrics: newMetrics });
   };
 
   const handleXRangeChange = (field, value) => {
@@ -335,11 +325,30 @@ export function RegexControls({
   };
 
   // 渲染配置项的函数
-  const renderConfigPanel = (type, config, onConfigChange) => {
+  const renderConfigPanel = (type, config, onConfigChange, index) => {
     const ModeIcon = MODE_CONFIG[config.mode].icon;
-    
+
     return (
       <div className="space-y-2">
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">指标名称</label>
+          <input
+            type="text"
+            value={config.name}
+            onChange={(e) => onConfigChange('name', e.target.value)}
+            className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+          />
+          <select
+            onChange={(e) => applyPreset(index, e.target.value)}
+            className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md mt-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+            defaultValue=""
+          >
+            <option value="">选择预设</option>
+            {METRIC_PRESETS.map(p => (
+              <option key={p.label} value={p.label}>{p.label}</option>
+            ))}
+          </select>
+        </div>
         {/* 模式选择 */}
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -373,7 +382,7 @@ export function RegexControls({
               value={config.keyword}
               onChange={(e) => onConfigChange('keyword', e.target.value)}
               className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
-              placeholder={type === 'loss' ? 'loss:' : 'norm:'}
+              placeholder="keyword"
             />
             <p className="text-xs text-gray-500 mt-1">
               支持模糊匹配，如 "loss" 可匹配 "training_loss"
@@ -391,7 +400,7 @@ export function RegexControls({
               value={config.regex}
               onChange={(e) => onConfigChange('regex', e.target.value)}
               className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none font-mono"
-              placeholder={type === 'loss' ? 'loss:\\s*([\\d.eE+-]+)' : 'grad[\\s_]norm:\\s*([\\d.eE+-]+)'}
+              placeholder="value:\\s*([\\d.eE+-]+)"
             />
             <p className="text-xs text-gray-500 mt-1">
               使用捕获组 () 来提取数值
@@ -440,23 +449,28 @@ export function RegexControls({
       </div>
       
       <div className="space-y-4">
-        {/* Loss 配置 */}
-        <div className="border rounded-lg p-3">
-          <h4 className="text-sm font-medium text-gray-800 mb-2 flex items-center gap-1">
-            <span className="w-3 h-3 bg-red-500 rounded-full"></span>
-            Loss 解析配置
-          </h4>
-          {renderConfigPanel('loss', globalParsingConfig.loss, (field, value) => handleConfigChange('loss', field, value))}
-        </div>
-        
-        {/* Grad Norm 配置 */}
-        <div className="border rounded-lg p-3">
-          <h4 className="text-sm font-medium text-gray-800 mb-2 flex items-center gap-1">
-            <span className="w-3 h-3 bg-green-500 rounded-full"></span>
-            Grad Norm 解析配置
-          </h4>
-          {renderConfigPanel('gradnorm', globalParsingConfig.gradNorm, (field, value) => handleConfigChange('gradNorm', field, value))}
-        </div>
+        {globalParsingConfig.metrics.map((cfg, idx) => (
+          <div key={idx} className="border rounded-lg p-3 relative">
+            <button
+              onClick={() => removeMetric(idx)}
+              className="absolute top-1 right-1 text-red-500"
+              title="删除配置"
+            >
+              ×
+            </button>
+            <h4 className="text-sm font-medium text-gray-800 mb-2 flex items-center gap-1">
+              <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
+              {getMetricTitle(cfg, idx)} 解析配置
+            </h4>
+            {renderConfigPanel(`metric-${idx}`, cfg, (field, value) => handleMetricChange(idx, field, value), idx)}
+          </div>
+        ))}
+        <button
+          onClick={addMetric}
+          className="px-2 py-1 text-xs bg-gray-100 rounded hover:bg-gray-200"
+        >
+          + 添加指标
+        </button>
 
         <div className="border rounded-lg p-3">
             <div className="flex items-center gap-2 mb-2">
@@ -502,50 +516,29 @@ export function RegexControls({
           <div className="mt-3 p-3 bg-blue-50 rounded border border-blue-200">
             <h4 className="text-sm font-medium text-blue-800 mb-2">匹配预览</h4>
             <div className="space-y-3 text-xs">
-              {previewResults.loss.map((result, idx) => (
-                <div key={`loss-${idx}`} className="border-l-4 border-red-300 pl-3">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-red-700">Loss - {result.fileName}</span>
-                    <span className="text-gray-600">({result.count} 个匹配)</span>
-                  </div>
-                  {result.examples.length > 0 && (
-                    <div className="mt-1 space-y-1">
-                      {result.examples.map((example, exIdx) => (
-                        <div key={exIdx} className="text-gray-600 bg-white p-1 rounded text-xs">
-                          <span className="font-mono text-blue-600">{example.value}</span>
-                          <span className="text-gray-500 ml-2">(第{example.line}行)</span>
-                          {example.format && (
-                            <span className="text-purple-600 ml-2">[{example.format}]</span>
-                          )}
-                          <div className="text-gray-400 truncate">{example.text}</div>
-                        </div>
-                      ))}
+              {Object.entries(previewResults).map(([key, results]) => (
+                results.map((result, idx) => (
+                  <div key={`${key}-${idx}`} className="border-l-4 border-blue-300 pl-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-blue-700">{key} - {result.fileName}</span>
+                      <span className="text-gray-600">({result.count} 个匹配)</span>
                     </div>
-                  )}
-                </div>
-              ))}
-              
-              {previewResults.gradNorm.map((result, idx) => (
-                <div key={`gradnorm-${idx}`} className="border-l-4 border-green-300 pl-3">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-green-700">Grad Norm - {result.fileName}</span>
-                    <span className="text-gray-600">({result.count} 个匹配)</span>
+                    {result.examples.length > 0 && (
+                      <div className="mt-1 space-y-1">
+                        {result.examples.map((example, exIdx) => (
+                          <div key={exIdx} className="text-gray-600 bg-white p-1 rounded text-xs">
+                            <span className="font-mono text-blue-600">{example.value}</span>
+                            <span className="text-gray-500 ml-2">(第{example.line}行)</span>
+                            {example.format && (
+                              <span className="text-purple-600 ml-2">[{example.format}]</span>
+                            )}
+                            <div className="text-gray-400 truncate">{example.text}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  {result.examples.length > 0 && (
-                    <div className="mt-1 space-y-1">
-                      {result.examples.map((example, exIdx) => (
-                        <div key={exIdx} className="text-gray-600 bg-white p-1 rounded text-xs">
-                          <span className="font-mono text-blue-600">{example.value}</span>
-                          <span className="text-gray-500 ml-2">(第{example.line}行)</span>
-                          {example.format && (
-                            <span className="text-purple-600 ml-2">[{example.format}]</span>
-                          )}
-                          <div className="text-gray-400 truncate">{example.text}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                ))
               ))}
             </div>
           </div>
