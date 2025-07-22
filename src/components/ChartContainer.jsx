@@ -65,8 +65,6 @@ export default function ChartContainer({
   compareMode,
   relativeBaseline = 0.002,
   absoluteBaseline = 0.005,
-  showLoss = true,
-  showGradNorm = false,
   xRange = { min: undefined, max: undefined },
   onXRangeChange,
   onMaxStepChange
@@ -402,13 +400,7 @@ export default function ChartContainer({
       .map(file => ({ name: file.name, data: file.metricsData[name] }));
   });
 
-  const metricsToShow = metrics.filter((m, idx) => {
-    if (idx === 0) return showLoss;
-    if (idx === 1) return showGradNorm;
-    return true;
-  });
-
-  if (metricsToShow.length === 0) {
+  if (metrics.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow-md p-8">
         <div className="text-center text-gray-500">
@@ -420,7 +412,7 @@ export default function ChartContainer({
 
   const stats = [];
 
-  const metricElements = metricsToShow.map((metric, idx) => {
+  const metricElements = metrics.map((metric, idx) => {
     const key = metric.name || metric.keyword || `metric${idx + 1}`;
     const dataArray = metricDataArrays[key] || [];
     const showComparison = dataArray.length === 2;

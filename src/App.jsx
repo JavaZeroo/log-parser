@@ -31,8 +31,6 @@ function App() {
   const [compareMode, setCompareMode] = useState('normal');
   const [relativeBaseline, setRelativeBaseline] = useState(0.002);
   const [absoluteBaseline, setAbsoluteBaseline] = useState(0.005);
-  const [showLoss, setShowLoss] = useState(true);
-  const [showGradNorm, setShowGradNorm] = useState(false);
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [configFile, setConfigFile] = useState(null);
   const [globalDragOver, setGlobalDragOver] = useState(false);
@@ -319,41 +317,7 @@ function App() {
               <div className="space-y-3">
                 <div>
                   <h4 className="text-xs font-medium text-gray-700 mb-2">📊 图表显示</h4>
-                  <div className="space-y-2">
-                    <label className="flex items-center cursor-pointer hover:bg-gray-50 p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={showLoss}
-                        onChange={(e) => setShowLoss(e.target.checked)}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                        aria-describedby="show-loss-description"
-                      />
-                      <span className="ml-2 text-xs text-gray-700">📉 显示 Loss 函数</span>
-                      <span 
-                        id="show-loss-description" 
-                        className="sr-only"
-                      >
-                        控制是否显示损失函数图表
-                      </span>
-                    </label>
-                    
-                    <label className="flex items-center cursor-pointer hover:bg-gray-50 p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={showGradNorm}
-                        onChange={(e) => setShowGradNorm(e.target.checked)}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                        aria-describedby="show-gradnorm-description"
-                      />
-                      <span className="ml-2 text-xs text-gray-700">📈 显示 Grad Norm</span>
-                      <span 
-                        id="show-gradnorm-description" 
-                        className="sr-only"
-                      >
-                        控制是否显示梯度范数图表
-                      </span>
-                    </label>
-                  </div>
+                  <p className="text-xs text-gray-500">上传文件后自动展示所有已配置的指标图表</p>
                 </div>
                 
                 <div className="border-t pt-3">
@@ -425,8 +389,6 @@ function App() {
               compareMode={compareMode}
               relativeBaseline={relativeBaseline}
               absoluteBaseline={absoluteBaseline}
-              showLoss={showLoss}
-              showGradNorm={showGradNorm}
               xRange={xRange}
               onXRangeChange={setXRange}
               onMaxStepChange={setMaxStep}
