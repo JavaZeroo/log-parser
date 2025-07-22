@@ -214,6 +214,30 @@ export default function ChartContainer({
     return result;
   };
 
+  const calculateYRange = useCallback((dataArray) => {
+    let min = Infinity;
+    let max = -Infinity;
+    dataArray.forEach(item => {
+      item.data.forEach(point => {
+        const inRange =
+          (xRange.min === undefined || point.x >= xRange.min) &&
+          (xRange.max === undefined || point.x <= xRange.max);
+        if (inRange) {
+          if (point.y < min) min = point.y;
+          if (point.y > max) max = point.y;
+        }
+      });
+    });
+    if (min === Infinity || max === -Infinity) {
+      return { min: 0, max: 1 };
+    }
+    if (min === max) {
+      return { min: min - 1, max: max + 1 };
+    }
+    const pad = (max - min) * 0.05;
+    return { min: min - pad, max: max + pad };
+  }, [xRange]);
+
   const chartOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
@@ -326,7 +350,6 @@ export default function ChartContainer({
         display: true,
         title: { display: true, text: 'Value' },
         bounds: 'data',
-        grace: '20%',
         ticks: {
           callback: function (value) {
             return Number(value.toPrecision(2));
@@ -429,6 +452,15 @@ export default function ChartContainer({
     const dataArray = metricDataArrays[key] || [];
     const showComparison = dataArray.length === 2;
 
+    const yRange = calculateYRange(dataArray);
+    const options = {
+      ...chartOptions,
+      scales: {
+        ...chartOptions.scales,
+        y: { ...chartOptions.scales.y, min: yRange.min, max: yRange.max }
+      }
+    };
+
     let stats = null;
     if (showComparison) {
       const normalDiff = getComparisonData(dataArray[0].data, dataArray[1].data, 'normal');
@@ -442,6 +474,30 @@ export default function ChartContainer({
       };
     }
 
+    let comparisonChart = null;
+    if (showComparison) {
+      const compData = createComparisonChartData(dataArray[0], dataArray[1], key);
+      const compRange = calculateYRange(compData.datasets);
+      const compOptions = {
+        ...chartOptions,
+        scales: {
+          ...chartOptions.scales,
+          y: { ...chartOptions.scales.y, min: compRange.min, max: compRange.max }
+        }
+      };
+      comparisonChart = (
+        <ResizablePanel title={`⚖️ ${key} 对比分析 (${compareMode})`} initialHeight={440}>
+          <ChartWrapper
+            chartId={`metric-comp-${idx}`}
+            onRegisterChart={registerChart}
+            onSyncHover={syncHoverToAllCharts}
+            data={compData}
+            options={compOptions}
+          />
+        </ResizablePanel>
+      );
+    }
+
     return (
       <div key={key} className="flex flex-col gap-3">
         <ResizablePanel title={key} initialHeight={440}>
@@ -450,20 +506,10 @@ export default function ChartContainer({
             onRegisterChart={registerChart}
             onSyncHover={syncHoverToAllCharts}
             data={createChartData(dataArray)}
-            options={chartOptions}
+            options={options}
           />
         </ResizablePanel>
-        {showComparison && (
-          <ResizablePanel title={`⚖️ ${key} 对比分析 (${compareMode})`} initialHeight={440}>
-            <ChartWrapper
-              chartId={`metric-comp-${idx}`}
-              onRegisterChart={registerChart}
-              onSyncHover={syncHoverToAllCharts}
-              data={createComparisonChartData(dataArray[0], dataArray[1], key)}
-              options={chartOptions}
-            />
-          </ResizablePanel>
-        )}
+        {comparisonChart}
         {stats && (
           <div className="bg-white rounded-lg shadow-md p-3">
             <h4 className="text-sm font-medium text-gray-700 mb-1">{key} 差值统计</h4>
