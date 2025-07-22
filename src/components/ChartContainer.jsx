@@ -78,9 +78,10 @@ const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover }) 
 };
 
 export default function ChartContainer({ 
-  files, 
-  lossRegex, 
-  gradNormRegex, 
+  files,
+  lossRegex,
+  gradNormRegex,
+  otherConfigs = [],
   compareMode,
   relativeBaseline = 0.002,
   absoluteBaseline = 0.005,
@@ -138,13 +139,35 @@ export default function ChartContainer({
     const enabledFiles = files.filter(file => file.enabled !== false);
     
     return enabledFiles.map(file => {
-      if (!file.content) return { ...file, lossData: [], gradNormData: [] };
+      if (!file.content) return { ...file, lossData: [], gradNormData: [], othersData: {} };
 
       const lines = file.content.split('\n');
       const lossData = [];
       const gradNormData = [];
+      const otherMetricData = {};
 
       try {
+        // 公用关键词匹配函数
+        const extractByKeyword = (content, keyword) => {
+          const results = [];
+          const lines = content.split('\n');
+          const numberRegex = /[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/;
+          lines.forEach((line) => {
+            const keywordIndex = line.toLowerCase().indexOf(keyword.toLowerCase());
+            if (keywordIndex !== -1) {
+              const afterKeyword = line.substring(keywordIndex + keyword.length);
+              const numberMatch = afterKeyword.match(numberRegex);
+              if (numberMatch) {
+                const value = parseFloat(numberMatch[0]);
+                if (!isNaN(value)) {
+                  results.push(value);
+                }
+              }
+            }
+          });
+          return results;
+        };
+
         // 使用新的配置格式，同时保持向后兼容
         let fileLossConfig, fileGradNormConfig;
         
@@ -265,6 +288,29 @@ export default function ChartContainer({
             }
           });
         }
+
+        // 处理其他自定义指标
+        if (Array.isArray(file.config?.others)) {
+          file.config.others.forEach(metric => {
+            let values = [];
+            if (metric.mode === 'keyword') {
+              values = extractByKeyword(file.content, metric.keyword);
+            } else {
+              const regexObj = new RegExp(metric.regex);
+              lines.forEach(line => {
+                regexObj.lastIndex = 0;
+                const match = regexObj.exec(line);
+                if (match && match[1]) {
+                  const value = parseFloat(match[1]);
+                  if (!isNaN(value)) {
+                    values.push(value);
+                  }
+                }
+              });
+            }
+            otherMetricData[metric.name || metric.keyword] = values.map((v, i) => ({ x: i, y: v }));
+          });
+        }
       } catch (error) {
         console.error('Regex error:', error);
       }
@@ -291,28 +337,34 @@ export default function ChartContainer({
           return slicedData;
         };
         
+        const reindexData = (data) => data.map((point, index) => ({ x: index, y: point.y }));
+
         const filteredLossData = applyRangeFilter(lossData);
         const filteredGradNormData = applyRangeFilter(gradNormData);
+        const filteredOthers = {};
+        Object.entries(otherMetricData).forEach(([key, data]) => {
+          filteredOthers[key] = reindexData(applyRangeFilter(data));
+        });
         
-        // 重新索引数据点
-        const reindexData = (data) => data.map((point, index) => ({ x: index, y: point.y }));
-        
-        return { 
-          ...file, 
-          lossData: reindexData(filteredLossData), 
-          gradNormData: reindexData(filteredGradNormData) 
+        return {
+          ...file,
+          lossData: reindexData(filteredLossData),
+          gradNormData: reindexData(filteredGradNormData),
+          othersData: filteredOthers
         };
       }
 
-      return { ...file, lossData, gradNormData };
+      return { ...file, lossData, gradNormData, othersData: otherMetricData };
     });
-  }, [files, lossRegex, gradNormRegex]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [files, lossRegex, gradNormRegex, otherConfigs]);
 
   useEffect(() => {
     const maxStep = parsedData.reduce((max, file) => {
         const maxLoss = file.lossData.length > 0 ? file.lossData[file.lossData.length - 1].x : 0;
         const maxGrad = file.gradNormData.length > 0 ? file.gradNormData[file.gradNormData.length - 1].x : 0;
-        return Math.max(max, maxLoss, maxGrad);
+        const otherMax = Object.values(file.othersData || {}).reduce((m, data) => Math.max(m, data.length > 0 ? data[data.length - 1].x : 0), 0);
+        return Math.max(max, maxLoss, maxGrad, otherMax);
     }, 0);
     onMaxStepChange(maxStep);
   }, [parsedData, onMaxStepChange]);
@@ -655,6 +707,14 @@ export default function ChartContainer({
     .filter(file => file.gradNormData && file.gradNormData.length > 0)
     .map(file => ({ name: file.name, data: file.gradNormData }));
 
+  const otherMetricKeys = otherConfigs.map(c => c.name || c.keyword);
+  const otherDataArrays = {};
+  otherMetricKeys.forEach(key => {
+    otherDataArrays[key] = parsedData
+      .filter(file => file.othersData && file.othersData[key] && file.othersData[key].length > 0)
+      .map(file => ({ name: file.name, data: file.othersData[key] }));
+  });
+
   // 计算显示的图表数量来决定布局
   const enabledFiles = files.filter(file => file.enabled !== false);
   const showingLossCharts = showLoss && lossDataArray.length > 0;
@@ -834,6 +894,25 @@ export default function ChartContainer({
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+      {otherMetricKeys.length > 0 && (
+        <div className="col-span-full overflow-x-auto">
+          <div className="flex gap-3 w-max">
+            {otherMetricKeys.map((key, idx) => (
+              <div key={key} className="w-96">
+                <ResizablePanel title={key} initialHeight={440}>
+                  <ChartWrapper
+                    chartId={`other-${idx}`}
+                    onRegisterChart={registerChart}
+                    onSyncHover={syncHoverToAllCharts}
+                    data={createChartData(otherDataArrays[key])}
+                    options={chartOptions}
+                  />
+                </ResizablePanel>
+              </div>
+            ))}
           </div>
         </div>
       )}

@@ -21,7 +21,8 @@ function App() {
       mode: 'keyword', // 'keyword' | 'regex'
       keyword: 'norm:',
       regex: 'grad[\\s_]norm:\\s*([\\d.eE+-]+)'
-    }
+    },
+    others: [] // 其他自定义指标解析配置
   });
   
   // 兼容旧版本的正则表达式状态（供ChartContainer使用）
@@ -48,6 +49,7 @@ function App() {
         // 使用全局解析配置作为默认值
         loss: { ...globalParsingConfig.loss },
         gradNorm: { ...globalParsingConfig.gradNorm },
+        others: globalParsingConfig.others.map(o => ({ ...o })),
         dataRange: {
           start: 0,        // 默认从第一个数据点开始
           end: undefined,  // 默认到最后一个数据点
@@ -129,7 +131,8 @@ function App() {
       config: {
         ...file.config,
         loss: { ...newConfig.loss },
-        gradNorm: { ...newConfig.gradNorm }
+        gradNorm: { ...newConfig.gradNorm },
+        others: newConfig.others.map(o => ({ ...o }))
       }
     })));
   }, []);
@@ -440,6 +443,7 @@ function App() {
               files={uploadedFiles}
               lossRegex={lossRegex}
               gradNormRegex={gradNormRegex}
+              otherConfigs={globalParsingConfig.others}
               compareMode={compareMode}
               relativeBaseline={relativeBaseline}
               absoluteBaseline={absoluteBaseline}

@@ -210,7 +210,7 @@ export function RegexControls({
 
   // 预览匹配结果
   const previewMatches = useCallback(() => {
-    const results = { loss: [], gradNorm: [] };
+    const results = { loss: [], gradNorm: [], others: {} };
 
     uploadedFiles.forEach(file => {
       if (file.content) {
@@ -246,6 +246,17 @@ export function RegexControls({
             text: m.text,
             format: m.format
           }))
+        });
+
+        globalParsingConfig.others.forEach((cfg, idx) => {
+          const matches = extractValues(
+            file.content,
+            cfg.mode,
+            cfg
+          );
+          const key = cfg.name || `metric${idx+1}`;
+          if (!results.others[key]) results.others[key] = [];
+          results.others[key].push({ fileName: file.name, count: matches.length });
         });
       }
     });
@@ -329,6 +340,28 @@ export function RegexControls({
     onGlobalParsingConfigChange(newConfig);
   };
 
+  const handleOtherConfigChange = (index, field, value) => {
+    const newOthers = [...globalParsingConfig.others];
+    newOthers[index] = { ...newOthers[index], [field]: value };
+    const newConfig = { ...globalParsingConfig, others: newOthers };
+    onGlobalParsingConfigChange(newConfig);
+  };
+
+  const addMetric = () => {
+    const newOthers = [...globalParsingConfig.others, {
+      name: `metric${globalParsingConfig.others.length + 1}`,
+      mode: 'keyword',
+      keyword: '',
+      regex: ''
+    }];
+    onGlobalParsingConfigChange({ ...globalParsingConfig, others: newOthers });
+  };
+
+  const removeMetric = (index) => {
+    const newOthers = globalParsingConfig.others.filter((_, i) => i !== index);
+    onGlobalParsingConfigChange({ ...globalParsingConfig, others: newOthers });
+  };
+
   const handleXRangeChange = (field, value) => {
     const newRange = { ...xRange, [field]: value === '' ? undefined : Number(value) };
     onXRangeChange(newRange);
@@ -337,9 +370,20 @@ export function RegexControls({
   // 渲染配置项的函数
   const renderConfigPanel = (type, config, onConfigChange) => {
     const ModeIcon = MODE_CONFIG[config.mode].icon;
-    
+
     return (
       <div className="space-y-2">
+        {type.startsWith('other') && (
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">指标名称</label>
+            <input
+              type="text"
+              value={config.name}
+              onChange={(e) => onConfigChange('name', e.target.value)}
+              className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+        )}
         {/* 模式选择 */}
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -457,6 +501,29 @@ export function RegexControls({
           </h4>
           {renderConfigPanel('gradnorm', globalParsingConfig.gradNorm, (field, value) => handleConfigChange('gradNorm', field, value))}
         </div>
+
+        {globalParsingConfig.others.map((cfg, idx) => (
+          <div key={idx} className="border rounded-lg p-3 relative">
+            <button
+              onClick={() => removeMetric(idx)}
+              className="absolute top-1 right-1 text-red-500"
+              title="删除配置"
+            >
+              ×
+            </button>
+            <h4 className="text-sm font-medium text-gray-800 mb-2 flex items-center gap-1">
+              <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
+              {cfg.name || `Metric ${idx+1}`} 解析配置
+            </h4>
+            {renderConfigPanel(`other-${idx}`, cfg, (field, value) => handleOtherConfigChange(idx, field, value))}
+          </div>
+        ))}
+        <button
+          onClick={addMetric}
+          className="px-2 py-1 text-xs bg-gray-100 rounded hover:bg-gray-200"
+        >
+          + 添加指标
+        </button>
 
         <div className="border rounded-lg p-3">
             <div className="flex items-center gap-2 mb-2">
