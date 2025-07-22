@@ -400,7 +400,7 @@ function App() {
           )}
 
           <section
-            className="xl:col-span-4"
+            className={sidebarVisible ? 'xl:col-span-4' : 'xl:col-span-5'}
             role="region"
             aria-label="图表显示区域"
           >
