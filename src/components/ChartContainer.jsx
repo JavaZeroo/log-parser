@@ -392,7 +392,15 @@ export default function ChartContainer({
     );
   }
 
-  const metricNames = metrics.map(m => m.name || m.keyword);
+  const metricNames = metrics.map((m, idx) => {
+    if (m.name && m.name.trim()) return m.name.trim();
+    if (m.keyword) return m.keyword.replace(/[:：]/g, '').trim();
+    if (m.regex) {
+      const sanitized = m.regex.replace(/[^a-zA-Z0-9_]/g, '').trim();
+      return sanitized || `metric${idx + 1}`;
+    }
+    return `metric${idx + 1}`;
+  });
   const metricDataArrays = {};
   metricNames.forEach(name => {
     metricDataArrays[name] = parsedData

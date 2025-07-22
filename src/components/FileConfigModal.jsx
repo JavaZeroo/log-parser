@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Settings, TrendingDown, TrendingUp, Sliders, BarChart3, Target, Code, Zap } from 'lucide-react';
+import { METRIC_PRESETS } from '../metricPresets.js';
 
 // 匹配模式枚举
 const MATCH_MODES = {
@@ -22,6 +23,16 @@ const MODE_CONFIG = {
     example: 'loss:\\s*([\\d.eE+-]+)'
   }
 };
+
+function getMetricTitle(metric, index) {
+  if (metric.name && metric.name.trim()) return metric.name.trim();
+  if (metric.keyword) return metric.keyword.replace(/[:：]/g, '').trim();
+  if (metric.regex) {
+    const sanitized = metric.regex.replace(/[^a-zA-Z0-9_]/g, '').trim();
+    return sanitized || `Metric ${index + 1}`;
+  }
+  return `Metric ${index + 1}`;
+}
 
 export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingConfig }) {
   const [config, setConfig] = useState({
@@ -62,6 +73,17 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
     }));
   };
 
+  const applyPreset = (index, presetLabel) => {
+    const preset = METRIC_PRESETS.find(p => p.label === presetLabel);
+    if (!preset) return;
+    setConfig(prev => ({
+      ...prev,
+      metrics: prev.metrics.map((m, i) =>
+        i === index ? { ...m, ...preset } : m
+      )
+    }));
+  };
+
   const handleRangeChange = (field, value) => {
     setConfig(prev => ({
       ...prev,
@@ -83,9 +105,22 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
   // 渲染配置项的函数
   const renderConfigPanel = (type, configItem, index) => {
     const ModeIcon = MODE_CONFIG[configItem.mode].icon;
-    
+
     return (
       <div className="space-y-2">
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">预设</label>
+          <select
+            onChange={(e) => applyPreset(index, e.target.value)}
+            className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+            defaultValue=""
+          >
+            <option value="">选择预设</option>
+            {METRIC_PRESETS.map(p => (
+              <option key={p.label} value={p.label}>{p.label}</option>
+            ))}
+          </select>
+        </div>
         {/* 模式选择 */}
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -202,7 +237,7 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
                 <div key={idx} className="border rounded-lg p-3">
                   <h4 className="text-sm font-medium text-gray-800 mb-2 flex items-center gap-1">
                     <TrendingDown size={16} className="text-red-500" aria-hidden="true" />
-                    {cfg.name || `Metric ${idx + 1}`} 解析配置
+                    {getMetricTitle(cfg, idx)} 解析配置
                   </h4>
                   {renderConfigPanel(`metric-${idx}`, cfg, idx)}
                 </div>

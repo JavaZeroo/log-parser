@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Settings, Zap, Eye, ChevronDown, ChevronUp, Target, Code, ZoomIn } from 'lucide-react';
+import { METRIC_PRESETS } from '../metricPresets.js';
 
 // 匹配模式枚举
 const MATCH_MODES = {
@@ -22,6 +23,17 @@ const MODE_CONFIG = {
     example: 'loss:\\s*([\\d.eE+-]+)'
   }
 };
+
+// 根据配置生成友好的标题
+function getMetricTitle(metric, index) {
+  if (metric.name && metric.name.trim()) return metric.name.trim();
+  if (metric.keyword) return metric.keyword.replace(/[:：]/g, '').trim();
+  if (metric.regex) {
+    const sanitized = metric.regex.replace(/[^a-zA-Z0-9_]/g, '').trim();
+    return sanitized || `Metric ${index + 1}`;
+  }
+  return `Metric ${index + 1}`;
+}
 
 // 数值提取器类
 export class ValueExtractor {
@@ -215,7 +227,7 @@ export function RegexControls({
       if (file.content) {
         globalParsingConfig.metrics.forEach((cfg, idx) => {
           const matches = extractValues(file.content, cfg.mode, cfg);
-          const key = cfg.name || `metric${idx + 1}`;
+          const key = getMetricTitle(cfg, idx);
           if (!results[key]) results[key] = [];
           results[key].push({
             fileName: file.name,
@@ -299,13 +311,21 @@ export function RegexControls({
     onGlobalParsingConfigChange({ metrics: newMetrics });
   };
 
+  const applyPreset = (index, presetLabel) => {
+    const preset = METRIC_PRESETS.find(p => p.label === presetLabel);
+    if (!preset) return;
+    const newMetrics = [...globalParsingConfig.metrics];
+    newMetrics[index] = { ...newMetrics[index], ...preset };
+    onGlobalParsingConfigChange({ metrics: newMetrics });
+  };
+
   const handleXRangeChange = (field, value) => {
     const newRange = { ...xRange, [field]: value === '' ? undefined : Number(value) };
     onXRangeChange(newRange);
   };
 
   // 渲染配置项的函数
-  const renderConfigPanel = (type, config, onConfigChange) => {
+  const renderConfigPanel = (type, config, onConfigChange, index) => {
     const ModeIcon = MODE_CONFIG[config.mode].icon;
 
     return (
@@ -318,6 +338,16 @@ export function RegexControls({
             onChange={(e) => onConfigChange('name', e.target.value)}
             className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
           />
+          <select
+            onChange={(e) => applyPreset(index, e.target.value)}
+            className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md mt-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+            defaultValue=""
+          >
+            <option value="">选择预设</option>
+            {METRIC_PRESETS.map(p => (
+              <option key={p.label} value={p.label}>{p.label}</option>
+            ))}
+          </select>
         </div>
         {/* 模式选择 */}
         <div>
@@ -430,9 +460,9 @@ export function RegexControls({
             </button>
             <h4 className="text-sm font-medium text-gray-800 mb-2 flex items-center gap-1">
               <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
-              {cfg.name || `Metric ${idx + 1}`} 解析配置
+              {getMetricTitle(cfg, idx)} 解析配置
             </h4>
-            {renderConfigPanel(`metric-${idx}`, cfg, (field, value) => handleMetricChange(idx, field, value))}
+            {renderConfigPanel(`metric-${idx}`, cfg, (field, value) => handleMetricChange(idx, field, value), idx)}
           </div>
         ))}
         <button
