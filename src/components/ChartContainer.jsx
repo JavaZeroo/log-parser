@@ -315,7 +315,6 @@ export default function ChartContainer({
         min: xRange.min,
         max: xRange.max,
         bounds: 'data',
-        grace: '2%',
         ticks: {
           callback: function (value) {
             return Math.round(value);
@@ -327,7 +326,7 @@ export default function ChartContainer({
         display: true,
         title: { display: true, text: 'Value' },
         bounds: 'data',
-        grace: '5%',
+        grace: '20%',
         ticks: {
           callback: function (value) {
             return Number(value.toPrecision(2));
