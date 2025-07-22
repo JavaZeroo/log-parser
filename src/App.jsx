@@ -12,22 +12,21 @@ function App() {
   
   // 全局解析配置状态
   const [globalParsingConfig, setGlobalParsingConfig] = useState({
-    loss: {
-      mode: 'keyword', // 'keyword' | 'regex'
-      keyword: 'loss:',
-      regex: 'loss:\\s*([\\d.eE+-]+)'
-    },
-    gradNorm: {
-      mode: 'keyword', // 'keyword' | 'regex'
-      keyword: 'norm:',
-      regex: 'grad[\\s_]norm:\\s*([\\d.eE+-]+)'
-    },
-    others: [] // 其他自定义指标解析配置
+    metrics: [
+      {
+        name: 'Loss',
+        mode: 'keyword', // 'keyword' | 'regex'
+        keyword: 'loss:',
+        regex: 'loss:\\s*([\\d.eE+-]+)'
+      },
+      {
+        name: 'Grad Norm',
+        mode: 'keyword',
+        keyword: 'norm:',
+        regex: 'grad[\\s_]norm:\\s*([\\d.eE+-]+)'
+      }
+    ]
   });
-  
-  // 兼容旧版本的正则表达式状态（供ChartContainer使用）
-  const [lossRegex, setLossRegex] = useState('loss:\\s*([\\d.eE+-]+)');
-  const [gradNormRegex, setGradNormRegex] = useState('grad[\\s_]norm:\\s*([\\d.eE+-]+)');
   
   const [compareMode, setCompareMode] = useState('normal');
   const [relativeBaseline, setRelativeBaseline] = useState(0.002);
@@ -47,9 +46,7 @@ function App() {
       enabled: true,
       config: {
         // 使用全局解析配置作为默认值
-        loss: { ...globalParsingConfig.loss },
-        gradNorm: { ...globalParsingConfig.gradNorm },
-        others: globalParsingConfig.others.map(o => ({ ...o })),
+        metrics: globalParsingConfig.metrics.map(m => ({ ...m })),
         dataRange: {
           start: 0,        // 默认从第一个数据点开始
           end: undefined,  // 默认到最后一个数据点
@@ -120,29 +117,15 @@ function App() {
   // 全局解析配置变更处理
   const handleGlobalParsingConfigChange = useCallback((newConfig) => {
     setGlobalParsingConfig(newConfig);
-    
-    // 同步更新兼容的正则表达式状态
-    setLossRegex(newConfig.loss.mode === 'regex' ? newConfig.loss.regex : 'loss:\\s*([\\d.eE+-]+)');
-    setGradNormRegex(newConfig.gradNorm.mode === 'regex' ? newConfig.gradNorm.regex : 'grad[\\s_]norm:\\s*([\\d.eE+-]+)');
-    
+
     // 同步所有文件的解析配置
     setUploadedFiles(prev => prev.map(file => ({
       ...file,
       config: {
         ...file.config,
-        loss: { ...newConfig.loss },
-        gradNorm: { ...newConfig.gradNorm },
-        others: newConfig.others.map(o => ({ ...o }))
+        metrics: newConfig.metrics.map(m => ({ ...m }))
       }
     })));
-  }, []);
-
-  const handleRegexChange = useCallback((type, value) => {
-    if (type === 'loss') {
-      setLossRegex(value);
-    } else {
-      setGradNormRegex(value);
-    }
   }, []);
 
   // 全局拖拽事件处理
@@ -306,9 +289,6 @@ function App() {
             <RegexControls
               globalParsingConfig={globalParsingConfig}
               onGlobalParsingConfigChange={handleGlobalParsingConfigChange}
-              lossRegex={lossRegex}
-              gradNormRegex={gradNormRegex}
-              onRegexChange={handleRegexChange}
               uploadedFiles={uploadedFiles}
               xRange={xRange}
               onXRangeChange={setXRange}
@@ -441,9 +421,7 @@ function App() {
           >
             <ChartContainer
               files={uploadedFiles}
-              lossRegex={lossRegex}
-              gradNormRegex={gradNormRegex}
-              otherConfigs={globalParsingConfig.others}
+              metrics={globalParsingConfig.metrics}
               compareMode={compareMode}
               relativeBaseline={relativeBaseline}
               absoluteBaseline={absoluteBaseline}

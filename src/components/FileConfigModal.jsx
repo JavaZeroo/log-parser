@@ -25,16 +25,7 @@ const MODE_CONFIG = {
 
 export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingConfig }) {
   const [config, setConfig] = useState({
-    loss: {
-      mode: 'keyword',
-      keyword: 'loss:',
-      regex: 'loss:\\s*([\\d.eE+-]+)'
-    },
-    gradNorm: {
-      mode: 'keyword',
-      keyword: 'norm:',
-      regex: 'grad[\\s_]norm:\\s*([\\d.eE+-]+)'
-    },
+    metrics: [],
     dataRange: {
       start: 0,        // 起始位置，默认为0（第一个数据点）
       end: undefined,  // 结束位置，默认为undefined（最后一个数据点）
@@ -47,8 +38,7 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
       // 如果文件有配置，使用文件配置，否则使用全局配置
       const fileConfig = file.config || {};
       setConfig({
-        loss: fileConfig.loss || globalParsingConfig.loss,
-        gradNorm: fileConfig.gradNorm || globalParsingConfig.gradNorm,
+        metrics: fileConfig.metrics || globalParsingConfig.metrics,
         dataRange: fileConfig.dataRange || {
           start: 0,
           end: undefined,
@@ -63,13 +53,12 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
     onClose();
   };
 
-  const handleConfigChange = (type, field, value) => {
+  const handleMetricChange = (index, field, value) => {
     setConfig(prev => ({
       ...prev,
-      [type]: {
-        ...prev[type],
-        [field]: value
-      }
+      metrics: prev.metrics.map((m, i) =>
+        i === index ? { ...m, [field]: value } : m
+      )
     }));
   };
 
@@ -87,13 +76,12 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
   const syncFromGlobal = () => {
     setConfig(prev => ({
       ...prev,
-      loss: { ...globalParsingConfig.loss },
-      gradNorm: { ...globalParsingConfig.gradNorm }
+      metrics: globalParsingConfig.metrics.map(m => ({ ...m }))
     }));
   };
 
   // 渲染配置项的函数
-  const renderConfigPanel = (type, configItem) => {
+  const renderConfigPanel = (type, configItem, index) => {
     const ModeIcon = MODE_CONFIG[configItem.mode].icon;
     
     return (
@@ -105,7 +93,7 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
           </label>
           <select
             value={configItem.mode}
-            onChange={(e) => handleConfigChange(type, 'mode', e.target.value)}
+            onChange={(e) => handleMetricChange(index, 'mode', e.target.value)}
             className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
           >
             {Object.entries(MODE_CONFIG).map(([key, modeConfig]) => (
@@ -129,9 +117,9 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
             <input
               type="text"
               value={configItem.keyword}
-              onChange={(e) => handleConfigChange(type, 'keyword', e.target.value)}
+              onChange={(e) => handleMetricChange(index, 'keyword', e.target.value)}
               className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
-              placeholder={type === 'loss' ? 'loss:' : 'norm:'}
+              placeholder="keyword"
             />
             <p className="text-xs text-gray-500 mt-1">
               支持模糊匹配，如 "loss" 可匹配 "training_loss"
@@ -147,9 +135,9 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
             <input
               type="text"
               value={configItem.regex}
-              onChange={(e) => handleConfigChange(type, 'regex', e.target.value)}
+              onChange={(e) => handleMetricChange(index, 'regex', e.target.value)}
               className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none font-mono"
-              placeholder={type === 'loss' ? 'loss:\\s*([\\d.eE+-]+)' : 'grad[\\s_]norm:\\s*([\\d.eE+-]+)'}
+              placeholder="value:\\s*([\\d.eE+-]+)"
             />
             <p className="text-xs text-gray-500 mt-1">
               使用捕获组 () 来提取数值
@@ -210,23 +198,15 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
             </div>
             
             <div className="space-y-4">
-              {/* Loss 配置 */}
-              <div className="border rounded-lg p-3">
-                <h4 className="text-sm font-medium text-gray-800 mb-2 flex items-center gap-1">
-                  <TrendingDown size={16} className="text-red-500" aria-hidden="true" />
-                  Loss 解析配置
-                </h4>
-                {renderConfigPanel('loss', config.loss)}
-              </div>
-
-              {/* Grad Norm 配置 */}
-              <div className="border rounded-lg p-3">
-                <h4 className="text-sm font-medium text-gray-800 mb-2 flex items-center gap-1">
-                  <TrendingUp size={16} className="text-green-500" aria-hidden="true" />
-                  Grad Norm 解析配置
-                </h4>
-                {renderConfigPanel('gradNorm', config.gradNorm)}
-              </div>
+              {config.metrics.map((cfg, idx) => (
+                <div key={idx} className="border rounded-lg p-3">
+                  <h4 className="text-sm font-medium text-gray-800 mb-2 flex items-center gap-1">
+                    <TrendingDown size={16} className="text-red-500" aria-hidden="true" />
+                    {cfg.name || `Metric ${idx + 1}`} 解析配置
+                  </h4>
+                  {renderConfigPanel(`metric-${idx}`, cfg, idx)}
+                </div>
+              ))}
             </div>
           </section>
 

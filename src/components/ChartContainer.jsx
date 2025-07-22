@@ -25,10 +25,9 @@ ChartJS.register(
   zoomPlugin
 );
 
-// Chart wrapper component with error boundary
 const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover }) => {
   const chartRef = useRef(null);
-  
+
   const handleChartRef = useCallback((ref) => {
     if (ref) {
       chartRef.current = ref;
@@ -46,571 +45,178 @@ const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover }) 
         onSyncHover(null, chartId);
       }
     },
-    // 添加额外的事件处理确保清除状态
     events: ['mousemove', 'mouseout', 'click', 'touchstart', 'touchmove'],
   };
 
-  // 添加容器的鼠标离开事件
   const handleContainerMouseLeave = useCallback(() => {
     onSyncHover(null, chartId);
   }, [onSyncHover, chartId]);
 
-  try {
-    return (
-      <div 
-        onMouseLeave={handleContainerMouseLeave}
-        style={{ width: '100%', height: '100%' }}
-      >
-        <Line ref={handleChartRef} data={data} options={enhancedOptions} />
-      </div>
-    );
-  } catch (error) {
-    console.error('Chart rendering error:', error);
-    return (
-      <div className="flex items-center justify-center h-full bg-gray-50 border-2 border-dashed border-gray-300 rounded">
-        <div className="text-center text-gray-500">
-          <p className="text-lg mb-2">⚠️ 图表渲染错误</p>
-          <p className="text-sm">🔄 请检查数据格式或刷新页面重试</p>
-        </div>
-      </div>
-    );
-  }
+  return (
+    <div onMouseLeave={handleContainerMouseLeave} style={{ width: '100%', height: '100%' }}>
+      <Line ref={handleChartRef} data={data} options={enhancedOptions} />
+    </div>
+  );
 };
 
-export default function ChartContainer({ 
+export default function ChartContainer({
   files,
-  lossRegex,
-  gradNormRegex,
-  otherConfigs = [],
+  metrics = [],
   compareMode,
   relativeBaseline = 0.002,
   absoluteBaseline = 0.005,
   showLoss = true,
   showGradNorm = false,
-  xRange = { min: undefined, max: undefined },
-  onXRangeChange,
   onMaxStepChange
 }) {
-  // 同步hover状态管理
-  const chartRefs = useRef(new Map()); // 存储所有图表实例的引用
-  
-  // 注册图表实例
-  const registerChart = useCallback((chartId, chartInstance) => {
-    chartRefs.current.set(chartId, chartInstance);
+  const chartRefs = useRef(new Map());
+  const registerChart = useCallback((id, inst) => {
+    chartRefs.current.set(id, inst);
   }, []);
-  
-  // 同步所有图表的hover状态
-  const syncHoverToAllCharts = useCallback((step, sourceChartId) => {
-    if (step === null) {
-      // 清除所有图表的hover状态（包括源图表）
-      chartRefs.current.forEach((chart) => {
-        if (chart) {
-          chart.setActiveElements([]);
-          chart.tooltip.setActiveElements([]);
-          chart.update('none');
-        }
-      });
-    } else {
-      // 同步hover到所有图表（不包括源图表，避免重复操作）
-      chartRefs.current.forEach((chart, chartId) => {
-        if (chart && chartId !== sourceChartId) {
-          const activeElements = [];
-          
-          // 为每个数据集找到对应step的数据点
-          chart.data.datasets.forEach((dataset, datasetIndex) => {
-            if (dataset.data && dataset.data.length > step) {
-              activeElements.push({
-                datasetIndex,
-                index: step
-              });
-            }
-          });
-          
-          chart.setActiveElements(activeElements);
-          chart.tooltip.setActiveElements(activeElements, { x: 0, y: 0 });
-          chart.update('none');
-        }
-      });
-    }
+
+  const syncHoverToAllCharts = useCallback((step, sourceId) => {
+    chartRefs.current.forEach((chart, id) => {
+      if (!chart) return;
+      if (step === null) {
+        chart.setActiveElements([]);
+        chart.tooltip.setActiveElements([]);
+        chart.update('none');
+      } else if (id !== sourceId) {
+        const activeElements = [];
+        chart.data.datasets.forEach((dataset, datasetIndex) => {
+          if (dataset.data && dataset.data.length > step) {
+            activeElements.push({ datasetIndex, index: step });
+          }
+        });
+        chart.setActiveElements(activeElements);
+        chart.tooltip.setActiveElements(activeElements, { x: 0, y: 0 });
+        chart.update('none');
+      }
+    });
   }, []);
 
   const parsedData = useMemo(() => {
-    // 只处理已启用的文件
-    const enabledFiles = files.filter(file => file.enabled !== false);
-    
-    return enabledFiles.map(file => {
-      if (!file.content) return { ...file, lossData: [], gradNormData: [], othersData: {} };
-
+    const enabled = files.filter(f => f.enabled !== false);
+    return enabled.map(file => {
+      if (!file.content) return { ...file, metricsData: {} };
       const lines = file.content.split('\n');
-      const lossData = [];
-      const gradNormData = [];
-      const otherMetricData = {};
+      const metricsData = {};
 
-      try {
-        // 公用关键词匹配函数
-        const extractByKeyword = (content, keyword) => {
-          const results = [];
-          const lines = content.split('\n');
-          const numberRegex = /[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/;
-          lines.forEach((line) => {
-            const keywordIndex = line.toLowerCase().indexOf(keyword.toLowerCase());
-            if (keywordIndex !== -1) {
-              const afterKeyword = line.substring(keywordIndex + keyword.length);
-              const numberMatch = afterKeyword.match(numberRegex);
-              if (numberMatch) {
-                const value = parseFloat(numberMatch[0]);
-                if (!isNaN(value)) {
-                  results.push(value);
-                }
-              }
+      const extractByKeyword = (content, keyword) => {
+        const results = [];
+        const numberRegex = /[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/;
+        content.split('\n').forEach(line => {
+          const idx = line.toLowerCase().indexOf(keyword.toLowerCase());
+          if (idx !== -1) {
+            const after = line.substring(idx + keyword.length);
+            const match = after.match(numberRegex);
+            if (match) {
+              const v = parseFloat(match[0]);
+              if (!isNaN(v)) results.push(v);
             }
-          });
-          return results;
-        };
-
-        // 使用新的配置格式，同时保持向后兼容
-        let fileLossConfig, fileGradNormConfig;
-        
-        if (file.config?.loss && file.config?.gradNorm) {
-          // 新配置格式
-          fileLossConfig = file.config.loss;
-          fileGradNormConfig = file.config.gradNorm;
-        } else {
-          // 旧配置格式，转换为新格式
-          fileLossConfig = {
-            mode: 'regex',
-            regex: file.config?.lossRegex || lossRegex
-          };
-          fileGradNormConfig = {
-            mode: 'regex',
-            regex: file.config?.gradNormRegex || gradNormRegex
-          };
-        }
-
-        // 处理Loss数据
-        if (fileLossConfig.mode === 'keyword') {
-          // 关键词匹配
-          const extractByKeyword = (content, keyword) => {
-            const results = [];
-            const lines = content.split('\n');
-            
-            // 数值正则：支持各种数值格式，包括科学计数法
-            const numberRegex = /[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/;
-            
-            lines.forEach((line) => {
-              // 查找关键词（忽略大小写）
-              const keywordIndex = line.toLowerCase().indexOf(keyword.toLowerCase());
-              if (keywordIndex !== -1) {
-                // 从关键词后开始查找第一个数字
-                const afterKeyword = line.substring(keywordIndex + keyword.length);
-                const numberMatch = afterKeyword.match(numberRegex);
-                
-                if (numberMatch) {
-                  const value = parseFloat(numberMatch[0]);
-                  if (!isNaN(value)) {
-                    results.push(value);
-                  }
-                }
-              }
-            });
-            
-            return results;
-          };
-          
-          const lossValues = extractByKeyword(file.content, fileLossConfig.keyword);
-          lossValues.forEach((value, index) => {
-            if (!isNaN(value)) {
-              lossData.push({ x: index, y: value });
-            }
-          });
-        } else {
-          // 正则表达式匹配
-          const lossRegexObj = new RegExp(fileLossConfig.regex);
-          lines.forEach((line) => {
-            lossRegexObj.lastIndex = 0;
-            const lossMatch = lossRegexObj.exec(line);
-            if (lossMatch && lossMatch[1]) {
-              const value = parseFloat(lossMatch[1]);
-              if (!isNaN(value)) {
-                lossData.push({ x: lossData.length, y: value });
-              }
-            }
-          });
-        }
-
-        // 处理Grad Norm数据
-        if (fileGradNormConfig.mode === 'keyword') {
-          // 关键词匹配
-          const extractByKeyword = (content, keyword) => {
-            const results = [];
-            const lines = content.split('\n');
-            
-            // 数值正则：支持各种数值格式，包括科学计数法
-            const numberRegex = /[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/;
-            
-            lines.forEach((line) => {
-              // 查找关键词（忽略大小写）
-              const keywordIndex = line.toLowerCase().indexOf(keyword.toLowerCase());
-              if (keywordIndex !== -1) {
-                // 从关键词后开始查找第一个数字
-                const afterKeyword = line.substring(keywordIndex + keyword.length);
-                const numberMatch = afterKeyword.match(numberRegex);
-                
-                if (numberMatch) {
-                  const value = parseFloat(numberMatch[0]);
-                  if (!isNaN(value)) {
-                    results.push(value);
-                  }
-                }
-              }
-            });
-            
-            return results;
-          };
-          
-          const gradNormValues = extractByKeyword(file.content, fileGradNormConfig.keyword);
-          gradNormValues.forEach((value, index) => {
-            if (!isNaN(value)) {
-              gradNormData.push({ x: index, y: value });
-            }
-          });
-        } else {
-          // 正则表达式匹配
-          const gradNormRegexObj = new RegExp(fileGradNormConfig.regex);
-          lines.forEach((line) => {
-            gradNormRegexObj.lastIndex = 0;
-            const gradNormMatch = gradNormRegexObj.exec(line);
-            if (gradNormMatch && gradNormMatch[1]) {
-              const value = parseFloat(gradNormMatch[1]);
-              if (!isNaN(value)) {
-                gradNormData.push({ x: gradNormData.length, y: value });
-              }
-            }
-          });
-        }
-
-        // 处理其他自定义指标
-        if (Array.isArray(file.config?.others)) {
-          file.config.others.forEach(metric => {
-            let values = [];
-            if (metric.mode === 'keyword') {
-              values = extractByKeyword(file.content, metric.keyword);
-            } else {
-              const regexObj = new RegExp(metric.regex);
-              lines.forEach(line => {
-                regexObj.lastIndex = 0;
-                const match = regexObj.exec(line);
-                if (match && match[1]) {
-                  const value = parseFloat(match[1]);
-                  if (!isNaN(value)) {
-                    values.push(value);
-                  }
-                }
-              });
-            }
-            otherMetricData[metric.name || metric.keyword] = values.map((v, i) => ({ x: i, y: v }));
-          });
-        }
-      } catch (error) {
-        console.error('Regex error:', error);
-      }
-
-      // 应用数据范围过滤
-      const dataRange = file.config?.dataRange;
-      if (dataRange && (dataRange.start > 0 || dataRange.end !== undefined)) {
-        const applyRangeFilter = (data) => {
-          if (data.length === 0) return data;
-          
-          const start = Math.max(0, parseInt(dataRange.start) || 0);
-          const end = dataRange.end !== undefined ? parseInt(dataRange.end) : data.length;
-          
-          // 验证范围有效性
-          if (start >= data.length || (end !== undefined && start >= end)) {
-            console.warn(`Invalid range for file ${file.name}: start=${start}, end=${end}, length=${data.length}`);
-            return data; // 返回原始数据
           }
-          
-          // 切片数据（start到end，不包含end）
-          const endIndex = Math.min(data.length, end);
-          const slicedData = data.slice(start, endIndex);
-          
-          return slicedData;
-        };
-        
-        const reindexData = (data) => data.map((point, index) => ({ x: index, y: point.y }));
-
-        const filteredLossData = applyRangeFilter(lossData);
-        const filteredGradNormData = applyRangeFilter(gradNormData);
-        const filteredOthers = {};
-        Object.entries(otherMetricData).forEach(([key, data]) => {
-          filteredOthers[key] = reindexData(applyRangeFilter(data));
         });
-        
-        return {
-          ...file,
-          lossData: reindexData(filteredLossData),
-          gradNormData: reindexData(filteredGradNormData),
-          othersData: filteredOthers
+        return results;
+      };
+
+      metrics.forEach(metric => {
+        let values = [];
+        if (metric.mode === 'keyword') {
+          values = extractByKeyword(file.content, metric.keyword);
+        } else if (metric.regex) {
+          const reg = new RegExp(metric.regex);
+          lines.forEach(line => {
+            reg.lastIndex = 0;
+            const m = reg.exec(line);
+            if (m && m[1]) {
+              const v = parseFloat(m[1]);
+              if (!isNaN(v)) values.push(v);
+            }
+          });
+        }
+        metricsData[metric.name || metric.keyword] = values.map((v, i) => ({ x: i, y: v }));
+      });
+
+      const range = file.config?.dataRange;
+      if (range && (range.start > 0 || range.end !== undefined)) {
+        const applyRange = data => {
+          if (data.length === 0) return data;
+          const start = Math.max(0, parseInt(range.start) || 0);
+          const end = range.end !== undefined ? parseInt(range.end) : data.length;
+          const endIndex = Math.min(data.length, end);
+          return data.slice(start, endIndex);
         };
+        const reindex = data => data.map((p, idx) => ({ x: idx, y: p.y }));
+        Object.keys(metricsData).forEach(k => {
+          metricsData[k] = reindex(applyRange(metricsData[k]));
+        });
       }
 
-      return { ...file, lossData, gradNormData, othersData: otherMetricData };
+      return { ...file, metricsData };
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [files, lossRegex, gradNormRegex, otherConfigs]);
+  }, [files, metrics]);
 
   useEffect(() => {
-    const maxStep = parsedData.reduce((max, file) => {
-        const maxLoss = file.lossData.length > 0 ? file.lossData[file.lossData.length - 1].x : 0;
-        const maxGrad = file.gradNormData.length > 0 ? file.gradNormData[file.gradNormData.length - 1].x : 0;
-        const otherMax = Object.values(file.othersData || {}).reduce((m, data) => Math.max(m, data.length > 0 ? data[data.length - 1].x : 0), 0);
-        return Math.max(max, maxLoss, maxGrad, otherMax);
+    const maxStep = parsedData.reduce((m, f) => {
+      const localMax = Object.values(f.metricsData).reduce((mm, d) => Math.max(mm, d.length > 0 ? d[d.length - 1].x : 0), 0);
+      return Math.max(m, localMax);
     }, 0);
     onMaxStepChange(maxStep);
   }, [parsedData, onMaxStepChange]);
 
+  const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f97316'];
+  const createChartData = dataArray => ({
+    datasets: dataArray.map((item, index) => {
+      const color = colors[index % colors.length];
+      return {
+        label: item.name?.replace(/\.(log|txt)$/i, '') || `File ${index + 1}`,
+        data: item.data,
+        borderColor: color,
+        backgroundColor: `${color}33`,
+        borderWidth: 2,
+        fill: false,
+        tension: 0,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointBackgroundColor: color,
+        pointBorderColor: color,
+        pointBorderWidth: 1,
+        pointHoverBackgroundColor: color,
+        pointHoverBorderColor: color,
+        pointHoverBorderWidth: 1,
+        animation: false,
+        animations: { colors: false, x: false, y: false },
+      };
+    })
+  });
 
   const getComparisonData = (data1, data2, mode) => {
     const minLength = Math.min(data1.length, data2.length);
     const result = [];
-
     for (let i = 0; i < minLength; i++) {
-      const val1 = data1[i].y;
-      const val2 = data2[i].y;
+      const v1 = data1[i].y;
+      const v2 = data2[i].y;
       let diff;
-
       switch (mode) {
         case 'absolute':
-          diff = Math.abs(val2 - val1);
+          diff = Math.abs(v2 - v1);
           break;
         case 'relative': {
-          // 相对误差：先计算绝对差值，再计算相对误差（不使用百分号）
-          const absoluteDiff = Math.abs(val2 - val1);
-          diff = val1 !== 0 ? absoluteDiff / Math.abs(val1) : 0;
+          const ad = Math.abs(v2 - v1);
+          diff = v1 !== 0 ? ad / Math.abs(v1) : 0;
           break;
         }
-        default: // normal
-          diff = val2 - val1;
+        default:
+          diff = v2 - v1;
       }
-
       result.push({ x: i, y: diff });
     }
-
     return result;
-  };
-
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    animation: {
-      duration: 0, // 禁用默认动画
-    },
-    animations: {
-      // 禁用所有动画，包括hover动画
-      colors: false,
-      x: false,
-      y: false,
-    },
-    hover: {
-      animationDuration: 0, // 禁用hover动画
-    },
-    responsiveAnimationDuration: 0, // 禁用响应式动画
-    interaction: {
-      mode: 'index',
-      intersect: false,
-    },
-    plugins: {
-      zoom: {
-        pan: {
-          enabled: true,
-          mode: 'x',
-          onPanComplete: ({chart}) => {
-            const {min, max} = chart.scales.x;
-            onXRangeChange({min: Math.round(min), max: Math.round(max)});
-          }
-        },
-        zoom: {
-          drag: {
-            enabled: true,
-            borderColor: 'rgba(225,225,225,0.2)',
-            borderWidth: 1,
-            backgroundColor: 'rgba(225,225,225,0.2)',
-            modifierKey: 'shift',
-          },
-          wheel: {
-            enabled: true,
-          },
-          pinch: {
-            enabled: true
-          },
-          mode: 'x',
-          onZoomComplete: ({chart}) => {
-            const {min, max} = chart.scales.x;
-            onXRangeChange({min: Math.round(min), max: Math.round(max)});
-          }
-        }
-      },
-      legend: {
-        position: 'top',
-        labels: {
-          boxWidth: 40,
-          boxHeight: 2,
-          padding: 10,
-          usePointStyle: false,
-          generateLabels: function(chart) {
-            const original = Chart.defaults.plugins.legend.labels.generateLabels;
-            const labels = original.call(this, chart);
-            
-            labels.forEach((label, index) => {
-              const dataset = chart.data.datasets[index];
-              if (dataset && dataset.borderDash && dataset.borderDash.length > 0) {
-                label.lineDash = dataset.borderDash;
-              }
-            });
-            
-            return labels;
-          }
-        },
-      },
-      tooltip: {
-        mode: 'index',
-        intersect: false,
-        animation: false, // 禁用tooltip动画
-        backgroundColor: 'rgba(15, 23, 42, 0.92)',
-        titleColor: '#f1f5f9',
-        bodyColor: '#cbd5e1',
-        borderColor: 'rgba(71, 85, 105, 0.2)',
-        borderWidth: 1,
-        cornerRadius: 6,
-        displayColors: true,
-        usePointStyle: true,
-        titleFont: {
-          size: 11,
-          weight: '600',
-          family: 'Inter, system-ui, sans-serif'
-        },
-        bodyFont: {
-          size: 10,
-          weight: '400',
-          family: 'Inter, system-ui, sans-serif'
-        },
-        footerFont: {
-          size: 9,
-          weight: '300'
-        },
-        padding: {
-          top: 6,
-          bottom: 6,
-          left: 8,
-          right: 8
-        },
-        caretPadding: 4,
-        caretSize: 4,
-        multiKeyBackground: 'transparent',
-        callbacks: {
-          title: function(context) {
-            return `Step ${context[0].parsed.x}`;
-          },
-          label: function(context) {
-            const value = Number(context.parsed.y.toPrecision(4));
-            return ` ${value}`;
-          },
-          labelColor: function(context) {
-            return {
-              borderColor: context.dataset.borderColor,
-              backgroundColor: context.dataset.borderColor,
-              borderWidth: 1,
-              borderRadius: 2
-            };
-          }
-        }
-      },
-    },
-    scales: {
-      x: {
-        type: 'linear',
-        display: true,
-        title: {
-          display: true,
-          text: 'Step',
-        },
-        min: xRange.min,
-        max: xRange.max,
-        bounds: 'data'
-      },
-      y: {
-        type: 'linear',
-        display: true,
-        title: {
-          display: true,
-          text: 'Value',
-        },
-        bounds: 'data',
-        ticks: {
-          callback: function(value) {
-            return Number(value.toPrecision(2));
-          },
-        },
-      },
-    },
-    elements: {
-      point: {
-        radius: 0, // 默认不显示数据点
-      },
-    },
-  };
-
-  const colors = [
-    '#ef4444', // red
-    '#3b82f6', // blue
-    '#10b981', // green
-    '#f59e0b', // yellow
-    '#8b5cf6', // purple
-    '#f97316', // orange
-  ];
-
-  const createChartData = (dataArray) => {
-    const datasets = [];
-
-    dataArray.forEach((item, index) => {
-      const color = colors[index % colors.length];
-
-      datasets.push({
-        label: `${item.name?.replace(/\.(log|txt)$/i, '') || `File ${index + 1}`}`,
-        data: item.data,
-        borderColor: color,
-        backgroundColor: `${color}33`, // Add transparency
-        borderWidth: 2,
-        fill: false,
-        tension: 0, // 设置 tension 为 0，绘制直线段
-        pointRadius: 0, // 默认不显示数据点
-        pointHoverRadius: 4, // hover时显示实心圆点，半径为4
-        pointBackgroundColor: color, // 设置点的背景色
-        pointBorderColor: color, // 设置点的边框色
-        pointBorderWidth: 1, // 设置点的边框宽度
-        pointHoverBackgroundColor: color, // hover时的背景色
-        pointHoverBorderColor: color, // hover时的边框色
-        pointHoverBorderWidth: 1, // hover时的边框宽度
-        // 禁用所有动画，确保响应迅速
-        animation: false,
-        animations: {
-          colors: false,
-          x: false,
-          y: false,
-        },
-      });
-    });
-
-    return {
-      datasets,
-    };
   };
 
   const createComparisonChartData = (item1, item2, title) => {
     const comparisonData = getComparisonData(item1.data, item2.data, compareMode);
-    const baseline = compareMode === 'relative' ? relativeBaseline : 
-                    compareMode === 'absolute' ? absoluteBaseline : 0;
-    
+    const baseline = compareMode === 'relative' ? relativeBaseline : compareMode === 'absolute' ? absoluteBaseline : 0;
     const datasets = [
       {
         label: `${title} 差值`,
@@ -619,55 +225,42 @@ export default function ChartContainer({
         backgroundColor: '#dc2626',
         borderWidth: 2,
         fill: false,
-        tension: 0, // 设置 tension 为 0，绘制直线段
-        pointRadius: 0, // 默认不显示数据点
-        pointHoverRadius: 4, // hover时显示实心圆点
-        pointBackgroundColor: '#dc2626', // 设置点的背景色
-        pointBorderColor: '#dc2626', // 设置点的边框色
-        pointBorderWidth: 1, // 设置点的边框宽度
-        pointHoverBackgroundColor: '#dc2626', // hover时的背景色
-        pointHoverBorderColor: '#dc2626', // hover时的边框色
-        pointHoverBorderWidth: 1, // hover时的边框宽度
-        // 禁用所有动画，确保响应迅速
+        tension: 0,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointBackgroundColor: '#dc2626',
+        pointBorderColor: '#dc2626',
+        pointBorderWidth: 1,
+        pointHoverBackgroundColor: '#dc2626',
+        pointHoverBorderColor: '#dc2626',
+        pointHoverBorderWidth: 1,
         animation: false,
-        animations: {
-          colors: false,
-          x: false,
-          y: false,
-        },
-      }
+        animations: { colors: false, x: false, y: false },
+      },
     ];
-
-    // Add baseline if it's not zero and we're in relative or absolute mode
     if (baseline > 0 && (compareMode === 'relative' || compareMode === 'absolute')) {
-      const baselineData = comparisonData.map(point => ({ x: point.x, y: baseline }));
+      const baselineData = comparisonData.map(p => ({ x: p.x, y: baseline }));
       datasets.push({
-          label: `Baseline`,
-          data: baselineData,
-          borderColor: '#10b981',
-          backgroundColor: '#10b981',
-          borderWidth: 2,
-          borderDash: [5, 5],
-          fill: false,
-          tension: 0,
-          pointRadius: 0, // 默认不显示数据点
-          pointHoverRadius: 4, // hover时显示实心圆点
-          pointBackgroundColor: '#10b981', // 设置点的背景色
-          pointBorderColor: '#10b981', // 设置点的边框色
-          pointBorderWidth: 1, // 设置点的边框宽度
-          pointHoverBackgroundColor: '#10b981', // hover时的背景色
-          pointHoverBorderColor: '#10b981', // hover时的边框色
-          pointHoverBorderWidth: 1, // hover时的边框宽度
-          // 禁用所有动画，确保响应迅速
-          animation: false,
-          animations: {
-            colors: false,
-            x: false,
-            y: false,
-          },
-        });
+        label: 'Baseline',
+        data: baselineData,
+        borderColor: '#10b981',
+        backgroundColor: '#10b981',
+        borderWidth: 2,
+        borderDash: [5, 5],
+        fill: false,
+        tension: 0,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointBackgroundColor: '#10b981',
+        pointBorderColor: '#10b981',
+        pointBorderWidth: 1,
+        pointHoverBackgroundColor: '#10b981',
+        pointHoverBorderColor: '#10b981',
+        pointHoverBorderWidth: 1,
+        animation: false,
+        animations: { colors: false, x: false, y: false },
+      });
     }
-    
     return { datasets };
   };
 
@@ -682,240 +275,73 @@ export default function ChartContainer({
     );
   }
 
-  // 检查是否有任何图表可以显示
-  if (!showLoss && !showGradNorm) {
+  const metricNames = metrics.map(m => m.name || m.keyword);
+  const metricDataArrays = {};
+  metricNames.forEach(name => {
+    metricDataArrays[name] = parsedData
+      .filter(file => file.metricsData[name] && file.metricsData[name].length > 0)
+      .map(file => ({ name: file.name, data: file.metricsData[name] }));
+  });
+
+  const metricsToShow = metrics.filter((m, idx) => {
+    if (idx === 0) return showLoss;
+    if (idx === 1) return showGradNorm;
+    return true;
+  });
+
+  if (metricsToShow.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow-md p-8">
         <div className="text-center text-gray-500">
-          <div className="mb-4">
-            <svg className="mx-auto h-16 w-16 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-          </div>
           <p className="text-lg mb-2 font-medium">🎯 请选择要显示的图表</p>
-          <p className="text-sm">👈 在左侧显示选项中勾选 "显示 Loss 函数" 或 "显示 Grad Norm"</p>
         </div>
       </div>
     );
   }
 
-  const lossDataArray = parsedData
-    .filter(file => file.lossData && file.lossData.length > 0)
-    .map(file => ({ name: file.name, data: file.lossData }));
-
-  const gradNormDataArray = parsedData
-    .filter(file => file.gradNormData && file.gradNormData.length > 0)
-    .map(file => ({ name: file.name, data: file.gradNormData }));
-
-  const otherMetricKeys = otherConfigs.map(c => c.name || c.keyword);
-  const otherDataArrays = {};
-  otherMetricKeys.forEach(key => {
-    otherDataArrays[key] = parsedData
-      .filter(file => file.othersData && file.othersData[key] && file.othersData[key].length > 0)
-      .map(file => ({ name: file.name, data: file.othersData[key] }));
-  });
-
-  // 计算显示的图表数量来决定布局
-  const enabledFiles = files.filter(file => file.enabled !== false);
-  const showingLossCharts = showLoss && lossDataArray.length > 0;
-  const showingGradNormCharts = showGradNorm && gradNormDataArray.length > 0;
-  const showingLossComparison = showLoss && enabledFiles.length === 2 && lossDataArray.length === 2;
-  const showingGradNormComparison = showGradNorm && enabledFiles.length === 2 && gradNormDataArray.length === 2;
-  
-  // 计算实际显示的图表列数（不是图表总数）
-  const showingLossColumn = showingLossCharts || showingLossComparison;
-  const showingGradNormColumn = showingGradNormCharts || showingGradNormComparison;
-  const columnsShowing = (showingLossColumn ? 1 : 0) + (showingGradNormColumn ? 1 : 0);
-  
-  // 动态决定布局：如果只显示一列，使用全宽；否则使用两列
-  const useFullWidth = columnsShowing <= 1;
-  const gridCols = useFullWidth ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2';
-
   return (
-    <div className={`grid ${gridCols} gap-3`}>
-      {/* Loss Charts Column */}
-      {(showingLossCharts || showingLossComparison) && (
-        <div className="space-y-3">
-          {showingLossCharts && (
-            <ResizablePanel title="📉 Loss Function" initialHeight={440}>
-              <ChartWrapper
-                chartId="loss-main"
-                onRegisterChart={registerChart}
-                onSyncHover={syncHoverToAllCharts}
-                data={createChartData(lossDataArray)}
-                options={{
-                  ...chartOptions,
-                  scales: {
-                    ...chartOptions.scales,
-                    y: {
-                      ...chartOptions.scales.y,
-                      title: {
-                        display: true,
-                        text: 'Loss Value',
-                      },
-                    },
-                  },
-                }}
-              />
-            </ResizablePanel>
-          )}
-
-          {/* Loss Comparison Chart (for 2 files) */}
-          {showingLossComparison && (
-            <ResizablePanel title={`⚖️ Loss 对比分析 (${compareMode})`} initialHeight={440}>
-              <ChartWrapper
-                chartId="loss-comparison"
-                onRegisterChart={registerChart}
-                onSyncHover={syncHoverToAllCharts}
-                data={createComparisonChartData(lossDataArray[0], lossDataArray[1], 'Loss')}
-                options={{
-                  ...chartOptions,
-                  scales: {
-                    ...chartOptions.scales,
-                    y: {
-                      ...chartOptions.scales.y,
-                      title: {
-                        display: true,
-                        text: compareMode === 'relative' ? 'Relative Error' : 'Loss Difference',
-                      },
-                    },
-                  },
-                }}
-              />
-            </ResizablePanel>
-          )}
-        </div>
-      )}
-
-      {/* Grad Norm Charts Column */}
-      {(showingGradNormCharts || showingGradNormComparison) && (
-        <div className="space-y-3">
-          {showingGradNormCharts && (
-            <ResizablePanel title="📈 Gradient Norm" initialHeight={440}>
-              <ChartWrapper
-                chartId="gradnorm-main"
-                onRegisterChart={registerChart}
-                onSyncHover={syncHoverToAllCharts}
-                data={createChartData(gradNormDataArray)}
-                options={{
-                  ...chartOptions,
-                  scales: {
-                    ...chartOptions.scales,
-                    y: {
-                      ...chartOptions.scales.y,
-                      title: {
-                        display: true,
-                        text: 'Grad Norm Value',
-                      },
-                    },
-                  },
-                }}
-              />
-            </ResizablePanel>
-          )}
-
-          {/* Grad Norm Comparison Chart (for 2 files) */}
-          {showingGradNormComparison && (
-            <ResizablePanel title={`⚖️ Grad Norm 对比分析 (${compareMode})`} initialHeight={440}>
-              <ChartWrapper
-                chartId="gradnorm-comparison"
-                onRegisterChart={registerChart}
-                onSyncHover={syncHoverToAllCharts}
-                data={createComparisonChartData(gradNormDataArray[0], gradNormDataArray[1], 'Grad Norm')}
-                options={{
-                  ...chartOptions,
-                  scales: {
-                    ...chartOptions.scales,
-                    y: {
-                      ...chartOptions.scales.y,
-                      title: {
-                        display: true,
-                        text: compareMode === 'relative' ? 'Relative Error' : 'Grad Norm Difference',
-                      },
-                    },
-                  },
-                }}
-              />
-            </ResizablePanel>
-          )}
-        </div>
-      )}
-
-      {/* Statistics for comparison - spans all columns when showing both types */}
-      {enabledFiles.length === 2 && (showingLossComparison || showingGradNormComparison) && (
-        <div className={`${useFullWidth ? '' : 'lg:col-span-2'} bg-white rounded-lg shadow-md p-3`}>
-          <h3 className="text-base font-semibold text-gray-800 mb-2">差值分析统计</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {showingLossComparison && (
-              <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-1">Loss 差值统计</h4>
-                <div className="space-y-1 text-xs">
-                  {(() => {
-                    const normalDiff = getComparisonData(lossDataArray[0], lossDataArray[1], 'normal');
-                    const absoluteDiff = getComparisonData(lossDataArray[0], lossDataArray[1], 'absolute');
-                    const relativeDiff = getComparisonData(lossDataArray[0], lossDataArray[1], 'relative');
-                    
-                    const meanNormal = normalDiff.reduce((sum, p) => sum + p.y, 0) / normalDiff.length;
-                    const meanAbsolute = absoluteDiff.reduce((sum, p) => sum + p.y, 0) / absoluteDiff.length;
-                    const meanRelative = relativeDiff.reduce((sum, p) => sum + p.y, 0) / relativeDiff.length;
-                    
-                    return (
-                      <>
-                        <p>Mean Difference: {meanNormal.toFixed(6)}</p>
-                        <p>Mean Absolute Error: {meanAbsolute.toFixed(6)}</p>
-                        <p>Mean Relative Error: {meanRelative.toFixed(6)}</p>
-                      </>
-                    );
-                  })()}
-                </div>
-              </div>
-            )}
-            {showingGradNormComparison && (
-              <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-1">Grad Norm 差值统计</h4>
-                <div className="space-y-1 text-xs">
-                  {(() => {
-                    const normalDiff = getComparisonData(gradNormDataArray[0], gradNormDataArray[1], 'normal');
-                    const absoluteDiff = getComparisonData(gradNormDataArray[0], gradNormDataArray[1], 'absolute');
-                    const relativeDiff = getComparisonData(gradNormDataArray[0], gradNormDataArray[1], 'relative');
-                    
-                    const meanNormal = normalDiff.reduce((sum, p) => sum + p.y, 0) / normalDiff.length;
-                    const meanAbsolute = absoluteDiff.reduce((sum, p) => sum + p.y, 0) / absoluteDiff.length;
-                    const meanRelative = relativeDiff.reduce((sum, p) => sum + p.y, 0) / relativeDiff.length;
-                    
-                    return (
-                      <>
-                        <p>Mean Difference: {meanNormal.toFixed(6)}</p>
-                        <p>Mean Absolute Error: {meanAbsolute.toFixed(6)}</p>
-                        <p>Mean Relative Error: {meanRelative.toFixed(6)}</p>
-                      </>
-                    );
-                  })()}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-      {otherMetricKeys.length > 0 && (
-        <div className="col-span-full overflow-x-auto">
-          <div className="flex gap-3 w-max">
-            {otherMetricKeys.map((key, idx) => (
-              <div key={key} className="w-96">
-                <ResizablePanel title={key} initialHeight={440}>
+    <div className="overflow-x-auto">
+      <div className="flex gap-3 w-max">
+        {metricsToShow.map((metric, idx) => {
+          const key = metric.name || metric.keyword || `metric${idx+1}`;
+          const dataArray = metricDataArrays[key] || [];
+          const showComparison = dataArray.length === 2;
+          return (
+            <div key={key} className="w-96 flex flex-col gap-3">
+              <ResizablePanel title={key} initialHeight={440}>
+                <ChartWrapper
+                  chartId={`metric-${idx}`}
+                  onRegisterChart={registerChart}
+                  onSyncHover={syncHoverToAllCharts}
+                  data={createChartData(dataArray)}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { x: { type: 'linear' } },
+                    plugins: { zoom: { zoom: { enabled: false }, pan: { enabled: false } } }
+                  }}
+                />
+              </ResizablePanel>
+              {showComparison && (
+                <ResizablePanel title={`⚖️ ${key} 对比分析 (${compareMode})`} initialHeight={440}>
                   <ChartWrapper
-                    chartId={`other-${idx}`}
+                    chartId={`metric-comp-${idx}`}
                     onRegisterChart={registerChart}
                     onSyncHover={syncHoverToAllCharts}
-                    data={createChartData(otherDataArrays[key])}
-                    options={chartOptions}
+                    data={createComparisonChartData(dataArray[0], dataArray[1], key)}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      scales: { x: { type: 'linear' } },
+                      plugins: { zoom: { zoom: { enabled: false }, pan: { enabled: false } } }
+                    }}
                   />
                 </ResizablePanel>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
