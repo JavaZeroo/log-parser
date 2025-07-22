@@ -219,8 +219,13 @@ export default function ChartContainer({
     let max = -Infinity;
     dataArray.forEach(item => {
       item.data.forEach(point => {
-        if (point.y < min) min = point.y;
-        if (point.y > max) max = point.y;
+        const inRange =
+          (xRange.min === undefined || point.x >= xRange.min) &&
+          (xRange.max === undefined || point.x <= xRange.max);
+        if (inRange) {
+          if (point.y < min) min = point.y;
+          if (point.y > max) max = point.y;
+        }
       });
     });
     if (min === Infinity || max === -Infinity) {
@@ -231,7 +236,7 @@ export default function ChartContainer({
     }
     const pad = (max - min) * 0.05;
     return { min: min - pad, max: max + pad };
-  }, []);
+  }, [xRange]);
 
   const chartOptions = useMemo(() => ({
     responsive: true,
