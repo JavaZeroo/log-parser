@@ -5,6 +5,11 @@ import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Use a relative base path so the built site works
+  // when deployed to subfolders such as PR previews.
+  // This still works for the main site hosted at the
+  // repository root.
+  base: './',
   plugins: [react()],
   build: {
     outDir: 'dist',
