@@ -164,7 +164,17 @@ export default function ChartContainer({
     onMaxStepChange(maxStep);
   }, [parsedData, onMaxStepChange]);
 
-  const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f97316'];
+  // Color-blind friendly palette for chart lines
+  const colors = [
+    '#377eb8',
+    '#e41a1c',
+    '#4daf4a',
+    '#984ea3',
+    '#ff7f00',
+    '#ffff33',
+    '#a65628',
+    '#f781bf'
+  ];
   const createChartData = dataArray => ({
     datasets: dataArray.map((item, index) => {
       const color = colors[index % colors.length];
@@ -175,9 +185,11 @@ export default function ChartContainer({
         backgroundColor: `${color}33`,
         borderWidth: 2,
         fill: false,
-        tension: 0,
+        tension: 0.3,
+        cubicInterpolationMode: 'monotone',
+        borderDash: index % 2 ? [4, 3] : [],
         pointRadius: 0,
-        pointHoverRadius: 4,
+        pointHoverRadius: 5,
         pointBackgroundColor: color,
         pointBorderColor: color,
         pointBorderWidth: 1,
@@ -371,9 +383,10 @@ export default function ChartContainer({
         backgroundColor: '#dc2626',
         borderWidth: 2,
         fill: false,
-        tension: 0,
+        tension: 0.3,
+        cubicInterpolationMode: 'monotone',
         pointRadius: 0,
-        pointHoverRadius: 4,
+        pointHoverRadius: 5,
         pointBackgroundColor: '#dc2626',
         pointBorderColor: '#dc2626',
         pointBorderWidth: 1,
@@ -394,9 +407,10 @@ export default function ChartContainer({
         borderWidth: 2,
         borderDash: [5, 5],
         fill: false,
-        tension: 0,
+        tension: 0.3,
+        cubicInterpolationMode: 'monotone',
         pointRadius: 0,
-        pointHoverRadius: 4,
+        pointHoverRadius: 5,
         pointBackgroundColor: '#10b981',
         pointBorderColor: '#10b981',
         pointBorderWidth: 1,

@@ -17,6 +17,16 @@
     border: 0;
   }
 
+  html,
+  body,
+  #root {
+    @apply w-full min-h-screen;
+  }
+
+  body {
+    @apply font-sans bg-gray-50 text-gray-800 antialiased;
+  }
+
   /* Focus styles for better keyboard navigation */
   :focus {
     outline: 2px solid #3b82f6;
