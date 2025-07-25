@@ -17,6 +17,12 @@
     border: 0;
   }
 
+  html,
+  body,
+  #root {
+    @apply w-full min-h-screen;
+  }
+
   body {
     @apply font-sans bg-gray-50 text-gray-800 antialiased;
   }
