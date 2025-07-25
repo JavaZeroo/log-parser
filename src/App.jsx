@@ -242,7 +242,7 @@ function App() {
         </button>
       )}
 
-      <div className="w-full max-w-screen-xl mx-auto px-3 py-3">
+      <div className="w-full px-3 py-3">
 
         <main
           id="main-content"

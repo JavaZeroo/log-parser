@@ -164,7 +164,17 @@ export default function ChartContainer({
     onMaxStepChange(maxStep);
   }, [parsedData, onMaxStepChange]);
 
-  const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f97316'];
+  // More distinct pastel-like colors for better readability
+  const colors = [
+    '#2563eb',
+    '#16a34a',
+    '#dc2626',
+    '#f59e0b',
+    '#7c3aed',
+    '#0e7490',
+    '#d946ef',
+    '#fb7185'
+  ];
   const createChartData = dataArray => ({
     datasets: dataArray.map((item, index) => {
       const color = colors[index % colors.length];
