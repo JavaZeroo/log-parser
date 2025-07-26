@@ -7,6 +7,7 @@ import { ComparisonControls } from './components/ComparisonControls';
 import { Header } from './components/Header';
 import { FileConfigModal } from './components/FileConfigModal';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { mergeFilesWithReplacement } from './utils/mergeFiles.js';
 
 function App() {
   const [uploadedFiles, setUploadedFiles] = useState([]);
@@ -54,7 +55,7 @@ function App() {
         }
       }
     }));
-    setUploadedFiles(prev => [...prev, ...filesWithDefaults]);
+    setUploadedFiles(prev => mergeFilesWithReplacement(prev, filesWithDefaults));
   }, [globalParsingConfig]);
 
   // 全局文件处理函数
