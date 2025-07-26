@@ -13,6 +13,7 @@ import {
   Legend,
 } from 'chart.js';
 import zoomPlugin from 'chartjs-plugin-zoom';
+import { getMinSteps } from "../utils/getMinSteps.js";
 
 ChartJS.register(
   CategoryScale,
@@ -163,6 +164,17 @@ export default function ChartContainer({
     }, 0);
     onMaxStepChange(maxStep);
   }, [parsedData, onMaxStepChange]);
+
+  useEffect(() => {
+    const minSteps = getMinSteps(parsedData);
+    if (minSteps > 0) {
+      onXRangeChange(prev => {
+        const next = { min: 0, max: minSteps - 1 };
+        if (prev.min === next.min && prev.max === next.max) return prev;
+        return next;
+      });
+    }
+  }, [parsedData, onXRangeChange]);
 
   const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f97316'];
   const createChartData = dataArray => ({
