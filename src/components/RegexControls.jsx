@@ -412,7 +412,7 @@ export function RegexControls({
   };
 
   return (
-    <section className="bg-white rounded-lg shadow-md p-3" aria-labelledby="regex-controls-heading">
+    <section className="bg-white rounded-lg shadow-md p-3 fade-slide-in" aria-labelledby="regex-controls-heading">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Settings 

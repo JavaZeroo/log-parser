@@ -4,7 +4,7 @@ import { FileText, X, Settings } from 'lucide-react';
 export function FileList({ files, onFileRemove, onFileToggle, onFileConfig }) {
   if (files.length === 0) {
     return (
-      <section className="bg-white rounded-lg shadow-md p-3" aria-labelledby="file-list-heading">
+      <section className="bg-white rounded-lg shadow-md p-3 fade-slide-in" aria-labelledby="file-list-heading">
         <h3 
           id="file-list-heading"
           className="text-base font-semibold text-gray-800 mb-2"
@@ -19,7 +19,7 @@ export function FileList({ files, onFileRemove, onFileToggle, onFileConfig }) {
   }
 
   return (
-    <section className="bg-white rounded-lg shadow-md p-3" aria-labelledby="file-list-heading">
+    <section className="bg-white rounded-lg shadow-md p-3 fade-slide-in" aria-labelledby="file-list-heading">
       <h3 
         id="file-list-heading"
         className="text-base font-semibold text-gray-800 mb-2"

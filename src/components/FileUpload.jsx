@@ -63,7 +63,7 @@ export function FileUpload({ onFilesUploaded }) {
   }, [processFiles]);
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-3">
+    <div className="bg-white rounded-lg shadow-md p-3 fade-slide-in">
       <h3 
         id="file-upload-heading"
         className="text-base font-semibold text-gray-800 mb-2"

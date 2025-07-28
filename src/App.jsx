@@ -257,7 +257,7 @@ function App() {
               aria-label="控制面板"
             >
               {/* 标题信息 */}
-              <div className="bg-white rounded-lg shadow-md p-3">
+              <div className="bg-white rounded-lg shadow-md p-3 fade-slide-in">
               <div className="flex items-center gap-2 mb-2">
                 <div className="p-2 bg-blue-100 rounded-lg">
                   <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -328,7 +328,7 @@ function App() {
               />
             )}
 
-            <section className="bg-white rounded-lg shadow-md p-3" aria-labelledby="display-options-heading">
+            <section className="bg-white rounded-lg shadow-md p-3 fade-slide-in" aria-labelledby="display-options-heading">
               <h3 
                 id="display-options-heading"
                 className="text-base font-semibold text-gray-800 mb-2"

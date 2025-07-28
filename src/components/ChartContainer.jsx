@@ -424,7 +424,7 @@ export default function ChartContainer({
 
   if (parsedData.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-8">
+      <div className="bg-white rounded-lg shadow-md p-8 fade-slide-in">
         <div className="text-center text-gray-500">
           <p className="text-lg mb-2">📊 暂无数据</p>
           <p>📁 请上传日志文件开始分析</p>
@@ -451,7 +451,7 @@ export default function ChartContainer({
 
   if (metrics.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-8">
+      <div className="bg-white rounded-lg shadow-md p-8 fade-slide-in">
         <div className="text-center text-gray-500">
           <p className="text-lg mb-2 font-medium">🎯 请选择要显示的图表</p>
         </div>
@@ -523,7 +523,7 @@ export default function ChartContainer({
         </ResizablePanel>
         {comparisonChart}
         {stats && (
-          <div className="bg-white rounded-lg shadow-md p-3">
+          <div className="bg-white rounded-lg shadow-md p-3 fade-slide-in">
             <h4 className="text-sm font-medium text-gray-700 mb-1">{key} 差值统计</h4>
             <div className="space-y-1 text-xs">
               <p>Mean Difference: {stats.meanNormal.toFixed(6)}</p>

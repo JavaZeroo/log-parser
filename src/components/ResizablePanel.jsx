@@ -42,9 +42,9 @@ export function ResizablePanel({ children, title, initialHeight = 440, minHeight
   }, [height]);
 
   return (
-    <section 
+    <section
       ref={panelRef}
-      className="chart-panel p-3"
+      className="chart-panel p-3 fade-slide-in"
       style={{ height: `${height}px` }}
       aria-labelledby={`panel-title-${title.replace(/\s+/g, '-').toLowerCase()}`}
     >

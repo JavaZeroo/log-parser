@@ -247,6 +247,28 @@ input[type="checkbox"]:focus {
   }
 }
 
+/* 通用元素入场动画 */
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-slide-in {
+  animation: fadeSlideIn 0.4s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-slide-in {
+    animation: none !important;
+  }
+}
+
 /* 渐变文字动画 */
 @keyframes gradientShift {
   0%, 100% {

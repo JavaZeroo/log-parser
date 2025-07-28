@@ -12,7 +12,7 @@ export function ComparisonControls({
   ];
 
   return (
-    <section className="bg-white rounded-lg shadow-md p-3" aria-labelledby="comparison-controls-heading">
+    <section className="bg-white rounded-lg shadow-md p-3 fade-slide-in" aria-labelledby="comparison-controls-heading">
       <div className="flex items-center gap-2 mb-2">
         <BarChart2 
           size={16} 
