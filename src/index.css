@@ -267,3 +267,27 @@ input[type="checkbox"]:focus {
     animation: none !important;
   }
 }
+
+/* 浮动动画，用于图标或按钮的悬停效果 */
+@keyframes floatBounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.float-on-hover {
+  transition: transform 0.3s;
+}
+
+.group:hover .float-on-hover {
+  animation: floatBounce 1.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .group:hover .float-on-hover {
+    animation: none !important;
+  }
+}

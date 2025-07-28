@@ -71,8 +71,10 @@ export function FileUpload({ onFilesUploaded }) {
         📁 文件上传
       </h3>
       <div
-        className={`drag-area border-2 border-dashed rounded-lg p-4 text-center cursor-pointer ${
-          isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
+        className={`group drag-area border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-transform duration-300 ${
+          isDragOver
+            ? 'border-blue-500 bg-blue-50 scale-105 shadow-lg'
+            : 'border-gray-300 hover:border-gray-400 hover:scale-105 hover:shadow-md'
         }`}
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
@@ -90,9 +92,9 @@ export function FileUpload({ onFilesUploaded }) {
           }
         }}
       >
-        <Upload 
-          className="mx-auto mb-2 text-gray-400" 
-          size={32} 
+        <Upload
+          className="mx-auto mb-2 text-gray-400 float-on-hover"
+          size={32}
           aria-hidden="true"
         />
         <p className="text-sm text-gray-600 mb-1">
