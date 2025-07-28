@@ -149,8 +149,8 @@ gradient_norm:\\s*([\\d.eE+-]+)
 - **响应式布局**: 根据图表数量自动调整单列/双列布局
 
 ### 🔬 专业对比分析
-- **三种对比模式**: Normal、Absolute、Relative差值分析
-- **统计指标**: Mean Difference、Mean Absolute Error、Mean Relative Error
+- **四种对比模式**: 平均误差（normal）、平均误差（absolute）、相对误差（normal）、平均相对误差（absolute）
+- **统计指标**: Mean Difference、Mean Absolute Error、Relative Error、Mean Relative Error
 - **基准线设置**: 可配置对比基准线，突出显示显著差异
 - **差值可视化**: 专门的差值图表，清晰展示训练差异
 
