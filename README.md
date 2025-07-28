@@ -42,7 +42,7 @@
 - **📈 Normal模式**: 原始差值分析 (File2 - File1)
 - **📊 Absolute模式**: 绝对差值分析 |File2 - File1|
 - **📉 Relative模式**: 相对差值百分比分析
-- **📋 统计指标**: 详细的Mean Difference、Mean Absolute Error、Mean Relative Error
+- **📋 统计指标**: 详细的平均误差（normal）、平均误差（absolute）、相对误差（normal）、平均相对误差（absolute）
 - **⚖️ 基准线设置**: 可配置相对误差和绝对误差的基准线
 
 ### �️ **灵活的显示控制**
@@ -150,7 +150,7 @@ gradient_norm:\\s*([\\d.eE+-]+)
 
 ### 🔬 专业对比分析
 - **四种对比模式**: 平均误差（normal）、平均误差（absolute）、相对误差（normal）、平均相对误差（absolute）
-- **统计指标**: Mean Difference、Mean Absolute Error、Relative Error、Mean Relative Error
+- **统计指标**: 平均误差（normal）、平均误差（absolute）、相对误差（normal）、平均相对误差（absolute）
 - **基准线设置**: 可配置对比基准线，突出显示显著差异
 - **差值可视化**: 专门的差值图表，清晰展示训练差异
 

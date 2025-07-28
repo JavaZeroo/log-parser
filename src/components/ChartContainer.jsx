@@ -540,10 +540,10 @@ export default function ChartContainer({
           <div className="bg-white rounded-lg shadow-md p-3">
             <h4 className="text-sm font-medium text-gray-700 mb-1">{key} 差值统计</h4>
             <div className="space-y-1 text-xs">
-              <p>Mean Difference: {stats.meanNormal.toFixed(6)}</p>
-              <p>Mean Absolute Error: {stats.meanAbsolute.toFixed(6)}</p>
-              <p>Relative Error: {stats.relativeError.toFixed(6)}</p>
-              <p>Mean Relative Error: {stats.meanRelative.toFixed(6)}</p>
+              <p>平均误差 (normal): {stats.meanNormal.toFixed(6)}</p>
+              <p>平均误差 (absolute): {stats.meanAbsolute.toFixed(6)}</p>
+              <p>相对误差 (normal): {stats.relativeError.toFixed(6)}</p>
+              <p>平均相对误差 (absolute): {stats.meanRelative.toFixed(6)}</p>
             </div>
           </div>
         )}
