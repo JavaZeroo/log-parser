@@ -54,7 +54,11 @@ const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover }) 
   }, [onSyncHover, chartId]);
 
   return (
-    <div onMouseLeave={handleContainerMouseLeave} style={{ width: '100%', height: '100%' }}>
+    <div
+      onMouseLeave={handleContainerMouseLeave}
+      style={{ width: '100%', height: '100%' }}
+      className="fade-slide-in"
+    >
       <Line ref={handleChartRef} data={data} options={enhancedOptions} />
     </div>
   );
@@ -196,8 +200,10 @@ export default function ChartContainer({
         pointHoverBackgroundColor: color,
         pointHoverBorderColor: color,
         pointHoverBorderWidth: 1,
-        animation: false,
-        animations: { colors: false, x: false, y: false },
+        animation: {
+          duration: 500,
+          easing: 'easeOutQuart'
+        },
       };
     })
   });
@@ -253,10 +259,10 @@ export default function ChartContainer({
   const chartOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
-    animation: { duration: 0 },
-    animations: { colors: false, x: false, y: false },
-    hover: { animationDuration: 0 },
-    responsiveAnimationDuration: 0,
+    animation: {
+      duration: 500,
+      easing: 'easeOutQuart'
+    },
     interaction: { mode: 'index', intersect: false },
     plugins: {
       zoom: {
@@ -308,7 +314,6 @@ export default function ChartContainer({
       tooltip: {
         mode: 'index',
         intersect: false,
-        animation: false,
         backgroundColor: 'rgba(15, 23, 42, 0.92)',
         titleColor: '#f1f5f9',
         bodyColor: '#cbd5e1',
@@ -392,8 +397,10 @@ export default function ChartContainer({
         pointHoverBackgroundColor: '#dc2626',
         pointHoverBorderColor: '#dc2626',
         pointHoverBorderWidth: 1,
-        animation: false,
-        animations: { colors: false, x: false, y: false },
+        animation: {
+          duration: 500,
+          easing: 'easeOutQuart'
+        },
       },
     ];
     if (baseline > 0 && (compareMode === 'relative' || compareMode === 'absolute')) {
@@ -415,8 +422,10 @@ export default function ChartContainer({
         pointHoverBackgroundColor: '#10b981',
         pointHoverBorderColor: '#10b981',
         pointHoverBorderWidth: 1,
-        animation: false,
-        animations: { colors: false, x: false, y: false },
+        animation: {
+          duration: 500,
+          easing: 'easeOutQuart'
+        },
       });
     }
     return { datasets };
