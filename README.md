@@ -77,6 +77,7 @@
 2. 在仓库设置中启用 GitHub Pages
 3. 选择 GitHub Actions 作为部署源
 4. 推送代码时将自动触发构建和部署
+5. 部署完成后，可在 `Deploy to GitHub Pages` 工作流中下载自动生成的 `dist.zip` 以进行本地部署
 
 ## 📝 使用指南
 

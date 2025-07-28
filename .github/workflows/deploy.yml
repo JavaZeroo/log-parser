@@ -35,6 +35,15 @@ jobs:
     - name: Build
       run: npm run build
 
+    - name: Package build output
+      run: zip -r dist.zip dist
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: dist-package
+        path: dist.zip
+
     - name: Deploy to GitHub Pages
       uses: JamesIves/github-pages-deploy-action@v4
       with:
