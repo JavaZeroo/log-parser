@@ -13,6 +13,7 @@ import {
   Legend,
 } from 'chart.js';
 import zoomPlugin from 'chartjs-plugin-zoom';
+import { Decimation } from 'chart.js';
 import { getMinSteps } from "../utils/getMinSteps.js";
 
 ChartJS.register(
@@ -23,7 +24,8 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
-  zoomPlugin
+  zoomPlugin,
+  Decimation
 );
 
 const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover }) => {
@@ -265,6 +267,13 @@ export default function ChartContainer({
     },
     interaction: { mode: 'index', intersect: false },
     plugins: {
+      decimation: {
+        enabled: parsedData.some(file =>
+          Object.values(file.metricsData || {}).some(arr => arr.length > 1000)
+        ),
+        algorithm: 'lttb',
+        samples: 1000
+      },
       zoom: {
         pan: {
           enabled: true,
@@ -375,7 +384,7 @@ export default function ChartContainer({
       }
     },
     elements: { point: { radius: 0 } }
-  }), [xRange, onXRangeChange]);
+  }), [xRange, onXRangeChange, parsedData]);
 
   const createComparisonChartData = (item1, item2, title) => {
     const comparisonData = getComparisonData(item1.data, item2.data, compareMode);
