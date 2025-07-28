@@ -10,35 +10,37 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-it('shows empty state when no files', () => {
-  render(<FileList files={[]} onFileRemove={vi.fn()} onFileToggle={vi.fn()} onFileConfig={vi.fn()} />);
-  expect(screen.getByText('📂 暂无文件')).toBeInTheDocument();
-});
+describe('FileList', () => {
+  it('shows empty state when no files', () => {
+    render(<FileList files={[]} onFileRemove={vi.fn()} onFileToggle={vi.fn()} onFileConfig={vi.fn()} />);
+    expect(screen.getByText('📂 暂无文件')).toBeInTheDocument();
+  });
 
-it('renders file and triggers actions', async () => {
-  const user = userEvent.setup();
-  const file = { id: '1', name: 'test.log', enabled: true };
-  const onFileRemove = vi.fn();
-  const onFileToggle = vi.fn();
-  const onFileConfig = vi.fn();
-  render(<FileList files={[file]} onFileRemove={onFileRemove} onFileToggle={onFileToggle} onFileConfig={onFileConfig} />);
+  it('renders file and triggers actions', async () => {
+    const user = userEvent.setup();
+    const file = { id: '1', name: 'test.log', enabled: true };
+    const onFileRemove = vi.fn();
+    const onFileToggle = vi.fn();
+    const onFileConfig = vi.fn();
+    render(<FileList files={[file]} onFileRemove={onFileRemove} onFileToggle={onFileToggle} onFileConfig={onFileConfig} />);
 
-  const checkbox = screen.getByRole('checkbox');
-  await user.click(checkbox);
-  expect(onFileToggle).toHaveBeenCalledWith(0, false);
+    const checkbox = screen.getByRole('checkbox');
+    await user.click(checkbox);
+    expect(onFileToggle).toHaveBeenCalledWith(0, false);
 
-  const configButton = screen.getByRole('button', { name: `配置文件 ${file.name}` });
-  await user.click(configButton);
-  expect(onFileConfig).toHaveBeenCalledWith(file);
+    const configButton = screen.getByRole('button', { name: `配置文件 ${file.name}` });
+    await user.click(configButton);
+    expect(onFileConfig).toHaveBeenCalledWith(file);
 
-  const removeButton = screen.getByRole('button', { name: `删除文件 ${file.name}` });
-  await user.click(removeButton);
-  expect(onFileRemove).toHaveBeenCalledWith(0);
-});
+    const removeButton = screen.getByRole('button', { name: `删除文件 ${file.name}` });
+    await user.click(removeButton);
+    expect(onFileRemove).toHaveBeenCalledWith(0);
+  });
 
-it('disables config when file disabled', () => {
-  const file = { id: '2', name: 'off.log', enabled: false };
-  render(<FileList files={[file]} onFileRemove={vi.fn()} onFileToggle={vi.fn()} onFileConfig={vi.fn()} />);
-  const configButton = screen.getByRole('button', { name: `配置文件 ${file.name}` });
-  expect(configButton).toBeDisabled();
+  it('disables config when file disabled', () => {
+    const file = { id: '2', name: 'off.log', enabled: false };
+    render(<FileList files={[file]} onFileRemove={vi.fn()} onFileToggle={vi.fn()} onFileConfig={vi.fn()} />);
+    const configButton = screen.getByRole('button', { name: `配置文件 ${file.name}` });
+    expect(configButton).toBeDisabled();
+  });
 });

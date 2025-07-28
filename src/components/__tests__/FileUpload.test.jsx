@@ -10,24 +10,26 @@ function mockFileReader(text) {
   const readAsText = vi.fn(function () {
     this.onload({ target: { result: text } });
   });
-  global.FileReader = vi.fn(() => ({ onload, readAsText }));
+  globalThis.FileReader = vi.fn(() => ({ onload, readAsText }));
 }
 
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
-it('uploads files and calls callback', async () => {
-  const onFilesUploaded = vi.fn();
-  mockFileReader('content');
-  const file = new File(['content'], 'test.log', { type: 'text/plain' });
-  render(<FileUpload onFilesUploaded={onFilesUploaded} />);
+describe('FileUpload', () => {
+  it('uploads files and calls callback', async () => {
+    const onFilesUploaded = vi.fn();
+    mockFileReader('content');
+    const file = new File(['content'], 'test.log', { type: 'text/plain' });
+    render(<FileUpload onFilesUploaded={onFilesUploaded} />);
 
-  const input = screen.getByLabelText('选择日志文件，支持所有文本格式');
-  await fireEvent.change(input, { target: { files: [file] } });
+    const input = screen.getByLabelText('选择日志文件，支持所有文本格式');
+    await fireEvent.change(input, { target: { files: [file] } });
 
-  await waitFor(() => expect(onFilesUploaded).toHaveBeenCalled());
-  const uploaded = onFilesUploaded.mock.calls[0][0][0];
-  expect(uploaded.name).toBe('test.log');
-  expect(uploaded.content).toBe('content');
+    await waitFor(() => expect(onFilesUploaded).toHaveBeenCalled());
+    const uploaded = onFilesUploaded.mock.calls[0][0][0];
+    expect(uploaded.name).toBe('test.log');
+    expect(uploaded.content).toBe('content');
+  });
 });

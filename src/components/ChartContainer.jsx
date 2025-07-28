@@ -213,6 +213,9 @@ export default function ChartContainer({
         case 'absolute':
           diff = Math.abs(v2 - v1);
           break;
+        case 'relative-normal':
+          diff = v1 !== 0 ? (v2 - v1) / v1 : 0;
+          break;
         case 'relative': {
           const ad = Math.abs(v2 - v1);
           diff = v1 !== 0 ? ad / Math.abs(v1) : 0;
@@ -374,7 +377,12 @@ export default function ChartContainer({
 
   const createComparisonChartData = (item1, item2, title) => {
     const comparisonData = getComparisonData(item1.data, item2.data, compareMode);
-    const baseline = compareMode === 'relative' ? relativeBaseline : compareMode === 'absolute' ? absoluteBaseline : 0;
+    const baseline =
+      compareMode === 'relative' || compareMode === 'relative-normal'
+        ? relativeBaseline
+        : compareMode === 'absolute'
+          ? absoluteBaseline
+          : 0;
     const datasets = [
       {
         label: `${title} 差值`,
@@ -396,7 +404,7 @@ export default function ChartContainer({
         animations: { colors: false, x: false, y: false },
       },
     ];
-    if (baseline > 0 && (compareMode === 'relative' || compareMode === 'absolute')) {
+    if (baseline > 0 && (compareMode === 'relative' || compareMode === 'relative-normal' || compareMode === 'absolute')) {
       const baselineData = comparisonData.map(p => ({ x: p.x, y: baseline }));
       datasets.push({
         label: 'Baseline',
@@ -477,11 +485,17 @@ export default function ChartContainer({
     if (showComparison) {
       const normalDiff = getComparisonData(dataArray[0].data, dataArray[1].data, 'normal');
       const absDiff = getComparisonData(dataArray[0].data, dataArray[1].data, 'absolute');
+      const relNormalDiff = getComparisonData(
+        dataArray[0].data,
+        dataArray[1].data,
+        'relative-normal'
+      );
       const relDiff = getComparisonData(dataArray[0].data, dataArray[1].data, 'relative');
       const mean = arr => (arr.reduce((s, p) => s + p.y, 0) / arr.length) || 0;
       stats = {
         meanNormal: mean(normalDiff),
         meanAbsolute: mean(absDiff),
+        relativeError: mean(relNormalDiff),
         meanRelative: mean(relDiff)
       };
     }
@@ -526,9 +540,10 @@ export default function ChartContainer({
           <div className="bg-white rounded-lg shadow-md p-3">
             <h4 className="text-sm font-medium text-gray-700 mb-1">{key} 差值统计</h4>
             <div className="space-y-1 text-xs">
-              <p>Mean Difference: {stats.meanNormal.toFixed(6)}</p>
-              <p>Mean Absolute Error: {stats.meanAbsolute.toFixed(6)}</p>
-              <p>Mean Relative Error: {stats.meanRelative.toFixed(6)}</p>
+              <p>平均误差 (normal): {stats.meanNormal.toFixed(6)}</p>
+              <p>平均误差 (absolute): {stats.meanAbsolute.toFixed(6)}</p>
+              <p>相对误差 (normal): {stats.relativeError.toFixed(6)}</p>
+              <p>平均相对误差 (absolute): {stats.meanRelative.toFixed(6)}</p>
             </div>
           </div>
         )}

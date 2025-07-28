@@ -6,9 +6,10 @@ export function ComparisonControls({
   onCompareModeChange
 }) {
   const modes = [
-    { value: 'normal', label: '📊 Normal', description: '原始差值' },
-    { value: 'absolute', label: '📈 Absolute', description: '绝对差值' },
-    { value: 'relative', label: '📉 Relative', description: '相对误差' }
+    { value: 'normal', label: '📊 平均误差 (normal)', description: '未取绝对值的平均误差' },
+    { value: 'absolute', label: '📈 平均误差 (absolute)', description: '绝对值差值的平均' },
+    { value: 'relative-normal', label: '📉 相对误差 (normal)', description: '不取绝对值的相对误差' },
+    { value: 'relative', label: '📊 平均相对误差 (absolute)', description: '绝对相对误差的平均' }
   ];
 
   return (
