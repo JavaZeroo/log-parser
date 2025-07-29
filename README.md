@@ -81,6 +81,10 @@
 
 ### 使用 Vercel 部署
 
+如果想要快速体验，可以点击下方按钮一键部署：
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/JavaZeroo/log-parser)
+
 项目也支持部署到 [Vercel](https://vercel.com)。仓库已包含 `vercel.json` 配置文件，默认使用 `@vercel/static-build` 构建站点并将 `dist` 目录作为输出。部署步骤如下：
 
 1. 安装 Vercel CLI：`npm i -g vercel`
