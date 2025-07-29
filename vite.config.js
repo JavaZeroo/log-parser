@@ -5,11 +5,9 @@ import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig({
-  // Use a relative base path so the built site works
-  // when deployed to subfolders such as PR previews.
-  // This still works for the main site hosted at the
-  // repository root.
-  base: './',
+  // Use a relative base path for GitHub Pages.
+  // Switch to absolute path when deploying on Vercel.
+  base: process.env.VERCEL ? '/' : './',
   plugins: [react()],
   build: {
     outDir: 'dist',
