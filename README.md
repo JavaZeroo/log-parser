@@ -79,6 +79,14 @@
 4. 推送代码时将自动触发构建和部署
 5. 部署完成后，可在 `Deploy to GitHub Pages` 工作流中下载自动生成的 `dist.zip` 以进行本地部署
 
+### 使用 Vercel 部署
+
+项目也支持部署到 [Vercel](https://vercel.com)。仓库已包含 `vercel.json` 配置文件，默认使用 `@vercel/static-build` 构建站点并将 `dist` 目录作为输出。部署步骤如下：
+
+1. 安装 Vercel CLI：`npm i -g vercel`
+2. 在项目根目录运行 `vercel`，根据提示完成初始化
+3. 之后每次 `git push` 都会自动触发构建并部署到 Vercel
+
 ## 📝 使用指南
 
 ### 🎯 快速上手
