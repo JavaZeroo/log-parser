@@ -190,25 +190,9 @@ export default function ChartContainer({
     '#17becf'  // cyan
   ];
 
-  const lightenColor = (hex, factor = 0.2) => {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    const nr = Math.round(r + (255 - r) * factor)
-      .toString(16)
-      .padStart(2, '0');
-    const ng = Math.round(g + (255 - g) * factor)
-      .toString(16)
-      .padStart(2, '0');
-    const nb = Math.round(b + (255 - b) * factor)
-      .toString(16)
-      .padStart(2, '0');
-    return `#${nr}${ng}${nb}`;
-  };
   const createChartData = dataArray => ({
     datasets: dataArray.map((item, index) => {
-      const base = baseColors[index % baseColors.length];
-      const color = lightenColor(base, 0.2);
+      const color = baseColors[index % baseColors.length];
       return {
         label: item.name?.replace(/\.(log|txt)$/i, '') || `File ${index + 1}`,
         data: item.data,
@@ -416,18 +400,18 @@ export default function ChartContainer({
       {
         label: `${title} 差值`,
         data: comparisonData,
-        borderColor: lightenColor('#d62728', 0.2),
-        backgroundColor: lightenColor('#d62728', 0.2),
+        borderColor: '#d62728',
+        backgroundColor: '#d62728',
         borderWidth: 1.5,
         fill: false,
         tension: 0,
         pointRadius: 0,
         pointHoverRadius: 4,
-        pointBackgroundColor: lightenColor('#d62728', 0.2),
-        pointBorderColor: lightenColor('#d62728', 0.2),
+        pointBackgroundColor: '#d62728',
+        pointBorderColor: '#d62728',
         pointBorderWidth: 1,
-        pointHoverBackgroundColor: lightenColor('#d62728', 0.2),
-        pointHoverBorderColor: lightenColor('#d62728', 0.2),
+        pointHoverBackgroundColor: '#d62728',
+        pointHoverBorderColor: '#d62728',
         pointHoverBorderWidth: 1,
         animation: false,
         animations: { colors: false, x: false, y: false },
@@ -438,19 +422,19 @@ export default function ChartContainer({
       datasets.push({
         label: 'Baseline',
         data: baselineData,
-        borderColor: lightenColor('#17becf', 0.2),
-        backgroundColor: lightenColor('#17becf', 0.2),
+        borderColor: '#17becf',
+        backgroundColor: '#17becf',
         borderWidth: 1.5,
         borderDash: [5, 5],
         fill: false,
         tension: 0,
         pointRadius: 0,
         pointHoverRadius: 4,
-        pointBackgroundColor: lightenColor('#17becf', 0.2),
-        pointBorderColor: lightenColor('#17becf', 0.2),
+        pointBackgroundColor: '#17becf',
+        pointBorderColor: '#17becf',
         pointBorderWidth: 1,
-        pointHoverBackgroundColor: lightenColor('#17becf', 0.2),
-        pointHoverBorderColor: lightenColor('#17becf', 0.2),
+        pointHoverBackgroundColor: '#17becf',
+        pointHoverBorderColor: '#17becf',
         pointHoverBorderWidth: 1,
         animation: false,
         animations: { colors: false, x: false, y: false },
