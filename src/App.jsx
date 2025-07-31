@@ -188,7 +188,7 @@ function App() {
   }, [handleGlobalDragEnter, handleGlobalDragOver, handleGlobalDragLeave, handleGlobalDrop]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 relative page-fade-in">
+    <div className="h-screen overflow-hidden bg-gradient-to-br from-blue-50 to-indigo-100 relative page-fade-in">
       {/* 全页面拖拽覆盖层 */}
       {globalDragOver && (
         <div
@@ -243,16 +243,16 @@ function App() {
         </button>
       )}
 
-      <div className="w-full px-3 py-3">
+      <div className="w-full px-3 py-3 h-full">
 
         <main
           id="main-content"
-          className="grid grid-cols-1 xl:grid-cols-5 gap-3"
+          className="grid grid-cols-1 xl:grid-cols-5 gap-3 h-full"
           role="main"
         >
           {sidebarVisible && (
             <aside
-              className="xl:col-span-1 space-y-3 overflow-y-auto max-h-screen"
+              className="xl:col-span-1 space-y-3 overflow-y-auto max-h-screen sidebar-scroll"
               role="complementary"
               aria-label="控制面板"
             >

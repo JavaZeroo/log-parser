@@ -9,7 +9,7 @@ export function CollapsibleSection({ title, defaultOpen = true, action = null, c
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between p-3 focus:outline-none"
+        className="w-full flex items-center justify-between p-3"
         aria-expanded={open}
       >
         <h3 id={id} className="text-base font-semibold text-gray-800">
