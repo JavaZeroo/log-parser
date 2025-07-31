@@ -176,18 +176,18 @@ export default function ChartContainer({
     }
   }, [parsedData, onXRangeChange]);
 
-  // Use a lower saturation palette inspired by matplotlib
+  // Use a modern palette inspired by Tableau 10
   const colors = [
-    '#1f77b4', // blue
-    '#ff7f0e', // orange
-    '#2ca02c', // green
-    '#d62728', // red
-    '#9467bd', // purple
-    '#8c564b', // brown
-    '#e377c2', // pink
-    '#7f7f7f', // gray
-    '#bcbd22', // olive
-    '#17becf'  // cyan
+    '#4e79a7', // blue
+    '#f28e2c', // orange
+    '#e15759', // red
+    '#76b7b2', // teal
+    '#59a14f', // green
+    '#edc948', // yellow
+    '#b07aa1', // purple
+    '#ff9da7', // pink
+    '#9c755f', // brown
+    '#bab0ab'  // gray
   ];
   const createChartData = dataArray => ({
     datasets: dataArray.map((item, index) => {
@@ -399,18 +399,18 @@ export default function ChartContainer({
       {
         label: `${title} 差值`,
         data: comparisonData,
-        borderColor: '#dc2626',
-        backgroundColor: '#dc2626',
+        borderColor: '#e15759',
+        backgroundColor: '#e15759',
         borderWidth: 2,
         fill: false,
         tension: 0,
         pointRadius: 0,
         pointHoverRadius: 4,
-        pointBackgroundColor: '#dc2626',
-        pointBorderColor: '#dc2626',
+        pointBackgroundColor: '#e15759',
+        pointBorderColor: '#e15759',
         pointBorderWidth: 1,
-        pointHoverBackgroundColor: '#dc2626',
-        pointHoverBorderColor: '#dc2626',
+        pointHoverBackgroundColor: '#e15759',
+        pointHoverBorderColor: '#e15759',
         pointHoverBorderWidth: 1,
         animation: false,
         animations: { colors: false, x: false, y: false },
@@ -421,19 +421,19 @@ export default function ChartContainer({
       datasets.push({
         label: 'Baseline',
         data: baselineData,
-        borderColor: '#10b981',
-        backgroundColor: '#10b981',
+        borderColor: '#76b7b2',
+        backgroundColor: '#76b7b2',
         borderWidth: 2,
         borderDash: [5, 5],
         fill: false,
         tension: 0,
         pointRadius: 0,
         pointHoverRadius: 4,
-        pointBackgroundColor: '#10b981',
-        pointBorderColor: '#10b981',
+        pointBackgroundColor: '#76b7b2',
+        pointBorderColor: '#76b7b2',
         pointBorderWidth: 1,
-        pointHoverBackgroundColor: '#10b981',
-        pointHoverBorderColor: '#10b981',
+        pointHoverBackgroundColor: '#76b7b2',
+        pointHoverBorderColor: '#76b7b2',
         pointHoverBorderWidth: 1,
         animation: false,
         animations: { colors: false, x: false, y: false },
