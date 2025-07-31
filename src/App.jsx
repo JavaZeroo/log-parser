@@ -252,7 +252,7 @@ function App() {
         >
           {sidebarVisible && (
             <aside
-              className="xl:col-span-1 space-y-3"
+              className="xl:col-span-1 space-y-3 overflow-y-auto max-h-screen"
               role="complementary"
               aria-label="控制面板"
             >
@@ -304,7 +304,14 @@ function App() {
             </div>
             
             <FileUpload onFilesUploaded={handleFilesUploaded} />
-            
+
+            <FileList
+              files={uploadedFiles}
+              onFileRemove={handleFileRemove}
+              onFileToggle={handleFileToggle}
+              onFileConfig={handleFileConfig}
+            />
+
             <RegexControls
               globalParsingConfig={globalParsingConfig}
               onGlobalParsingConfigChange={handleGlobalParsingConfigChange}
@@ -312,13 +319,6 @@ function App() {
               xRange={xRange}
               onXRangeChange={setXRange}
               maxStep={maxStep}
-            />
-            
-            <FileList
-              files={uploadedFiles}
-              onFileRemove={handleFileRemove}
-              onFileToggle={handleFileToggle}
-              onFileConfig={handleFileConfig}
             />
 
             {uploadedFiles.filter(file => file.enabled).length === 2 && (
