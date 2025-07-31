@@ -176,16 +176,29 @@ export default function ChartContainer({
     }
   }, [parsedData, onXRangeChange]);
 
-  const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f97316'];
+  // Matplotlib tab10 palette with slightly reduced saturation
+  const baseColors = [
+    '#1f77b4', // blue
+    '#ff7f0e', // orange
+    '#2ca02c', // green
+    '#d62728', // red
+    '#9467bd', // purple
+    '#8c564b', // brown
+    '#e377c2', // pink
+    '#7f7f7f', // gray
+    '#bcbd22', // olive
+    '#17becf'  // cyan
+  ];
+
   const createChartData = dataArray => ({
     datasets: dataArray.map((item, index) => {
-      const color = colors[index % colors.length];
+      const color = baseColors[index % baseColors.length];
       return {
         label: item.name?.replace(/\.(log|txt)$/i, '') || `File ${index + 1}`,
         data: item.data,
         borderColor: color,
         backgroundColor: `${color}33`,
-        borderWidth: 2,
+        borderWidth: 1.5,
         fill: false,
         tension: 0,
         pointRadius: 0,
@@ -387,18 +400,18 @@ export default function ChartContainer({
       {
         label: `${title} 差值`,
         data: comparisonData,
-        borderColor: '#dc2626',
-        backgroundColor: '#dc2626',
-        borderWidth: 2,
+        borderColor: '#d62728',
+        backgroundColor: '#d62728',
+        borderWidth: 1.5,
         fill: false,
         tension: 0,
         pointRadius: 0,
         pointHoverRadius: 4,
-        pointBackgroundColor: '#dc2626',
-        pointBorderColor: '#dc2626',
+        pointBackgroundColor: '#d62728',
+        pointBorderColor: '#d62728',
         pointBorderWidth: 1,
-        pointHoverBackgroundColor: '#dc2626',
-        pointHoverBorderColor: '#dc2626',
+        pointHoverBackgroundColor: '#d62728',
+        pointHoverBorderColor: '#d62728',
         pointHoverBorderWidth: 1,
         animation: false,
         animations: { colors: false, x: false, y: false },
@@ -409,19 +422,19 @@ export default function ChartContainer({
       datasets.push({
         label: 'Baseline',
         data: baselineData,
-        borderColor: '#10b981',
-        backgroundColor: '#10b981',
-        borderWidth: 2,
+        borderColor: '#17becf',
+        backgroundColor: '#17becf',
+        borderWidth: 1.5,
         borderDash: [5, 5],
         fill: false,
         tension: 0,
         pointRadius: 0,
         pointHoverRadius: 4,
-        pointBackgroundColor: '#10b981',
-        pointBorderColor: '#10b981',
+        pointBackgroundColor: '#17becf',
+        pointBorderColor: '#17becf',
         pointBorderWidth: 1,
-        pointHoverBackgroundColor: '#10b981',
-        pointHoverBorderColor: '#10b981',
+        pointHoverBackgroundColor: '#17becf',
+        pointHoverBorderColor: '#17becf',
         pointHoverBorderWidth: 1,
         animation: false,
         animations: { colors: false, x: false, y: false },
