@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Settings, Zap, Eye, ChevronDown, ChevronUp, Target, Code, ZoomIn } from 'lucide-react';
+import { Settings, Zap, Eye, Target, Code, ZoomIn } from 'lucide-react';
+import CollapsibleSection from './CollapsibleSection.jsx';
 import { METRIC_PRESETS } from '../metricPresets.js';
 
 // 匹配模式枚举
@@ -450,20 +451,26 @@ export function RegexControls({
       
       <div className="space-y-4">
         {globalParsingConfig.metrics.map((cfg, idx) => (
-          <div key={idx} className="border rounded-lg p-3 relative">
-            <button
-              onClick={() => removeMetric(idx)}
-              className="absolute top-1 right-1 text-red-500"
-              title="删除配置"
-            >
-              ×
-            </button>
-            <h4 className="text-sm font-medium text-gray-800 mb-2 flex items-center gap-1">
-              <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
-              {getMetricTitle(cfg, idx)} 解析配置
-            </h4>
-            {renderConfigPanel(`metric-${idx}`, cfg, (field, value) => handleMetricChange(idx, field, value), idx)}
-          </div>
+          <CollapsibleSection
+            key={idx}
+            title={`${getMetricTitle(cfg, idx)} 解析配置`}
+            action={
+              <button
+                onClick={() => removeMetric(idx)}
+                className="text-red-500"
+                title="删除配置"
+              >
+                ×
+              </button>
+            }
+          >
+            {renderConfigPanel(
+              `metric-${idx}`,
+              cfg,
+              (field, value) => handleMetricChange(idx, field, value),
+              idx
+            )}
+          </CollapsibleSection>
         ))}
         <button
           onClick={addMetric}

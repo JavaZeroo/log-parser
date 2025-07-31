@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { Upload, FileText } from 'lucide-react';
+import CollapsibleSection from './CollapsibleSection.jsx';
 
 export function FileUpload({ onFilesUploaded }) {
   const [isDragOver, setIsDragOver] = useState(false);
@@ -63,13 +64,7 @@ export function FileUpload({ onFilesUploaded }) {
   }, [processFiles]);
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-3">
-      <h3 
-        id="file-upload-heading"
-        className="text-base font-semibold text-gray-800 mb-2"
-      >
-        📁 文件上传
-      </h3>
+    <CollapsibleSection title="📁 文件上传">
       <div
         className={`drag-area border-2 border-dashed rounded-lg p-4 text-center cursor-pointer ${
           isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
@@ -81,7 +76,7 @@ export function FileUpload({ onFilesUploaded }) {
         onClick={() => document.getElementById('fileInput').click()}
         role="button"
         tabIndex={0}
-        aria-labelledby="file-upload-heading"
+        aria-label="上传日志文件"
         aria-describedby="file-upload-description"
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -113,6 +108,6 @@ export function FileUpload({ onFilesUploaded }) {
           aria-label="选择日志文件，支持所有文本格式"
         />
       </div>
-    </div>
+    </CollapsibleSection>
   );
 }
