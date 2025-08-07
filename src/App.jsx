@@ -1,4 +1,29 @@
 import React, { useState, useCallback, useEffect } from 'react';
+
+// Helper to load state from localStorage
+const loadState = () => {
+  try {
+    const serializedState = localStorage.getItem('workspaceV1');
+    if (serializedState === null) return undefined;
+    const state = JSON.parse(serializedState);
+    // Files content is not persisted, just their configs and names.
+    // User will be prompted to re-upload if they want to see the charts.
+    if (state.uploadedFiles) {
+      state.uploadedFiles = state.uploadedFiles.map(file => ({
+        ...file,
+        file: null,
+        content: null,
+        data: null,
+      }));
+    }
+    return state;
+  } catch (err) {
+    console.warn("Could not load state from localStorage", err);
+    return undefined;
+  }
+};
+
+const persistedState = loadState();
 import { FileUpload } from './components/FileUpload';
 import { RegexControls } from './components/RegexControls';
 import { FileList } from './components/FileList';
@@ -8,12 +33,15 @@ import { Header } from './components/Header';
 import { FileConfigModal } from './components/FileConfigModal';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { mergeFilesWithReplacement } from './utils/mergeFiles.js';
+import { signInWithGoogle, doSignOut, onAuthChange } from './services/authService.js';
+import { saveWorkspace, loadWorkspace } from './services/workspaceService.js';
 
 function App() {
-  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [uploadedFiles, setUploadedFiles] = useState(persistedState?.uploadedFiles || []);
   
   // 全局解析配置状态
-  const [globalParsingConfig, setGlobalParsingConfig] = useState({
+  const [globalParsingConfig, setGlobalParsingConfig] = useState(persistedState?.globalParsingConfig || {
     metrics: [
       {
         name: 'Loss',
@@ -30,16 +58,107 @@ function App() {
     ]
   });
   
-  const [compareMode, setCompareMode] = useState('normal');
-  const [relativeBaseline, setRelativeBaseline] = useState(0.002);
-  const [absoluteBaseline, setAbsoluteBaseline] = useState(0.005);
+  const [compareMode, setCompareMode] = useState(persistedState?.compareMode || 'normal');
+  const [relativeBaseline, setRelativeBaseline] = useState(persistedState?.relativeBaseline || 0.002);
+  const [absoluteBaseline, setAbsoluteBaseline] = useState(persistedState?.absoluteBaseline || 0.005);
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [configFile, setConfigFile] = useState(null);
   const [globalDragOver, setGlobalDragOver] = useState(false);
   const [, setDragCounter] = useState(0);
-  const [xRange, setXRange] = useState({ min: undefined, max: undefined });
+  const [xRange, setXRange] = useState(persistedState?.xRange || { min: undefined, max: undefined });
   const [maxStep, setMaxStep] = useState(0);
-  const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [sidebarVisible, setSidebarVisible] = useState(persistedState?.sidebarVisible !== undefined ? persistedState.sidebarVisible : true);
+
+  const applyWorkspace = (workspace) => {
+    if (!workspace) return;
+
+    // Clear local storage if we are loading from the cloud
+    localStorage.removeItem('workspaceV1');
+
+    const files = workspace.uploadedFiles || [];
+    // Ensure files are in the correct format (without content)
+    setUploadedFiles(files.map(f => ({ ...f, file: null, content: null, data: null })));
+
+    setGlobalParsingConfig(workspace.globalParsingConfig || { metrics: [] });
+    setCompareMode(workspace.compareMode || 'normal');
+    setRelativeBaseline(workspace.relativeBaseline || 0.002);
+    setAbsoluteBaseline(workspace.absoluteBaseline || 0.005);
+    setXRange(workspace.xRange || { min: undefined, max: undefined });
+    setSidebarVisible(workspace.sidebarVisible !== undefined ? workspace.sidebarVisible : true);
+  };
+
+  // Effect for saving state
+  useEffect(() => {
+    const stateToSave = {
+      uploadedFiles: uploadedFiles.map(f => ({
+        id: f.id,
+        name: f.name,
+        enabled: f.enabled,
+        config: f.config,
+      })),
+      globalParsingConfig,
+      compareMode,
+      relativeBaseline,
+      absoluteBaseline,
+      xRange,
+      sidebarVisible,
+    };
+
+    if (currentUser) {
+      saveWorkspace(currentUser.uid, stateToSave)
+        .catch(err => console.warn("Could not save workspace to Firestore", err));
+    } else {
+      try {
+        const serializedState = JSON.stringify(stateToSave);
+        localStorage.setItem('workspaceV1', serializedState);
+      } catch (err) {
+        console.warn("Could not save state to localStorage", err);
+      }
+    }
+  }, [
+    currentUser,
+    uploadedFiles,
+    globalParsingConfig,
+    compareMode,
+    relativeBaseline,
+    absoluteBaseline,
+    xRange,
+    sidebarVisible
+  ]);
+
+  // Effect for handling auth changes and loading data
+  useEffect(() => {
+    const unsubscribe = onAuthChange(async (user) => {
+      if (user) {
+        const workspace = await loadWorkspace(user.uid);
+        console.log("User signed in. Workspace from cloud:", workspace);
+        if (workspace) {
+          applyWorkspace(workspace);
+        }
+        setCurrentUser(user);
+      } else {
+        console.log("User signed out.");
+        setCurrentUser(null);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogin = async () => {
+    try {
+      await signInWithGoogle();
+    } catch (error) {
+      console.error("Error signing in with Google", error);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await doSignOut();
+    } catch (error) {
+      console.error("Error signing out", error);
+    }
+  };
 
   const handleFilesUploaded = useCallback((files) => {
     const filesWithDefaults = files.map(file => ({
@@ -300,6 +419,22 @@ function App() {
                   </svg>
                   <span>GitHub</span>
                 </a>
+                {currentUser ? (
+                  <button
+                    onClick={handleLogout}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                    title={`以 ${currentUser.displayName} 身份登出`}
+                  >
+                    <span>登出</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleLogin}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  >
+                    <span>使用Google登录</span>
+                  </button>
+                )}
               </div>
             </div>
             
