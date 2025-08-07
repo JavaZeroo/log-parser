@@ -1,10 +1,16 @@
 import React from 'react';
 import { BarChart2 } from 'lucide-react';
+import { useStore } from '../store';
 
-export function ComparisonControls({ 
-  compareMode, 
-  onCompareModeChange
-}) {
+export function ComparisonControls() {
+  const {
+    compareMode,
+    onCompareModeChange
+  } = useStore(state => ({
+    compareMode: state.compareMode,
+    onCompareModeChange: state.setCompareMode
+  }));
+
   const modes = [
     { value: 'normal', label: '📊 平均误差 (normal)', description: '未取绝对值的平均误差' },
     { value: 'absolute', label: '📈 平均误差 (absolute)', description: '绝对值差值的平均' },

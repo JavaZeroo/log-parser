@@ -1,36 +1,10 @@
 import React, { useCallback, useState } from 'react';
-import { Upload, FileText } from 'lucide-react';
+import { Upload } from 'lucide-react';
+import { useStore } from '../store';
 
-export function FileUpload({ onFilesUploaded }) {
+export function FileUpload() {
   const [isDragOver, setIsDragOver] = useState(false);
-
-  const processFiles = useCallback((files) => {
-    const fileArray = Array.from(files);
-
-    const processedFiles = fileArray.map(file => ({
-      file,
-      name: file.name,
-      id: Math.random().toString(36).substr(2, 9),
-      data: null,
-      content: null
-    }));
-
-    // Read file contents
-    Promise.all(
-      processedFiles.map(fileObj => 
-        new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            fileObj.content = e.target.result;
-            resolve(fileObj);
-          };
-          reader.readAsText(fileObj.file);
-        })
-      )
-    ).then(files => {
-      onFilesUploaded(files);
-    });
-  }, [onFilesUploaded]);
+  const processGlobalFiles = useStore(state => state.processGlobalFiles);
 
   const handleDragEnter = useCallback((e) => {
     e.preventDefault();
@@ -54,13 +28,13 @@ export function FileUpload({ onFilesUploaded }) {
     e.preventDefault();
     e.stopPropagation(); // 阻止事件冒泡到全局处理器
     setIsDragOver(false);
-    processFiles(e.dataTransfer.files);
-  }, [processFiles]);
+    processGlobalFiles(e.dataTransfer.files);
+  }, [processGlobalFiles]);
 
   const handleFileSelect = useCallback((e) => {
-    processFiles(e.target.files);
+    processGlobalFiles(e.target.files);
     e.target.value = '';
-  }, [processFiles]);
+  }, [processGlobalFiles]);
 
   return (
     <div className="bg-white rounded-lg shadow-md p-3">

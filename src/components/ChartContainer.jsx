@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useCallback, useEffect } from 'react';
 import { Line } from 'react-chartjs-2';
 import { ResizablePanel } from './ResizablePanel';
+import { movingAverage } from '../utils/smoothing.js';
 import {
   Chart as ChartJS,
   Chart,
@@ -60,16 +61,20 @@ const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover }) 
   );
 };
 
-export default function ChartContainer({
-  files,
-  metrics = [],
-  compareMode,
-  relativeBaseline = 0.002,
-  absoluteBaseline = 0.005,
-  xRange = { min: undefined, max: undefined },
-  onXRangeChange,
-  onMaxStepChange
-}) {
+import { useStore } from '../store';
+
+export default function ChartContainer() {
+  const files = useStore(state => state.uploadedFiles);
+  const metrics = useStore(state => state.globalParsingConfig.metrics);
+  const compareMode = useStore(state => state.compareMode);
+  const relativeBaseline = useStore(state => state.relativeBaseline);
+  const absoluteBaseline = useStore(state => state.absoluteBaseline);
+  const xRange = useStore(state => state.xRange);
+  const onXRangeChange = useStore(state => state.setXRange);
+  const onMaxStepChange = useStore(state => state.setMaxStep);
+  const smoothingEnabled = useStore(state => state.smoothingEnabled);
+  const smoothingWindow = useStore(state => state.smoothingWindow);
+
   const chartRefs = useRef(new Map());
   const registerChart = useCallback((id, inst) => {
     chartRefs.current.set(id, inst);
@@ -153,9 +158,16 @@ export default function ChartContainer({
         });
       }
 
+      // Apply smoothing if enabled
+      if (smoothingEnabled && smoothingWindow > 1) {
+        Object.keys(metricsData).forEach(key => {
+          metricsData[key] = movingAverage(metricsData[key], smoothingWindow);
+        });
+      }
+
       return { ...file, metricsData };
     });
-  }, [files, metrics]);
+  }, [files, metrics, smoothingEnabled, smoothingWindow]);
 
   useEffect(() => {
     const maxStep = parsedData.reduce((m, f) => {
@@ -176,10 +188,9 @@ export default function ChartContainer({
     }
   }, [parsedData, onXRangeChange]);
 
-  const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f97316'];
   const createChartData = dataArray => ({
     datasets: dataArray.map((item, index) => {
-      const color = colors[index % colors.length];
+      const color = item.color || '#000000'; // Fallback to black
       return {
         label: item.name?.replace(/\.(log|txt)$/i, '') || `File ${index + 1}`,
         data: item.data,

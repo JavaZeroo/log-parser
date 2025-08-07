@@ -1,7 +1,14 @@
 import React from 'react';
 import { FileText, X, Settings } from 'lucide-react';
+import { useStore } from '../store';
 
-export function FileList({ files, onFileRemove, onFileToggle, onFileConfig }) {
+export function FileList() {
+  const files = useStore(state => state.uploadedFiles);
+  const onFileRemove = useStore(state => state.handleFileRemove);
+  const onFileToggle = useStore(state => state.handleFileToggle);
+  const onFileConfig = useStore(state => state.handleFileConfig);
+  const setFileColor = useStore(state => state.setFileColor);
+
   if (files.length === 0) {
     return (
       <section className="bg-white rounded-lg shadow-md p-3" aria-labelledby="file-list-heading">
@@ -43,10 +50,12 @@ export function FileList({ files, onFileRemove, onFileToggle, onFileConfig }) {
                     className="rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                     aria-describedby={`file-status-${file.id}`}
                   />
-                  <FileText 
-                    size={14} 
-                    className={`${file.enabled !== false ? 'text-blue-600' : 'text-gray-400'}`}
-                    aria-hidden="true"
+                  <input
+                    type="color"
+                    value={file.color || '#000000'}
+                    onChange={(e) => setFileColor(file.id, e.target.value)}
+                    className="w-5 h-5 p-0 border-none rounded cursor-pointer"
+                    title="Change line color"
                   />
                   <span 
                     className={`text-xs font-medium truncate ${

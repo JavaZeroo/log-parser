@@ -34,22 +34,37 @@ function getMetricTitle(metric, index) {
   return `Metric ${index + 1}`;
 }
 
-export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingConfig }) {
+import { useStore } from '../store';
+
+export function FileConfigModal() {
+  const {
+    file,
+    isOpen,
+    onClose,
+    onSave,
+    globalParsingConfig
+  } = useStore(state => ({
+    file: state.configFile,
+    isOpen: state.configModalOpen,
+    onClose: state.handleConfigClose,
+    onSave: state.handleConfigSave,
+    globalParsingConfig: state.globalParsingConfig
+  }));
+
   const [config, setConfig] = useState({
     metrics: [],
     dataRange: {
-      start: 0,        // 起始位置，默认为0（第一个数据点）
-      end: undefined,  // 结束位置，默认为undefined（最后一个数据点）
-      useRange: false  // 保留用于向后兼容
+      start: 0,
+      end: undefined,
+      useRange: false
     }
   });
 
   useEffect(() => {
     if (file && isOpen) {
-      // 如果文件有配置，使用文件配置，否则使用全局配置
       const fileConfig = file.config || {};
       setConfig({
-        metrics: fileConfig.metrics || globalParsingConfig.metrics,
+        metrics: fileConfig.metrics || globalParsingConfig.metrics.map(m => ({...m})),
         dataRange: fileConfig.dataRange || {
           start: 0,
           end: undefined,

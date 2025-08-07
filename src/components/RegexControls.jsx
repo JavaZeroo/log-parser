@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Settings, Zap, Eye, ChevronDown, ChevronUp, Target, Code, ZoomIn } from 'lucide-react';
+import { Settings, Zap, Eye, Share2, Check, ChevronDown, ChevronUp, Target, Code, ZoomIn } from 'lucide-react';
 import { METRIC_PRESETS } from '../metricPresets.js';
+import { serializeStateForURL } from '../utils/sharing.js';
 
 // 匹配模式枚举
 const MATCH_MODES = {
@@ -196,16 +197,52 @@ export class ValueExtractor {
   }
 }
 
-export function RegexControls({
-  globalParsingConfig,
-  onGlobalParsingConfigChange,
-  uploadedFiles = [],
-  xRange,
-  onXRangeChange,
-  maxStep
-}) {
+import { useStore } from '../store';
+
+export function RegexControls() {
+  const {
+    globalParsingConfig,
+    handleGlobalParsingConfigChange: onGlobalParsingConfigChange,
+    uploadedFiles,
+    xRange,
+    setXRange: onXRangeChange,
+    maxStep
+  } = useStore(state => ({
+    globalParsingConfig: state.globalParsingConfig,
+    handleGlobalParsingConfigChange: state.handleGlobalParsingConfigChange,
+    uploadedFiles: state.uploadedFiles,
+    xRange: state.xRange,
+    setXRange: state.setXRange,
+    maxStep: state.maxStep,
+    smoothingEnabled: state.smoothingEnabled,
+    setSmoothingEnabled: state.setSmoothingEnabled,
+    smoothingWindow: state.smoothingWindow,
+    setSmoothingWindow: state.setSmoothingWindow,
+  }));
+  const store = useStore();
   const [showPreview, setShowPreview] = useState(false);
   const [previewResults, setPreviewResults] = useState({});
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = useCallback(() => {
+    const stateToShare = {
+      uploadedFiles: store.getState().uploadedFiles,
+      globalParsingConfig: store.getState().globalParsingConfig,
+      compareMode: store.getState().compareMode,
+      relativeBaseline: store.getState().relativeBaseline,
+      absoluteBaseline: store.getState().absoluteBaseline,
+      xRange: store.getState().xRange,
+      smoothingEnabled: store.getState().smoothingEnabled,
+      smoothingWindow: store.getState().smoothingWindow,
+    };
+    const serializedState = serializeStateForURL(stateToShare);
+    const url = `${window.location.origin}${window.location.pathname}#s=${serializedState}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [store]);
+
 
   // 提取数值的通用函数
   const extractValues = useCallback((content, mode, config) => {
@@ -445,6 +482,14 @@ export function RegexControls({
           >
             <Eye size={14} />
           </button>
+          <button
+            onClick={handleShare}
+            className="p-1 text-green-600 hover:bg-green-50 rounded transition-colors"
+            title="分享会话"
+            disabled={copied}
+          >
+            {copied ? <Check size={14} /> : <Share2 size={14} />}
+          </button>
         </div>
       </div>
       
@@ -474,8 +519,41 @@ export function RegexControls({
 
         <div className="border rounded-lg p-3">
             <div className="flex items-center gap-2 mb-2">
-                <ZoomIn 
-                    size={16} 
+                <h4 className="text-base font-semibold text-gray-800">
+                    Display Options
+                </h4>
+            </div>
+            <div className="space-y-2">
+                <label className="flex items-center gap-2 text-xs font-medium text-gray-700">
+                    <input
+                        type="checkbox"
+                        checked={smoothingEnabled}
+                        onChange={(e) => setSmoothingEnabled(e.target.checked)}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    Enable Smoothing
+                </label>
+                {smoothingEnabled && (
+                    <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Smoothing Window
+                        </label>
+                        <input
+                            type="number"
+                            min="2"
+                            value={smoothingWindow}
+                            onChange={(e) => setSmoothingWindow(Number(e.target.value))}
+                            className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+                        />
+                    </div>
+                )}
+            </div>
+        </div>
+
+        <div className="border rounded-lg p-3">
+            <div className="flex items-center gap-2 mb-2">
+                <ZoomIn
+                    size={16}
                     className="text-gray-600" 
                     aria-hidden="true"
                 />

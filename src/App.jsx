@@ -1,132 +1,52 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { useStore } from './store';
+import { deserializeStateFromURL } from './utils/sharing';
 import { FileUpload } from './components/FileUpload';
 import { RegexControls } from './components/RegexControls';
 import { FileList } from './components/FileList';
 import ChartContainer from './components/ChartContainer';
 import { ComparisonControls } from './components/ComparisonControls';
-import { Header } from './components/Header';
 import { FileConfigModal } from './components/FileConfigModal';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
-import { mergeFilesWithReplacement } from './utils/mergeFiles.js';
 
 function App() {
-  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const {
+    uploadedFiles,
+    globalParsingConfig,
+    compareMode,
+    relativeBaseline,
+    absoluteBaseline,
+    configModalOpen,
+    configFile,
+    xRange,
+    maxStep,
+    sidebarVisible,
+    handleFilesUploaded,
+    processGlobalFiles,
+    handleFileRemove,
+    handleFileToggle,
+    handleFileConfig,
+    handleConfigSave,
+    handleConfigClose,
+    handleGlobalParsingConfigChange,
+    setCompareMode,
+    setRelativeBaseline,
+    setAbsoluteBaseline,
+    setXRange,
+    setMaxStep,
+    setSidebarVisible,
+  } = useStore();
   
-  // 全局解析配置状态
-  const [globalParsingConfig, setGlobalParsingConfig] = useState({
-    metrics: [
-      {
-        name: 'Loss',
-        mode: 'keyword', // 'keyword' | 'regex'
-        keyword: 'loss:',
-        regex: 'loss:\\s*([\\d.eE+-]+)'
-      },
-      {
-        name: 'Grad Norm',
-        mode: 'keyword',
-        keyword: 'norm:',
-        regex: 'grad[\\s_]norm:\\s*([\\d.eE+-]+)'
-      }
-    ]
-  });
-  
-  const [compareMode, setCompareMode] = useState('normal');
-  const [relativeBaseline, setRelativeBaseline] = useState(0.002);
-  const [absoluteBaseline, setAbsoluteBaseline] = useState(0.005);
-  const [configModalOpen, setConfigModalOpen] = useState(false);
-  const [configFile, setConfigFile] = useState(null);
   const [globalDragOver, setGlobalDragOver] = useState(false);
-  const [, setDragCounter] = useState(0);
-  const [xRange, setXRange] = useState({ min: undefined, max: undefined });
-  const [maxStep, setMaxStep] = useState(0);
-  const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [dragCounter, setDragCounter] = useState(0);
 
-  const handleFilesUploaded = useCallback((files) => {
-    const filesWithDefaults = files.map(file => ({
-      ...file,
-      enabled: true,
-      config: {
-        // 使用全局解析配置作为默认值
-        metrics: globalParsingConfig.metrics.map(m => ({ ...m })),
-        dataRange: {
-          start: 0,        // 默认从第一个数据点开始
-          end: undefined,  // 默认到最后一个数据点
-          useRange: false  // 保留这个字段用于向后兼容，但默认不启用
-        }
-      }
-    }));
-    setUploadedFiles(prev => mergeFilesWithReplacement(prev, filesWithDefaults));
-  }, [globalParsingConfig]);
-
-  // 全局文件处理函数
-  const processGlobalFiles = useCallback((files) => {
-    const fileArray = Array.from(files);
-
-    if (fileArray.length === 0) return;
-
-    const processedFiles = fileArray.map(file => ({
-      file,
-      name: file.name,
-      id: Math.random().toString(36).substr(2, 9),
-      data: null,
-      content: null
-    }));
-
-    // Read file contents
-    Promise.all(
-      processedFiles.map(fileObj => 
-        new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            fileObj.content = e.target.result;
-            resolve(fileObj);
-          };
-          reader.readAsText(fileObj.file);
-        })
-      )
-    ).then(files => {
-      handleFilesUploaded(files);
-    });
-  }, [handleFilesUploaded]);
-
-  const handleFileRemove = useCallback((index) => {
-    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
-  }, []);
-
-  const handleFileToggle = useCallback((index, enabled) => {
-    setUploadedFiles(prev => prev.map((file, i) => 
-      i === index ? { ...file, enabled } : file
-    ));
-  }, []);
-
-  const handleFileConfig = useCallback((file) => {
-    setConfigFile(file);
-    setConfigModalOpen(true);
-  }, []);
-
-  const handleConfigSave = useCallback((fileId, config) => {
-    setUploadedFiles(prev => prev.map(file => 
-      file.id === fileId ? { ...file, config } : file
-    ));
-  }, []);
-
-  const handleConfigClose = useCallback(() => {
-    setConfigModalOpen(false);
-    setConfigFile(null);
-  }, []);
-
-  // 全局解析配置变更处理
-  const handleGlobalParsingConfigChange = useCallback((newConfig) => {
-    setGlobalParsingConfig(newConfig);
-
-    // 同步所有文件的解析配置
-    setUploadedFiles(prev => prev.map(file => ({
-      ...file,
-      config: {
-        ...file.config,
-        metrics: newConfig.metrics.map(m => ({ ...m }))
-      }
-    })));
+  useEffect(() => {
+    const sharedState = deserializeStateFromURL();
+    if (sharedState) {
+      useStore.setState(sharedState);
+      // Clear the hash to avoid re-loading the shared state on every refresh
+      window.location.hash = '';
+    }
   }, []);
 
   // 全局拖拽事件处理
@@ -134,7 +54,6 @@ function App() {
     e.preventDefault();
     setDragCounter(prev => prev + 1);
     
-    // 检查是否包含文件
     if (e.dataTransfer.types.includes('Files')) {
       setGlobalDragOver(true);
     }
@@ -142,7 +61,6 @@ function App() {
 
   const handleGlobalDragOver = useCallback((e) => {
     e.preventDefault();
-    // 设置拖拽效果
     e.dataTransfer.dropEffect = 'copy';
   }, []);
 
