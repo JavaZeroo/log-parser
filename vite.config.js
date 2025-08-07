@@ -8,6 +8,9 @@ export default defineConfig({
   // Use a relative base path for GitHub Pages.
   // Switch to absolute path when deploying on Vercel.
   base: process.env.VERCEL ? '/' : './',
+  optimizeDeps: {
+    include: ['lz-string'],
+  },
   plugins: [react()],
   build: {
     outDir: 'dist',
