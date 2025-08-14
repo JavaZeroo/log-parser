@@ -40,6 +40,8 @@ function App() {
   const [xRange, setXRange] = useState({ min: undefined, max: undefined });
   const [maxStep, setMaxStep] = useState(0);
   const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [useStepKeyword, setUseStepKeyword] = useState(false);
+  const [stepKeyword, setStepKeyword] = useState('step:');
 
   const handleFilesUploaded = useCallback((files) => {
     const filesWithDefaults = files.map(file => ({
@@ -340,7 +342,29 @@ function App() {
                   <h4 className="text-xs font-medium text-gray-700 mb-2">📊 图表显示</h4>
                   <p className="text-xs text-gray-500">上传文件后自动展示所有已配置的指标图表</p>
                 </div>
-                
+                <div className="border-t pt-3">
+                  <h4 className="text-xs font-medium text-gray-700 mb-2">Step 设置</h4>
+                  <label className="inline-flex items-center text-xs text-gray-700">
+                    <input
+                      type="checkbox"
+                      className="mr-2"
+                      checked={useStepKeyword}
+                      onChange={(e) => setUseStepKeyword(e.target.checked)}
+                    />
+                    使用关键词定位 step
+                  </label>
+                  {useStepKeyword && (
+                    <input
+                      type="text"
+                      value={stepKeyword}
+                      onChange={(e) => setStepKeyword(e.target.value)}
+                      className="mt-2 w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+                      placeholder="step:"
+                      aria-label="step keyword"
+                    />
+                  )}
+                </div>
+
                 <div className="border-t pt-3">
                   <h4 className="text-xs font-medium text-gray-700 mb-2">基准线设置</h4>
                   <div className="space-y-3">
@@ -414,6 +438,8 @@ function App() {
               xRange={xRange}
               onXRangeChange={setXRange}
               onMaxStepChange={setMaxStep}
+              useStepKeyword={useStepKeyword}
+              stepKeyword={stepKeyword}
             />
           </section>
         </main>

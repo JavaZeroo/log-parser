@@ -63,14 +63,25 @@ describe('ChartContainer', () => {
     expect(screen.getByText('🎯 请选择要显示的图表')).toBeInTheDocument();
   });
 
-  it('renders charts and triggers callbacks', async () => {
-    const { onXRangeChange, onMaxStepChange } = renderComponent({ files: [sampleFile], metrics: [metric] });
-    expect(await screen.findByText('📊 loss')).toBeInTheDocument();
-    await waitFor(() => {
-      expect(onMaxStepChange).toHaveBeenCalledWith(1);
-      expect(onXRangeChange).toHaveBeenCalled();
+    it('renders charts and triggers callbacks', async () => {
+      const { onXRangeChange, onMaxStepChange } = renderComponent({ files: [sampleFile], metrics: [metric] });
+      expect(await screen.findByText('📊 loss')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(onMaxStepChange).toHaveBeenCalledWith(1);
+        expect(onXRangeChange).toHaveBeenCalled();
+      });
+      const cb = onXRangeChange.mock.calls[0][0];
+      expect(cb({})).toEqual({ min: 0, max: 1 });
     });
-    const cb = onXRangeChange.mock.calls[0][0];
-    expect(cb({})).toEqual({ min: 0, max: 1 });
+
+    it('uses step keyword for x positions when enabled', async () => {
+      const file = { name: 's.log', id: '2', content: 'step: 2 loss: 1\nstep: 4 loss: 2' };
+      const { onXRangeChange, onMaxStepChange } = renderComponent({ files: [file], metrics: [metric], useStepKeyword: true, stepKeyword: 'step:' });
+      await waitFor(() => {
+        expect(onMaxStepChange).toHaveBeenCalledWith(4);
+        expect(onXRangeChange).toHaveBeenCalled();
+      });
+      const cb = onXRangeChange.mock.calls[0][0];
+      expect(cb({})).toEqual({ min: 2, max: 4 });
+    });
   });
-});
