@@ -26,7 +26,7 @@ vi.mock('chart.js', () => {
 
 vi.mock('chartjs-plugin-zoom', () => ({ default: {} }));
 
-import ChartContainer, { getComparisonData } from '../ChartContainer.jsx';
+import ChartContainer, { getComparisonData, getActiveElementsAtStep } from '../ChartContainer.jsx';
 
 const sampleFile = {
   name: 'test.log',
@@ -93,5 +93,14 @@ describe('ChartContainer', () => {
         { x: 2, y: 0 },
         { x: 3, y: 1 }
       ]);
+    });
+
+    it('finds active elements by step value', () => {
+      const datasets = [
+        { data: [{ x: 2, y: 1 }, { x: 4, y: 2 }] },
+        { data: [{ x: 1, y: 3 }, { x: 2, y: 4 }, { x: 5, y: 6 }] }
+      ];
+      const result = getActiveElementsAtStep(datasets, 2);
+      expect(result).toEqual([{ datasetIndex: 0, index: 0 }, { datasetIndex: 1, index: 1 }]);
     });
   });

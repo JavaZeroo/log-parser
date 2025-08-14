@@ -53,6 +53,17 @@ export const getComparisonData = (data1, data2, mode) => {
   });
 };
 
+export const getActiveElementsAtStep = (datasets, step) => {
+  const activeElements = [];
+  datasets.forEach((dataset, datasetIndex) => {
+    const index = dataset.data.findIndex(p => p.x === step);
+    if (index !== -1) {
+      activeElements.push({ datasetIndex, index });
+    }
+  });
+  return activeElements;
+};
+
 const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover }) => {
   const chartRef = useRef(null);
 
@@ -66,8 +77,10 @@ const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover }) 
   const enhancedOptions = {
     ...options,
     onHover: (event, activeElements) => {
-      if (activeElements.length > 0) {
-        const step = activeElements[0].index;
+      if (activeElements.length > 0 && chartRef.current) {
+        const { datasetIndex, index } = activeElements[0];
+        const point = chartRef.current.data?.datasets?.[datasetIndex]?.data?.[index];
+        const step = typeof point?.x === 'number' ? point.x : index;
         onSyncHover(step, chartId);
       } else {
         onSyncHover(null, chartId);
@@ -112,12 +125,7 @@ export default function ChartContainer({
         chart.tooltip.setActiveElements([]);
         chart.update('none');
       } else if (id !== sourceId) {
-        const activeElements = [];
-        chart.data.datasets.forEach((dataset, datasetIndex) => {
-          if (dataset.data && dataset.data.length > step) {
-            activeElements.push({ datasetIndex, index: step });
-          }
-        });
+        const activeElements = getActiveElementsAtStep(chart.data.datasets, step);
         chart.setActiveElements(activeElements);
         chart.tooltip.setActiveElements(activeElements, { x: 0, y: 0 });
         chart.update('none');
