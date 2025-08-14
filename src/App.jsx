@@ -451,6 +451,7 @@ function App() {
         onClose={handleConfigClose}
         onSave={handleConfigSave}
         globalParsingConfig={globalParsingConfig}
+        stepKeyword={stepKeyword}
       />
     </div>
   );

@@ -26,7 +26,7 @@ vi.mock('chart.js', () => {
 
 vi.mock('chartjs-plugin-zoom', () => ({ default: {} }));
 
-import ChartContainer from '../ChartContainer.jsx';
+import ChartContainer, { getComparisonData } from '../ChartContainer.jsx';
 
 const sampleFile = {
   name: 'test.log',
@@ -74,7 +74,7 @@ describe('ChartContainer', () => {
       expect(cb({})).toEqual({ min: 0, max: 1 });
     });
 
-    it('uses step keyword for x positions when enabled', async () => {
+  it('uses step keyword for x positions when enabled', async () => {
       const file = { name: 's.log', id: '2', content: 'step: 2 loss: 1\nstep: 4 loss: 2' };
       const { onXRangeChange, onMaxStepChange } = renderComponent({ files: [file], metrics: [metric], useStepKeyword: true, stepKeyword: 'step:' });
       await waitFor(() => {
@@ -83,5 +83,15 @@ describe('ChartContainer', () => {
       });
       const cb = onXRangeChange.mock.calls[0][0];
       expect(cb({})).toEqual({ min: 2, max: 4 });
+    });
+
+    it('computes comparison only on overlapping steps', () => {
+      const d1 = [{ x: 1, y: 1 }, { x: 2, y: 2 }, { x: 3, y: 3 }];
+      const d2 = [{ x: 2, y: 2 }, { x: 3, y: 4 }, { x: 4, y: 5 }];
+      const res = getComparisonData(d1, d2, 'normal');
+      expect(res).toEqual([
+        { x: 2, y: 0 },
+        { x: 3, y: 1 }
+      ]);
     });
   });

@@ -34,7 +34,7 @@ function getMetricTitle(metric, index) {
   return `Metric ${index + 1}`;
 }
 
-export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingConfig }) {
+export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingConfig, stepKeyword = 'step:' }) {
   const [config, setConfig] = useState({
     metrics: [],
     dataRange: {
@@ -43,6 +43,7 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
       useRange: false  // 保留用于向后兼容
     }
   });
+  const [stepRange, setStepRange] = useState(null);
 
   useEffect(() => {
     if (file && isOpen) {
@@ -56,8 +57,38 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
           useRange: false
         }
       });
+
+      // 计算日志文件包含的 step 范围
+      if (file.content) {
+        const lines = file.content.split('\n');
+        const numberRegex = /[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/;
+        const keywordLower = stepKeyword.toLowerCase();
+        let min = Infinity;
+        let max = -Infinity;
+        lines.forEach(line => {
+          const idx = line.toLowerCase().indexOf(keywordLower);
+          if (idx !== -1) {
+            const after = line.substring(idx + stepKeyword.length);
+            const match = after.match(numberRegex);
+            if (match) {
+              const v = parseFloat(match[0]);
+              if (!isNaN(v)) {
+                if (v < min) min = v;
+                if (v > max) max = v;
+              }
+            }
+          }
+        });
+        if (min !== Infinity && max !== -Infinity) {
+          setStepRange({ start: min, end: max });
+        } else {
+          setStepRange(null);
+        }
+      } else {
+        setStepRange(null);
+      }
     }
-  }, [file, isOpen, globalParsingConfig]);
+  }, [file, isOpen, globalParsingConfig, stepKeyword]);
 
   const handleSave = () => {
     onSave(file.id, config);
@@ -256,7 +287,12 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
               <p className="text-sm text-gray-600">
                 配置要显示的数据点范围。默认显示全部数据（从第一个到最后一个数据点）。
               </p>
-              
+              {stepRange && (
+                <p className="text-sm text-blue-600">
+                  当前日志包含步骤: {stepRange.start} - {stepRange.end}
+                </p>
+              )}
+
               <div className="bg-gray-50 p-4 rounded-lg border">
                 <div className="grid grid-cols-2 gap-4">
                   <div>

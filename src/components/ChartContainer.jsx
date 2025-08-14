@@ -26,6 +26,33 @@ ChartJS.register(
   zoomPlugin
 );
 
+export const getComparisonData = (data1, data2, mode) => {
+  const map1 = new Map(data1.map(p => [p.x, p.y]));
+  const map2 = new Map(data2.map(p => [p.x, p.y]));
+  const steps = [...map1.keys()].filter(k => map2.has(k)).sort((a, b) => a - b);
+  return steps.map(step => {
+    const v1 = map1.get(step);
+    const v2 = map2.get(step);
+    let diff;
+    switch (mode) {
+      case 'absolute':
+        diff = Math.abs(v2 - v1);
+        break;
+      case 'relative-normal':
+        diff = v1 !== 0 ? (v2 - v1) / v1 : 0;
+        break;
+      case 'relative': {
+        const ad = Math.abs(v2 - v1);
+        diff = v1 !== 0 ? ad / Math.abs(v1) : 0;
+        break;
+      }
+      default:
+        diff = v2 - v1;
+    }
+    return { x: step, y: diff };
+  });
+};
+
 const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover }) => {
   const chartRef = useRef(null);
 
@@ -248,58 +275,31 @@ export default function ChartContainer({
     }
   }, [parsedData, onXRangeChange, useStepKeyword]);
 
-  const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f97316'];
-  const createChartData = dataArray => ({
-    datasets: dataArray.map((item, index) => {
-      const color = colors[index % colors.length];
-      return {
-        label: item.name?.replace(/\.(log|txt)$/i, '') || `File ${index + 1}`,
-        data: item.data,
-        borderColor: color,
-        backgroundColor: `${color}33`,
-        borderWidth: 2,
-        fill: false,
-        tension: 0,
-        pointRadius: 0,
-        pointHoverRadius: 4,
-        pointBackgroundColor: color,
-        pointBorderColor: color,
-        pointBorderWidth: 1,
-        pointHoverBackgroundColor: color,
-        pointHoverBorderColor: color,
-        pointHoverBorderWidth: 1,
-        animation: false,
-        animations: { colors: false, x: false, y: false },
-      };
-    })
-  });
-
-  const getComparisonData = (data1, data2, mode) => {
-    const minLength = Math.min(data1.length, data2.length);
-    const result = [];
-    for (let i = 0; i < minLength; i++) {
-      const v1 = data1[i].y;
-      const v2 = data2[i].y;
-      let diff;
-      switch (mode) {
-        case 'absolute':
-          diff = Math.abs(v2 - v1);
-          break;
-        case 'relative-normal':
-          diff = v1 !== 0 ? (v2 - v1) / v1 : 0;
-          break;
-        case 'relative': {
-          const ad = Math.abs(v2 - v1);
-          diff = v1 !== 0 ? ad / Math.abs(v1) : 0;
-          break;
-        }
-        default:
-          diff = v2 - v1;
-      }
-      result.push({ x: i, y: diff });
-    }
-    return result;
-  };
+const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f97316'];
+const createChartData = dataArray => ({
+  datasets: dataArray.map((item, index) => {
+    const color = colors[index % colors.length];
+    return {
+      label: item.name?.replace(/\.(log|txt)$/i, '') || `File ${index + 1}`,
+      data: item.data,
+      borderColor: color,
+      backgroundColor: `${color}33`,
+      borderWidth: 2,
+      fill: false,
+      tension: 0,
+      pointRadius: 0,
+      pointHoverRadius: 4,
+      pointBackgroundColor: color,
+      pointBorderColor: color,
+      pointBorderWidth: 1,
+      pointHoverBackgroundColor: color,
+      pointHoverBorderColor: color,
+      pointHoverBorderWidth: 1,
+      animation: false,
+      animations: { colors: false, x: false, y: false },
+    };
+  })
+});
 
   const calculateYRange = useCallback((dataArray) => {
     let min = Infinity;
