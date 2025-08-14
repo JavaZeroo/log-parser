@@ -85,6 +85,20 @@ describe('ChartContainer', () => {
       expect(cb({})).toEqual({ min: 2, max: 4 });
     });
 
+    it('expands range when only a single overlapping step exists', async () => {
+      const files = [
+        { name: 'a.log', id: 'a', content: 'step:1 loss:1\nstep:2 loss:2\nstep:3 loss:3' },
+        { name: 'b.log', id: 'b', content: 'step:2 loss:4\nstep:3 loss:5' },
+        { name: 'c.log', id: 'c', content: 'step:3 loss:6\nstep:4 loss:7' }
+      ];
+      const { onXRangeChange } = renderComponent({ files, metrics: [metric], useStepKeyword: true, stepKeyword: 'step:' });
+      await waitFor(() => {
+        expect(onXRangeChange).toHaveBeenCalled();
+      });
+      const cb = onXRangeChange.mock.calls.at(-1)[0];
+      expect(cb({})).toEqual({ min: 2, max: 4 });
+    });
+
     it('computes comparison only on overlapping steps', () => {
       const d1 = [{ x: 1, y: 1 }, { x: 2, y: 2 }, { x: 3, y: 3 }];
       const d2 = [{ x: 2, y: 2 }, { x: 3, y: 4 }, { x: 4, y: 5 }];

@@ -264,8 +264,14 @@ export default function ChartContainer({
         const start = Math.max(...ranges.map(r => r.start));
         const end = Math.min(...ranges.map(r => r.end));
         if (end >= start) {
+          let min = start;
+          let max = end;
+          if (min === max) {
+            min -= 1;
+            max += 1;
+          }
           onXRangeChange(prev => {
-            const next = { min: start, max: end };
+            const next = { min, max };
             if (prev.min === next.min && prev.max === next.max) return prev;
             return next;
           });
