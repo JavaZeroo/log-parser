@@ -117,4 +117,13 @@ describe('ChartContainer', () => {
       const result = getActiveElementsAtStep(datasets, 2);
       expect(result).toEqual([{ datasetIndex: 0, index: 0 }, { datasetIndex: 1, index: 1 }]);
     });
+
+    it('returns empty array when no dataset contains the step', () => {
+      const datasets = [
+        { data: [{ x: 210, y: 1 }, { x: 220, y: 2 }] },
+        { data: [{ x: 5, y: 3 }, { x: 6, y: 4 }] }
+      ];
+      const result = getActiveElementsAtStep(datasets, 0);
+      expect(result).toEqual([]);
+    });
   });

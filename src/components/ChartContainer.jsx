@@ -76,22 +76,25 @@ const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover }) 
 
   const enhancedOptions = {
     ...options,
-    onHover: (event, activeElements) => {
-      if (activeElements.length > 0 && chartRef.current) {
-        const { datasetIndex, index } = activeElements[0];
-        const point = chartRef.current.data?.datasets?.[datasetIndex]?.data?.[index];
-        const step = typeof point?.x === 'number' ? point.x : index;
-        onSyncHover(step, chartId);
+    onHover: (event) => {
+      if (!chartRef.current) return;
+      const chart = chartRef.current;
+      const x = event.x;
+      const withinChart =
+        x >= chart.chartArea.left && x <= chart.chartArea.right;
+      if (withinChart) {
+        const step = Math.round(chart.scales.x.getValueForPixel(x));
+        onSyncHover(step);
       } else {
-        onSyncHover(null, chartId);
+        onSyncHover(null);
       }
     },
     events: ['mousemove', 'mouseout', 'click', 'touchstart', 'touchmove'],
   };
 
   const handleContainerMouseLeave = useCallback(() => {
-    onSyncHover(null, chartId);
-  }, [onSyncHover, chartId]);
+    onSyncHover(null);
+  }, [onSyncHover]);
 
   return (
     <div onMouseLeave={handleContainerMouseLeave} style={{ width: '100%', height: '100%' }}>
@@ -117,14 +120,14 @@ export default function ChartContainer({
     chartRefs.current.set(id, inst);
   }, []);
 
-  const syncHoverToAllCharts = useCallback((step, sourceId) => {
-    chartRefs.current.forEach((chart, id) => {
+  const syncHoverToAllCharts = useCallback((step) => {
+    chartRefs.current.forEach((chart) => {
       if (!chart) return;
       if (step === null) {
         chart.setActiveElements([]);
         chart.tooltip.setActiveElements([]);
         chart.update('none');
-      } else if (id !== sourceId) {
+      } else {
         const activeElements = getActiveElementsAtStep(chart.data.datasets, step);
         chart.setActiveElements(activeElements);
         chart.tooltip.setActiveElements(activeElements, { x: 0, y: 0 });
