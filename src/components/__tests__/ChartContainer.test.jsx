@@ -26,7 +26,7 @@ vi.mock('chart.js', () => {
 
 vi.mock('chartjs-plugin-zoom', () => ({ default: {} }));
 
-import ChartContainer, { getComparisonData, getActiveElementsAtStep } from '../ChartContainer.jsx';
+import ChartContainer, { getComparisonData, getActiveElementsAtStep, syncHoverToCharts } from '../ChartContainer.jsx';
 
 const sampleFile = {
   name: 'test.log',
@@ -125,5 +125,34 @@ describe('ChartContainer', () => {
       ];
       const result = getActiveElementsAtStep(datasets, 0);
       expect(result).toEqual([]);
+    });
+
+    it('clears highlights when step is absent', () => {
+      const chart = {
+        setActiveElements: vi.fn(),
+        tooltip: { setActiveElements: vi.fn() },
+        update: vi.fn(),
+        data: { datasets: [{ data: [{ x: 210, y: 1 }] }] }
+      };
+      const charts = new Map([["a", chart]]);
+      syncHoverToCharts(charts, 0);
+      expect(chart.setActiveElements).toHaveBeenCalledWith([]);
+      expect(chart.tooltip.setActiveElements).toHaveBeenCalledWith([]);
+      expect(chart.update).toHaveBeenCalledWith('none');
+    });
+
+    it('positions tooltip at matching step', () => {
+      const chart = {
+        setActiveElements: vi.fn(),
+        tooltip: { setActiveElements: vi.fn() },
+        update: vi.fn(),
+        data: { datasets: [{ data: [{ x: 210, y: 1 }] }] },
+        scales: { x: { getPixelForValue: vi.fn().mockReturnValue(123) } }
+      };
+      const charts = new Map([["a", chart]]);
+      syncHoverToCharts(charts, 210);
+      expect(chart.setActiveElements).toHaveBeenCalledWith([{ datasetIndex: 0, index: 0 }]);
+      expect(chart.tooltip.setActiveElements).toHaveBeenCalledWith([{ datasetIndex: 0, index: 0 }], { x: 123, y: 0 });
+      expect(chart.update).toHaveBeenCalledWith('none');
     });
   });

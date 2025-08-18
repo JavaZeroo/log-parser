@@ -103,6 +103,27 @@ const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover }) 
   );
 };
 
+export const syncHoverToCharts = (charts, step) => {
+  charts.forEach((chart) => {
+    if (!chart) return;
+    if (step === null) {
+      chart.setActiveElements([]);
+      chart.tooltip.setActiveElements([]);
+      chart.update('none');
+    } else {
+      const activeElements = getActiveElementsAtStep(chart.data.datasets, step);
+      chart.setActiveElements(activeElements);
+      if (activeElements.length > 0) {
+        const xPixel = chart.scales.x.getPixelForValue(step);
+        chart.tooltip.setActiveElements(activeElements, { x: xPixel, y: 0 });
+      } else {
+        chart.tooltip.setActiveElements([]);
+      }
+      chart.update('none');
+    }
+  });
+};
+
 export default function ChartContainer({
   files,
   metrics = [],
@@ -121,19 +142,7 @@ export default function ChartContainer({
   }, []);
 
   const syncHoverToAllCharts = useCallback((step) => {
-    chartRefs.current.forEach((chart) => {
-      if (!chart) return;
-      if (step === null) {
-        chart.setActiveElements([]);
-        chart.tooltip.setActiveElements([]);
-        chart.update('none');
-      } else {
-        const activeElements = getActiveElementsAtStep(chart.data.datasets, step);
-        chart.setActiveElements(activeElements);
-        chart.tooltip.setActiveElements(activeElements, { x: 0, y: 0 });
-        chart.update('none');
-      }
-    });
+    syncHoverToCharts(chartRefs.current, step);
   }, []);
 
   const parsedData = useMemo(() => {
