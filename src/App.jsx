@@ -27,7 +27,9 @@ function App() {
         keyword: 'norm:',
         regex: 'grad[\\s_]norm:\\s*([\\d.eE+-]+)'
       }
-    ]
+    ],
+    stepKeyword: 'step:',
+    useStepKeyword: false
   });
   
   const [compareMode, setCompareMode] = useState('normal');
@@ -117,16 +119,18 @@ function App() {
 
   // 全局解析配置变更处理
   const handleGlobalParsingConfigChange = useCallback((newConfig) => {
-    setGlobalParsingConfig(newConfig);
+    setGlobalParsingConfig(prev => ({ ...prev, ...newConfig }));
 
-    // 同步所有文件的解析配置
-    setUploadedFiles(prev => prev.map(file => ({
-      ...file,
-      config: {
-        ...file.config,
-        metrics: newConfig.metrics.map(m => ({ ...m }))
-      }
-    })));
+    // 如果更新了指标配置，同步到所有文件
+    if (newConfig.metrics) {
+      setUploadedFiles(prev => prev.map(file => ({
+        ...file,
+        config: {
+          ...file.config,
+          metrics: newConfig.metrics.map(m => ({ ...m }))
+        }
+      })));
+    }
   }, []);
 
   // 全局拖拽事件处理
@@ -414,6 +418,8 @@ function App() {
               xRange={xRange}
               onXRangeChange={setXRange}
               onMaxStepChange={setMaxStep}
+              stepKeyword={globalParsingConfig.stepKeyword}
+              useStepKeyword={globalParsingConfig.useStepKeyword}
             />
           </section>
         </main>

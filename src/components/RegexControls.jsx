@@ -447,8 +447,28 @@ export function RegexControls({
           </button>
         </div>
       </div>
-      
+
       <div className="space-y-4">
+        <div className="border rounded-lg p-3">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={globalParsingConfig.useStepKeyword || false}
+              onChange={(e) => onGlobalParsingConfigChange({ useStepKeyword: e.target.checked })}
+            />
+            根据关键词确定步数
+          </label>
+          {globalParsingConfig.useStepKeyword && (
+            <input
+              type="text"
+              className="mt-2 w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+              value={globalParsingConfig.stepKeyword || ''}
+              onChange={(e) => onGlobalParsingConfigChange({ stepKeyword: e.target.value })}
+              placeholder="step:"
+            />
+          )}
+        </div>
+
         {globalParsingConfig.metrics.map((cfg, idx) => (
           <div key={idx} className="border rounded-lg p-3 relative">
             <button
