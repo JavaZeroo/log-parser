@@ -27,7 +27,9 @@ function App() {
         keyword: 'norm:',
         regex: 'grad[\\s_]norm:\\s*([\\d.eE+-]+)'
       }
-    ]
+    ],
+    useStepKeyword: false,
+    stepKeyword: 'step:'
   });
   
   const [compareMode, setCompareMode] = useState('normal');
@@ -52,7 +54,9 @@ function App() {
           start: 0,        // 默认从第一个数据点开始
           end: undefined,  // 默认到最后一个数据点
           useRange: false  // 保留这个字段用于向后兼容，但默认不启用
-        }
+        },
+        useStepKeyword: globalParsingConfig.useStepKeyword,
+        stepKeyword: globalParsingConfig.stepKeyword
       }
     }));
     setUploadedFiles(prev => mergeFilesWithReplacement(prev, filesWithDefaults));
@@ -124,7 +128,9 @@ function App() {
       ...file,
       config: {
         ...file.config,
-        metrics: newConfig.metrics.map(m => ({ ...m }))
+        metrics: newConfig.metrics.map(m => ({ ...m })),
+        useStepKeyword: newConfig.useStepKeyword,
+        stepKeyword: newConfig.stepKeyword
       }
     })));
   }, []);

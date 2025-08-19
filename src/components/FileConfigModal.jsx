@@ -35,27 +35,34 @@ function getMetricTitle(metric, index) {
 }
 
 export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingConfig }) {
-  const [config, setConfig] = useState({
-    metrics: [],
-    dataRange: {
-      start: 0,        // 起始位置，默认为0（第一个数据点）
-      end: undefined,  // 结束位置，默认为undefined（最后一个数据点）
-      useRange: false  // 保留用于向后兼容
-    }
-  });
+    const [config, setConfig] = useState({
+      metrics: [],
+      dataRange: {
+        start: 0,        // 起始位置，默认为0（第一个数据点）
+        end: undefined,  // 结束位置，默认为undefined（最后一个数据点）
+        useRange: false  // 保留用于向后兼容
+      },
+      useStepKeyword: false,
+      stepKeyword: 'step:'
+    });
 
   useEffect(() => {
     if (file && isOpen) {
       // 如果文件有配置，使用文件配置，否则使用全局配置
       const fileConfig = file.config || {};
-      setConfig({
-        metrics: fileConfig.metrics || globalParsingConfig.metrics,
-        dataRange: fileConfig.dataRange || {
-          start: 0,
-          end: undefined,
-          useRange: false
-        }
-      });
+        setConfig({
+          metrics: fileConfig.metrics || globalParsingConfig.metrics,
+          dataRange: fileConfig.dataRange || {
+            start: 0,
+            end: undefined,
+            useRange: false
+          },
+          useStepKeyword:
+            fileConfig.useStepKeyword !== undefined
+              ? fileConfig.useStepKeyword
+              : globalParsingConfig.useStepKeyword,
+          stepKeyword: fileConfig.stepKeyword || globalParsingConfig.stepKeyword || 'step:'
+        });
     }
   }, [file, isOpen, globalParsingConfig]);
 
@@ -98,7 +105,9 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
   const syncFromGlobal = () => {
     setConfig(prev => ({
       ...prev,
-      metrics: globalParsingConfig.metrics.map(m => ({ ...m }))
+      metrics: globalParsingConfig.metrics.map(m => ({ ...m })),
+      useStepKeyword: globalParsingConfig.useStepKeyword,
+      stepKeyword: globalParsingConfig.stepKeyword
     }));
   };
 

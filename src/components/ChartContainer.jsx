@@ -38,14 +38,17 @@ const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover }) 
 
   const enhancedOptions = {
     ...options,
-    onHover: (event, activeElements) => {
-      if (activeElements.length > 0) {
-        const step = activeElements[0].index;
-        onSyncHover(step, chartId);
-      } else {
-        onSyncHover(null, chartId);
-      }
-    },
+      onHover: (event, activeElements) => {
+        if (activeElements.length > 0 && chartRef.current) {
+          const { datasetIndex, index } = activeElements[0];
+          const dataset = chartRef.current.data.datasets[datasetIndex];
+          const point = dataset.data[index];
+          const step = point.x;
+          onSyncHover(step, chartId);
+        } else {
+          onSyncHover(null, chartId);
+        }
+      },
     events: ['mousemove', 'mouseout', 'click', 'touchstart', 'touchmove'],
   };
 
@@ -85,8 +88,9 @@ export default function ChartContainer({
       } else if (id !== sourceId) {
         const activeElements = [];
         chart.data.datasets.forEach((dataset, datasetIndex) => {
-          if (dataset.data && dataset.data.length > step) {
-            activeElements.push({ datasetIndex, index: step });
+          const idx = dataset.data.findIndex(p => p.x === step);
+          if (idx !== -1) {
+            activeElements.push({ datasetIndex, index: idx });
           }
         });
         chart.setActiveElements(activeElements);
@@ -96,47 +100,72 @@ export default function ChartContainer({
     });
   }, []);
 
-  const parsedData = useMemo(() => {
-    const enabled = files.filter(f => f.enabled !== false);
-    return enabled.map(file => {
-      if (!file.content) return { ...file, metricsData: {} };
-      const lines = file.content.split('\n');
-      const metricsData = {};
+    const parsedData = useMemo(() => {
+      const enabled = files.filter(f => f.enabled !== false);
+      return enabled.map(file => {
+        if (!file.content) return { ...file, metricsData: {} };
+        const lines = file.content.split('\n');
+        const metricsData = {};
 
-      const extractByKeyword = (content, keyword) => {
-        const results = [];
-        const numberRegex = /[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/;
-        content.split('\n').forEach(line => {
-          const idx = line.toLowerCase().indexOf(keyword.toLowerCase());
+        const stepCfg = {
+          enabled: file.config?.useStepKeyword,
+          keyword: file.config?.stepKeyword || 'step:'
+        };
+
+        const extractStep = (line) => {
+          if (!stepCfg.enabled) return null;
+          const idx = line.toLowerCase().indexOf(stepCfg.keyword.toLowerCase());
           if (idx !== -1) {
-            const after = line.substring(idx + keyword.length);
-            const match = after.match(numberRegex);
+            const after = line.substring(idx + stepCfg.keyword.length);
+            const match = after.match(/[+-]?\d+/);
             if (match) {
-              const v = parseFloat(match[0]);
-              if (!isNaN(v)) results.push(v);
+              const s = parseInt(match[0], 10);
+              if (!isNaN(s)) return s;
             }
           }
-        });
-        return results;
-      };
+          return null;
+        };
 
-      metrics.forEach(metric => {
-        let values = [];
-        if (metric.mode === 'keyword') {
-          values = extractByKeyword(file.content, metric.keyword);
-        } else if (metric.regex) {
-          const reg = new RegExp(metric.regex);
-          lines.forEach(line => {
-            reg.lastIndex = 0;
-            const m = reg.exec(line);
-            if (m && m[1]) {
-              const v = parseFloat(m[1]);
-              if (!isNaN(v)) values.push(v);
+        const extractByKeyword = (linesArr, keyword) => {
+          const results = [];
+          const numberRegex = /[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/;
+          linesArr.forEach(line => {
+            const idx = line.toLowerCase().indexOf(keyword.toLowerCase());
+            if (idx !== -1) {
+              const after = line.substring(idx + keyword.length);
+              const match = after.match(numberRegex);
+              if (match) {
+                const v = parseFloat(match[0]);
+                if (!isNaN(v)) {
+                  const step = extractStep(line);
+                  results.push({ x: step !== null ? step : results.length, y: v });
+                }
+              }
             }
           });
-        }
-        metricsData[metric.name || metric.keyword] = values.map((v, i) => ({ x: i, y: v }));
-      });
+          return results;
+        };
+
+        metrics.forEach(metric => {
+          let points = [];
+          if (metric.mode === 'keyword') {
+            points = extractByKeyword(lines, metric.keyword);
+          } else if (metric.regex) {
+            const reg = new RegExp(metric.regex);
+            lines.forEach(line => {
+              reg.lastIndex = 0;
+              const m = reg.exec(line);
+              if (m && m[1]) {
+                const v = parseFloat(m[1]);
+                if (!isNaN(v)) {
+                  const step = extractStep(line);
+                  points.push({ x: step !== null ? step : points.length, y: v });
+                }
+              }
+            });
+          }
+          metricsData[metric.name || metric.keyword] = points;
+        });
 
       const range = file.config?.dataRange;
       if (range && (range.start > 0 || range.end !== undefined)) {
@@ -147,7 +176,7 @@ export default function ChartContainer({
           const endIndex = Math.min(data.length, end);
           return data.slice(start, endIndex);
         };
-        const reindex = data => data.map((p, idx) => ({ x: idx, y: p.y }));
+        const reindex = data => stepCfg.enabled ? data : data.map((p, idx) => ({ x: idx, y: p.y }));
         Object.keys(metricsData).forEach(k => {
           metricsData[k] = reindex(applyRange(metricsData[k]));
         });
@@ -203,29 +232,31 @@ export default function ChartContainer({
   });
 
   const getComparisonData = (data1, data2, mode) => {
-    const minLength = Math.min(data1.length, data2.length);
+    const map2 = new Map(data2.map(p => [p.x, p.y]));
     const result = [];
-    for (let i = 0; i < minLength; i++) {
-      const v1 = data1[i].y;
-      const v2 = data2[i].y;
-      let diff;
-      switch (mode) {
-        case 'absolute':
-          diff = Math.abs(v2 - v1);
-          break;
-        case 'relative-normal':
-          diff = v1 !== 0 ? (v2 - v1) / v1 : 0;
-          break;
-        case 'relative': {
-          const ad = Math.abs(v2 - v1);
-          diff = v1 !== 0 ? ad / Math.abs(v1) : 0;
-          break;
+    data1.forEach(p1 => {
+      if (map2.has(p1.x)) {
+        const v1 = p1.y;
+        const v2 = map2.get(p1.x);
+        let diff;
+        switch (mode) {
+          case 'absolute':
+            diff = Math.abs(v2 - v1);
+            break;
+          case 'relative-normal':
+            diff = v1 !== 0 ? (v2 - v1) / v1 : 0;
+            break;
+          case 'relative': {
+            const ad = Math.abs(v2 - v1);
+            diff = v1 !== 0 ? ad / Math.abs(v1) : 0;
+            break;
+          }
+          default:
+            diff = v2 - v1;
         }
-        default:
-          diff = v2 - v1;
+        result.push({ x: p1.x, y: diff });
       }
-      result.push({ x: i, y: diff });
-    }
+    });
     return result;
   };
 

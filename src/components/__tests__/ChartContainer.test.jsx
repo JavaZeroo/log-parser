@@ -102,9 +102,9 @@ describe('ChartContainer', () => {
     expect(onMaxStepChange).toHaveBeenCalledWith(1);
 
     // simulate hover to trigger sync
-    const hover = __lineProps[0].options.onHover;
-    hover({}, [{ index: 0 }]);
-    expect(__charts[1].setActiveElements).toHaveBeenCalled();
+      const hover = __lineProps[0].options.onHover;
+      hover({}, [{ index: 0, datasetIndex: 0 }]);
+      expect(__charts[1].setActiveElements).toHaveBeenCalled();
   });
 
   it('parses metrics, applies range and triggers callbacks', () => {
