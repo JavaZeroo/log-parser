@@ -40,8 +40,10 @@ const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover }) 
     ...options,
     onHover: (event, activeElements) => {
       if (activeElements.length > 0) {
-        const step = activeElements[0].index;
-        onSyncHover(step, chartId);
+        const { datasetIndex, index } = activeElements[0];
+        const point = chartRef.current?.data?.datasets?.[datasetIndex]?.data?.[index];
+        const step = point?.x;
+        onSyncHover(step ?? null, chartId);
       } else {
         onSyncHover(null, chartId);
       }
@@ -68,7 +70,9 @@ export default function ChartContainer({
   absoluteBaseline = 0.005,
   xRange = { min: undefined, max: undefined },
   onXRangeChange,
-  onMaxStepChange
+  onMaxStepChange,
+  useStepKeyword = false,
+  stepKeyword = 'step:'
 }) {
   const chartRefs = useRef(new Map());
   const registerChart = useCallback((id, inst) => {
@@ -85,8 +89,9 @@ export default function ChartContainer({
       } else if (id !== sourceId) {
         const activeElements = [];
         chart.data.datasets.forEach((dataset, datasetIndex) => {
-          if (dataset.data && dataset.data.length > step) {
-            activeElements.push({ datasetIndex, index: step });
+          const index = dataset.data.findIndex(p => p.x === step);
+          if (index !== -1) {
+            activeElements.push({ datasetIndex, index });
           }
         });
         chart.setActiveElements(activeElements);
@@ -103,39 +108,46 @@ export default function ChartContainer({
       const lines = file.content.split('\n');
       const metricsData = {};
 
-      const extractByKeyword = (content, keyword) => {
-        const results = [];
-        const numberRegex = /[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/;
-        content.split('\n').forEach(line => {
-          const idx = line.toLowerCase().indexOf(keyword.toLowerCase());
-          if (idx !== -1) {
-            const after = line.substring(idx + keyword.length);
-            const match = after.match(numberRegex);
-            if (match) {
-              const v = parseFloat(match[0]);
-              if (!isNaN(v)) results.push(v);
-            }
-          }
-        });
-        return results;
-      };
-
       metrics.forEach(metric => {
-        let values = [];
-        if (metric.mode === 'keyword') {
-          values = extractByKeyword(file.content, metric.keyword);
-        } else if (metric.regex) {
-          const reg = new RegExp(metric.regex);
-          lines.forEach(line => {
+        metricsData[metric.name || metric.keyword] = [];
+      });
+
+      const numberRegex = /[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/;
+      const stepKeyLower = stepKeyword.toLowerCase();
+
+      lines.forEach(line => {
+        let stepVal;
+        if (useStepKeyword) {
+          const idxStep = line.toLowerCase().indexOf(stepKeyLower);
+          if (idxStep !== -1) {
+            const afterStep = line.substring(idxStep + stepKeyword.length);
+            const mStep = afterStep.match(/[+-]?\d+/);
+            if (mStep) stepVal = parseInt(mStep[0]);
+          }
+          if (stepVal === undefined) return;
+        }
+
+        metrics.forEach(metric => {
+          let value;
+          if (metric.mode === 'keyword') {
+            const idx = line.toLowerCase().indexOf(metric.keyword.toLowerCase());
+            if (idx !== -1) {
+              const after = line.substring(idx + metric.keyword.length);
+              const m = after.match(numberRegex);
+              if (m) value = parseFloat(m[0]);
+            }
+          } else if (metric.regex) {
+            const reg = new RegExp(metric.regex);
             reg.lastIndex = 0;
             const m = reg.exec(line);
-            if (m && m[1]) {
-              const v = parseFloat(m[1]);
-              if (!isNaN(v)) values.push(v);
-            }
-          });
-        }
-        metricsData[metric.name || metric.keyword] = values.map((v, i) => ({ x: i, y: v }));
+            if (m && m[1]) value = parseFloat(m[1]);
+          }
+          if (value !== undefined && !isNaN(value)) {
+            const arr = metricsData[metric.name || metric.keyword];
+            const x = useStepKeyword ? stepVal : arr.length;
+            arr.push({ x, y: value });
+          }
+        });
       });
 
       const range = file.config?.dataRange;
@@ -147,7 +159,7 @@ export default function ChartContainer({
           const endIndex = Math.min(data.length, end);
           return data.slice(start, endIndex);
         };
-        const reindex = data => data.map((p, idx) => ({ x: idx, y: p.y }));
+        const reindex = data => data.map((p, idx) => (useStepKeyword ? { x: p.x, y: p.y } : { x: idx, y: p.y }));
         Object.keys(metricsData).forEach(k => {
           metricsData[k] = reindex(applyRange(metricsData[k]));
         });
@@ -155,7 +167,7 @@ export default function ChartContainer({
 
       return { ...file, metricsData };
     });
-  }, [files, metrics]);
+  }, [files, metrics, useStepKeyword, stepKeyword]);
 
   useEffect(() => {
     const maxStep = parsedData.reduce((m, f) => {
@@ -166,15 +178,39 @@ export default function ChartContainer({
   }, [parsedData, onMaxStepChange]);
 
   useEffect(() => {
-    const minSteps = getMinSteps(parsedData);
-    if (minSteps > 0) {
-      onXRangeChange(prev => {
-        const next = { min: 0, max: minSteps - 1 };
-        if (prev.min === next.min && prev.max === next.max) return prev;
-        return next;
-      });
+    if (useStepKeyword) {
+      const minStart = parsedData.reduce((m, f) => {
+        const localMin = Object.values(f.metricsData).reduce(
+          (mm, d) => Math.min(mm, d.length > 0 ? d[0].x : Infinity),
+          Infinity
+        );
+        return Math.min(m, localMin);
+      }, Infinity);
+      const maxEnd = parsedData.reduce((m, f) => {
+        const localMax = Object.values(f.metricsData).reduce(
+          (mm, d) => Math.max(mm, d.length > 0 ? d[d.length - 1].x : -Infinity),
+          -Infinity
+        );
+        return Math.max(m, localMax);
+      }, -Infinity);
+      if (minStart !== Infinity && maxEnd !== -Infinity) {
+        onXRangeChange(prev => {
+          const next = { min: minStart, max: maxEnd };
+          if (prev.min === next.min && prev.max === next.max) return prev;
+          return next;
+        });
+      }
+    } else {
+      const minSteps = getMinSteps(parsedData);
+      if (minSteps > 0) {
+        onXRangeChange(prev => {
+          const next = { min: 0, max: minSteps - 1 };
+          if (prev.min === next.min && prev.max === next.max) return prev;
+          return next;
+        });
+      }
     }
-  }, [parsedData, onXRangeChange]);
+  }, [parsedData, onXRangeChange, useStepKeyword]);
 
   const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f97316'];
   const createChartData = dataArray => ({

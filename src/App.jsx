@@ -40,6 +40,8 @@ function App() {
   const [xRange, setXRange] = useState({ min: undefined, max: undefined });
   const [maxStep, setMaxStep] = useState(0);
   const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [useStepKeyword, setUseStepKeyword] = useState(false);
+  const [stepKeyword, setStepKeyword] = useState('step:');
 
   const handleFilesUploaded = useCallback((files) => {
     const filesWithDefaults = files.map(file => ({
@@ -395,6 +397,36 @@ function App() {
                     </div>
                   </div>
                 </div>
+                <div className="border-t pt-3">
+                  <h4 className="text-xs font-medium text-gray-700 mb-2">Step 关键词对齐</h4>
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="use-step-keyword"
+                      type="checkbox"
+                      checked={useStepKeyword}
+                      onChange={(e) => setUseStepKeyword(e.target.checked)}
+                      className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                    />
+                    <label htmlFor="use-step-keyword" className="text-xs text-gray-700">
+                      使用关键词对齐步数
+                    </label>
+                  </div>
+                  {useStepKeyword && (
+                    <div className="mt-2">
+                      <label htmlFor="step-keyword" className="block text-xs font-medium text-gray-700 mb-1">
+                        关键词
+                      </label>
+                      <input
+                        id="step-keyword"
+                        type="text"
+                        value={stepKeyword}
+                        onChange={(e) => setStepKeyword(e.target.value)}
+                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+                        placeholder="step:"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
               </section>
             </aside>
@@ -414,6 +446,8 @@ function App() {
               xRange={xRange}
               onXRangeChange={setXRange}
               onMaxStepChange={setMaxStep}
+              useStepKeyword={useStepKeyword}
+              stepKeyword={stepKeyword}
             />
           </section>
         </main>
