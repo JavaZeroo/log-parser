@@ -1,11 +1,14 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import ChartContainer from '../ChartContainer';
 
 // Mock chart.js and react-chartjs-2 to avoid canvas requirements
 vi.mock('chart.js', () => {
-  const Chart = { register: vi.fn() };
+  const Chart = {
+    register: vi.fn(),
+    defaults: { plugins: { legend: { labels: { generateLabels: vi.fn(() => []) } } } }
+  };
   return {
     Chart,
     ChartJS: Chart,
@@ -102,5 +105,64 @@ describe('ChartContainer', () => {
     const hover = __lineProps[0].options.onHover;
     hover({}, [{ index: 0 }]);
     expect(__charts[1].setActiveElements).toHaveBeenCalled();
+  });
+
+  it('parses metrics, applies range and triggers callbacks', () => {
+    const onXRangeChange = vi.fn();
+    const onMaxStepChange = vi.fn();
+    const files = [
+      {
+        name: 'a.log',
+        enabled: true,
+        content: 'loss: 1\nloss: 2\nloss: 3\nacc: 4\nacc: 5',
+        config: { dataRange: { start: 1, end: 3 } }
+      },
+      {
+        name: 'b.log',
+        enabled: true,
+        content: 'loss: 2\nloss: 4\nacc: 6\nacc: 8',
+        config: { dataRange: { start: 1, end: 3 } }
+      }
+    ];
+    const metrics = [
+      { keyword: 'loss', mode: 'keyword' },
+      { regex: 'acc:(\\d+)', mode: 'regex' },
+      {}
+    ];
+
+    render(
+      <ChartContainer
+        files={files}
+        metrics={metrics}
+        compareMode="relative"
+        onXRangeChange={onXRangeChange}
+        onMaxStepChange={onMaxStepChange}
+      />
+    );
+
+    // metric titles
+    expect(screen.getAllByText(/loss/)[0]).toBeTruthy();
+    screen.getByText(/metric2/);
+    screen.getByText(/metric3/);
+
+    // data range applied (start 1 end 3 => 2 points for loss)
+    const currentProps = __lineProps.slice(-5);
+    expect(currentProps[0].data.datasets[0].data).toHaveLength(2);
+
+    // trigger container mouse leave
+    const container = screen.getAllByTestId('line-chart')[0].parentElement;
+    fireEvent.mouseLeave(container);
+
+    // invoke legend and tooltip callbacks
+    const opts = currentProps[0].options;
+    opts.plugins.legend.labels.generateLabels({ data: { datasets: [{}, { borderDash: [5,5] }] } });
+    const tt = opts.plugins.tooltip.callbacks;
+    tt.title([{ parsed: { x: 1 } }]);
+    tt.label({ parsed: { y: 1.2345 } });
+    tt.labelColor({ dataset: { borderColor: '#fff' } });
+
+    // invoke zoom callbacks
+    opts.plugins.zoom.pan.onPanComplete({ chart: { scales: { x: { min: 0, max: 10 } } } });
+    opts.plugins.zoom.zoom.onZoomComplete({ chart: { scales: { x: { min: 2, max: 4 } } } });
   });
 });
