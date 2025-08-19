@@ -1,35 +1,40 @@
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { vi, expect, afterEach, describe, it } from 'vitest';
-import '@testing-library/jest-dom/vitest';
+import userEvent from '@testing-library/user-event';
+import { describe, it, expect, vi } from 'vitest';
+import { FileUpload } from '../FileUpload';
 
-import { FileUpload } from '../FileUpload.jsx';
-
-function mockFileReader(text) {
-  const onload = vi.fn();
-  const readAsText = vi.fn(function () {
-    this.onload({ target: { result: text } });
-  });
-  globalThis.FileReader = vi.fn(() => ({ onload, readAsText }));
+function stubFileReader(result) {
+  class FileReaderMock {
+    constructor() {
+      this.onload = null;
+    }
+    readAsText() {
+      this.onload({ target: { result } });
+    }
+  }
+  global.FileReader = FileReaderMock;
 }
 
-afterEach(() => {
-  vi.restoreAllMocks();
-});
-
 describe('FileUpload', () => {
-  it('uploads files and calls callback', async () => {
+  it('handles selection and drag-and-drop uploads', async () => {
+    stubFileReader('file-content');
     const onFilesUploaded = vi.fn();
-    mockFileReader('content');
-    const file = new File(['content'], 'test.log', { type: 'text/plain' });
+    const user = userEvent.setup();
     render(<FileUpload onFilesUploaded={onFilesUploaded} />);
 
     const input = screen.getByLabelText('选择日志文件，支持所有文本格式');
-    await fireEvent.change(input, { target: { files: [file] } });
-
-    await waitFor(() => expect(onFilesUploaded).toHaveBeenCalled());
+    const file = new File(['hello'], 'test.log', { type: 'text/plain' });
+    await user.upload(input, file);
+    await waitFor(() => expect(onFilesUploaded).toHaveBeenCalledTimes(1));
     const uploaded = onFilesUploaded.mock.calls[0][0][0];
-    expect(uploaded.name).toBe('test.log');
-    expect(uploaded.content).toBe('content');
+    expect(uploaded.content).toBe('file-content');
+
+    onFilesUploaded.mockClear();
+    const dropArea = screen.getAllByRole('button', { name: /文件上传/ })[0];
+    fireEvent.dragEnter(dropArea, { dataTransfer: { files: [file] } });
+    fireEvent.dragOver(dropArea, { dataTransfer: { files: [file] } });
+    fireEvent.dragLeave(dropArea, { dataTransfer: { files: [file] } });
+    fireEvent.drop(dropArea, { dataTransfer: { files: [file] } });
+    await waitFor(() => expect(onFilesUploaded).toHaveBeenCalledTimes(1));
   });
 });
