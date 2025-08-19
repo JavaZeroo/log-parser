@@ -165,4 +165,35 @@ describe('ChartContainer', () => {
     opts.plugins.zoom.pan.onPanComplete({ chart: { scales: { x: { min: 0, max: 10 } } } });
     opts.plugins.zoom.zoom.onZoomComplete({ chart: { scales: { x: { min: 2, max: 4 } } } });
   });
+
+  it('aligns data points using step keyword when enabled', () => {
+    const onXRangeChange = vi.fn();
+    const onMaxStepChange = vi.fn();
+    const files = [
+      { name: 'a.log', enabled: true, content: 'step:1 loss: 1\nstep:2 loss: 2' },
+      { name: 'b.log', enabled: true, content: 'step:5 loss: 5\nstep:6 loss: 6' }
+    ];
+    const prevCount = __lineProps.length;
+    render(
+      <ChartContainer
+        files={files}
+        metrics={[{ name: 'loss', keyword: 'loss', mode: 'keyword' }]}
+        compareMode="normal"
+        alignSteps
+        stepKeyword="step:"
+        onXRangeChange={onXRangeChange}
+        onMaxStepChange={onMaxStepChange}
+      />
+    );
+
+    const props = __lineProps[prevCount];
+    const dsA = props.data.datasets[0].data;
+    const dsB = props.data.datasets[1].data;
+    expect(dsA[0].x).toBe(1);
+    expect(dsA[1].x).toBe(2);
+    expect(dsB[0].x).toBe(5);
+    expect(dsB[1].x).toBe(6);
+    expect(onXRangeChange).toHaveBeenCalledWith({ min: 1, max: 6 });
+    expect(onMaxStepChange).toHaveBeenCalledWith(6);
+  });
 });

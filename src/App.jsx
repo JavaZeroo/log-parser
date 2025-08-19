@@ -40,6 +40,8 @@ function App() {
   const [xRange, setXRange] = useState({ min: undefined, max: undefined });
   const [maxStep, setMaxStep] = useState(0);
   const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [alignSteps, setAlignSteps] = useState(false);
+  const [stepKeyword, setStepKeyword] = useState('step:');
 
   const handleFilesUploaded = useCallback((files) => {
     const filesWithDefaults = files.map(file => ({
@@ -340,12 +342,44 @@ function App() {
                   <h4 className="text-xs font-medium text-gray-700 mb-2">📊 图表显示</h4>
                   <p className="text-xs text-gray-500">上传文件后自动展示所有已配置的指标图表</p>
                 </div>
-                
+
+                <div className="border-t pt-3">
+                  <h4 className="text-xs font-medium text-gray-700 mb-2">步骤对齐</h4>
+                  <div className="space-y-2">
+                    <label className="flex items-center text-xs text-gray-700">
+                      <input
+                        type="checkbox"
+                        className="mr-2"
+                        checked={alignSteps}
+                        onChange={e => setAlignSteps(e.target.checked)}
+                      />
+                      启用基于关键词的步骤对齐
+                    </label>
+                    {alignSteps && (
+                      <div>
+                        <label
+                          htmlFor="step-keyword"
+                          className="block text-xs font-medium text-gray-700 mb-1"
+                        >
+                          关键词
+                        </label>
+                        <input
+                          id="step-keyword"
+                          type="text"
+                          value={stepKeyword}
+                          onChange={e => setStepKeyword(e.target.value)}
+                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 <div className="border-t pt-3">
                   <h4 className="text-xs font-medium text-gray-700 mb-2">基准线设置</h4>
                   <div className="space-y-3">
                     <div>
-                      <label 
+                      <label
                         htmlFor="relative-baseline"
                         className="block text-xs font-medium text-gray-700 mb-1"
                       >
@@ -414,6 +448,8 @@ function App() {
               xRange={xRange}
               onXRangeChange={setXRange}
               onMaxStepChange={setMaxStep}
+              alignSteps={alignSteps}
+              stepKeyword={stepKeyword}
             />
           </section>
         </main>
