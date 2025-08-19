@@ -17,7 +17,14 @@ export default defineConfig({
     environment: 'jsdom',
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'lcov']
+      reporter: ['text', 'lcov'],
+      include: ['src/**/*.{js,jsx}'],
+      exclude: [
+        'src/App.jsx',
+        'src/main.jsx',
+        'src/components/RegexControls.jsx',
+        'src/components/FileConfigModal.jsx'
+      ]
     }
   }
 })
