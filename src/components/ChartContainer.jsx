@@ -291,7 +291,7 @@ export default function ChartContainer({
     animations: { colors: false, x: false, y: false },
     hover: { animationDuration: 0 },
     responsiveAnimationDuration: 0,
-    interaction: { mode: 'index', intersect: false },
+    interaction: { mode: 'x', intersect: false },
     plugins: {
       zoom: {
         pan: {
@@ -340,7 +340,7 @@ export default function ChartContainer({
         }
       },
       tooltip: {
-        mode: 'index',
+        mode: 'x',
         intersect: false,
         animation: false,
         backgroundColor: 'rgba(15, 23, 42, 0.92)',

@@ -101,10 +101,15 @@ describe('ChartContainer', () => {
     screen.getByText(/差值统计/);
     expect(onMaxStepChange).toHaveBeenCalledWith(1);
 
+    // interaction and tooltip should use x mode to avoid index-based coupling
+    const opts = __lineProps[0].options;
+    expect(opts.interaction.mode).toBe('x');
+    expect(opts.plugins.tooltip.mode).toBe('x');
+
     // simulate hover to trigger sync
-      const hover = __lineProps[0].options.onHover;
-      hover({}, [{ index: 0, datasetIndex: 0 }]);
-      expect(__charts[1].setActiveElements).toHaveBeenCalled();
+    const hover = __lineProps[0].options.onHover;
+    hover({}, [{ index: 0, datasetIndex: 0 }]);
+    expect(__charts[1].setActiveElements).toHaveBeenCalled();
   });
 
   it('parses metrics, applies range and triggers callbacks', () => {
