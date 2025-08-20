@@ -102,10 +102,12 @@ describe('ChartContainer', () => {
     screen.getByText(/差值统计/);
     expect(onMaxStepChange).toHaveBeenCalledWith(1);
 
-    // interaction and tooltip should use x mode to avoid index-based coupling
+    // interaction and tooltip should use nearest mode for precise point selection
     const opts = __lineProps[0].options;
-    expect(opts.interaction.mode).toBe('x');
-    expect(opts.plugins.tooltip.mode).toBe('x');
+    expect(opts.interaction.mode).toBe('nearest');
+    expect(opts.interaction.axis).toBe('x');
+    expect(opts.plugins.tooltip.mode).toBe('nearest');
+    expect(opts.plugins.tooltip.axis).toBe('x');
 
     // simulate hover to trigger sync
     const hover = __lineProps[0].options.onHover;

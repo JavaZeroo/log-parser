@@ -45,21 +45,24 @@ const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover, sy
         let closestElement = activeElements[0];
         let minDistance = Infinity;
         
-        const canvasRect = chartRef.current.canvas.getBoundingClientRect();
-        const mouseX = event.native ? event.native.clientX - canvasRect.left : event.x;
-        
-        activeElements.forEach(element => {
-          const { datasetIndex, index } = element;
-          const dataset = chartRef.current.data.datasets[datasetIndex];
-          const point = dataset.data[index];
-          const pixelX = chartRef.current.scales.x.getPixelForValue(point.x);
-          const distance = Math.abs(mouseX - pixelX);
+        // 检查canvas是否存在（在测试环境中可能不存在）
+        if (chartRef.current.canvas && chartRef.current.canvas.getBoundingClientRect) {
+          const canvasRect = chartRef.current.canvas.getBoundingClientRect();
+          const mouseX = event.native ? event.native.clientX - canvasRect.left : event.x;
           
-          if (distance < minDistance) {
-            minDistance = distance;
-            closestElement = element;
-          }
-        });
+          activeElements.forEach(element => {
+            const { datasetIndex, index } = element;
+            const dataset = chartRef.current.data.datasets[datasetIndex];
+            const point = dataset.data[index];
+            const pixelX = chartRef.current.scales.x.getPixelForValue(point.x);
+            const distance = Math.abs(mouseX - pixelX);
+            
+            if (distance < minDistance) {
+              minDistance = distance;
+              closestElement = element;
+            }
+          });
+        }
         
         const { datasetIndex, index } = closestElement;
         const dataset = chartRef.current.data.datasets[datasetIndex];
