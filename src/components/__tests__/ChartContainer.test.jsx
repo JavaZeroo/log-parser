@@ -33,7 +33,8 @@ vi.mock('react-chartjs-2', async () => {
         data: props.data,
         setActiveElements: vi.fn(),
         tooltip: { setActiveElements: vi.fn() },
-        update: vi.fn(),
+        draw: vi.fn(),
+        scales: { x: { getPixelForValue: vi.fn(() => 0) } },
       };
       charts.push(chart);
       if (typeof ref === 'function') ref(chart);
@@ -110,6 +111,7 @@ describe('ChartContainer', () => {
     const hover = __lineProps[0].options.onHover;
     hover({}, [{ index: 0, datasetIndex: 0 }]);
     expect(__charts[1].setActiveElements).toHaveBeenCalled();
+    expect(__charts[1].draw).toHaveBeenCalled();
   });
 
   it('parses metrics, applies range and triggers callbacks', () => {

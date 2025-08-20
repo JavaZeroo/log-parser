@@ -26,7 +26,7 @@ ChartJS.register(
   zoomPlugin
 );
 
-const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover }) => {
+const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover, syncRef }) => {
   const chartRef = useRef(null);
 
   const handleChartRef = useCallback((ref) => {
@@ -38,17 +38,38 @@ const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover }) 
 
   const enhancedOptions = {
     ...options,
-      onHover: (event, activeElements) => {
-        if (activeElements.length > 0 && chartRef.current) {
-          const { datasetIndex, index } = activeElements[0];
+    onHover: (event, activeElements) => {
+      if (syncRef?.current) return;
+      if (activeElements.length > 0 && chartRef.current) {
+        // 找到距离鼠标最近的数据点
+        let closestElement = activeElements[0];
+        let minDistance = Infinity;
+        
+        const canvasRect = chartRef.current.canvas.getBoundingClientRect();
+        const mouseX = event.native ? event.native.clientX - canvasRect.left : event.x;
+        
+        activeElements.forEach(element => {
+          const { datasetIndex, index } = element;
           const dataset = chartRef.current.data.datasets[datasetIndex];
           const point = dataset.data[index];
-          const step = point.x;
-          onSyncHover(step, chartId);
-        } else {
-          onSyncHover(null, chartId);
-        }
-      },
+          const pixelX = chartRef.current.scales.x.getPixelForValue(point.x);
+          const distance = Math.abs(mouseX - pixelX);
+          
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestElement = element;
+          }
+        });
+        
+        const { datasetIndex, index } = closestElement;
+        const dataset = chartRef.current.data.datasets[datasetIndex];
+        const point = dataset.data[index];
+        const step = point.x;
+        onSyncHover(step, chartId);
+      } else {
+        onSyncHover(null, chartId);
+      }
+    },
     events: ['mousemove', 'mouseout', 'click', 'touchstart', 'touchmove'],
   };
 
@@ -74,30 +95,62 @@ export default function ChartContainer({
   onMaxStepChange
 }) {
   const chartRefs = useRef(new Map());
+  const syncLockRef = useRef(false);
   const registerChart = useCallback((id, inst) => {
     chartRefs.current.set(id, inst);
   }, []);
 
   const syncHoverToAllCharts = useCallback((step, sourceId) => {
+    if (syncLockRef.current) return;
+    syncLockRef.current = true;
     chartRefs.current.forEach((chart, id) => {
-      if (!chart) return;
+      if (!chart || !chart.data || !chart.data.datasets) return;
       if (step === null) {
         chart.setActiveElements([]);
-        chart.tooltip.setActiveElements([]);
-        chart.update('none');
+        chart.tooltip.setActiveElements([], { x: 0, y: 0 });
+        chart.draw();
       } else if (id !== sourceId) {
         const activeElements = [];
+        const seen = new Set(); // 防止重复添加相同的数据点
         chart.data.datasets.forEach((dataset, datasetIndex) => {
-          const idx = dataset.data.findIndex(p => p.x === step);
-          if (idx !== -1) {
-            activeElements.push({ datasetIndex, index: idx });
+          if (!dataset || !dataset.data || !Array.isArray(dataset.data)) return;
+          const idx = dataset.data.findIndex(p => p && typeof p.x !== 'undefined' && p.x === step);
+          if (idx !== -1 && dataset.data[idx]) {
+            const elementKey = `${datasetIndex}-${idx}`;
+            if (!seen.has(elementKey)) {
+              // 验证元素的有效性
+              if (datasetIndex >= 0 && datasetIndex < chart.data.datasets.length && 
+                  idx >= 0 && idx < dataset.data.length) {
+                activeElements.push({ datasetIndex, index: idx });
+                seen.add(elementKey);
+              }
+            }
           }
         });
-        chart.setActiveElements(activeElements);
-        chart.tooltip.setActiveElements(activeElements, { x: 0, y: 0 });
-        chart.update('none');
+        
+        // 只有当activeElements不为空且所有元素都有效时才设置
+        if (activeElements.length > 0) {
+          try {
+            const pos = { x: chart.scales.x.getPixelForValue(step), y: 0 };
+            chart.setActiveElements(activeElements);
+            chart.tooltip.setActiveElements(activeElements, pos);
+            chart.draw();
+          } catch (error) {
+            console.warn('Error setting active elements:', error);
+            // 如果出错，清除所有activeElements
+            chart.setActiveElements([]);
+            chart.tooltip.setActiveElements([], { x: 0, y: 0 });
+            chart.draw();
+          }
+        } else {
+          // 如果没有找到有效的activeElements，清除当前的
+          chart.setActiveElements([]);
+          chart.tooltip.setActiveElements([], { x: 0, y: 0 });
+          chart.draw();
+        }
       }
     });
+    syncLockRef.current = false;
   }, []);
 
     const parsedData = useMemo(() => {
@@ -206,30 +259,41 @@ export default function ChartContainer({
   }, [parsedData, onXRangeChange]);
 
   const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f97316'];
-  const createChartData = dataArray => ({
-    datasets: dataArray.map((item, index) => {
-      const color = colors[index % colors.length];
-      return {
-        label: item.name?.replace(/\.(log|txt)$/i, '') || `File ${index + 1}`,
-        data: item.data,
-        borderColor: color,
-        backgroundColor: `${color}33`,
-        borderWidth: 2,
-        fill: false,
-        tension: 0,
-        pointRadius: 0,
-        pointHoverRadius: 4,
-        pointBackgroundColor: color,
-        pointBorderColor: color,
-        pointBorderWidth: 1,
-        pointHoverBackgroundColor: color,
-        pointHoverBorderColor: color,
-        pointHoverBorderWidth: 1,
-        animation: false,
-        animations: { colors: false, x: false, y: false },
-      };
-    })
-  });
+  const createChartData = dataArray => {
+    // 确保没有重复的 datasets
+    const uniqueItems = dataArray.reduce((acc, item) => {
+      const exists = acc.find(existing => existing.name === item.name);
+      if (!exists) {
+        acc.push(item);
+      }
+      return acc;
+    }, []);
+    
+    return {
+      datasets: uniqueItems.map((item, index) => {
+        const color = colors[index % colors.length];
+        return {
+          label: item.name?.replace(/\.(log|txt)$/i, '') || `File ${index + 1}`,
+          data: item.data,
+          borderColor: color,
+          backgroundColor: `${color}33`,
+          borderWidth: 2,
+          fill: false,
+          tension: 0,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          pointBackgroundColor: color,
+          pointBorderColor: color,
+          pointBorderWidth: 1,
+          pointHoverBackgroundColor: color,
+          pointHoverBorderColor: color,
+          pointHoverBorderWidth: 1,
+          animation: false,
+          animations: { colors: false, x: false, y: false },
+        };
+      })
+    };
+  };
 
   const getComparisonData = (data1, data2, mode) => {
     const map2 = new Map(data2.map(p => [p.x, p.y]));
@@ -291,7 +355,7 @@ export default function ChartContainer({
     animations: { colors: false, x: false, y: false },
     hover: { animationDuration: 0 },
     responsiveAnimationDuration: 0,
-    interaction: { mode: 'x', intersect: false },
+    interaction: { mode: 'nearest', intersect: false, axis: 'x' },
     plugins: {
       zoom: {
         pan: {
@@ -340,8 +404,9 @@ export default function ChartContainer({
         }
       },
       tooltip: {
-        mode: 'x',
+        mode: 'nearest',
         intersect: false,
+        axis: 'x',
         animation: false,
         backgroundColor: 'rgba(15, 23, 42, 0.92)',
         titleColor: '#f1f5f9',
@@ -364,7 +429,8 @@ export default function ChartContainer({
           },
           label: function (context) {
             const value = Number(context.parsed.y.toPrecision(4));
-            return ` ${value}`;
+            const label = context.dataset?.label || 'Dataset';
+            return ` ${label}: ${value}`;
           },
           labelColor: function (context) {
             return {
@@ -548,6 +614,7 @@ export default function ChartContainer({
             chartId={`metric-comp-${idx}`}
             onRegisterChart={registerChart}
             onSyncHover={syncHoverToAllCharts}
+            syncRef={syncLockRef}
             data={compData}
             options={compOptions}
           />
@@ -562,6 +629,7 @@ export default function ChartContainer({
             chartId={`metric-${idx}`}
             onRegisterChart={registerChart}
             onSyncHover={syncHoverToAllCharts}
+            syncRef={syncLockRef}
             data={createChartData(dataArray)}
             options={options}
           />
