@@ -26,7 +26,7 @@ ChartJS.register(
   zoomPlugin
 );
 
-const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover }) => {
+const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover, syncRef }) => {
   const chartRef = useRef(null);
 
   const handleChartRef = useCallback((ref) => {
@@ -39,8 +39,35 @@ const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover }) 
   const enhancedOptions = {
     ...options,
     onHover: (event, activeElements) => {
-      if (activeElements.length > 0) {
-        const step = activeElements[0].index;
+      if (syncRef?.current) return;
+      if (activeElements.length > 0 && chartRef.current) {
+        // 找到距离鼠标最近的数据点
+        let closestElement = activeElements[0];
+        let minDistance = Infinity;
+        
+        // 检查canvas是否存在（在测试环境中可能不存在）
+        if (chartRef.current.canvas && chartRef.current.canvas.getBoundingClientRect) {
+          const canvasRect = chartRef.current.canvas.getBoundingClientRect();
+          const mouseX = event.native ? event.native.clientX - canvasRect.left : event.x;
+          
+          activeElements.forEach(element => {
+            const { datasetIndex, index } = element;
+            const dataset = chartRef.current.data.datasets[datasetIndex];
+            const point = dataset.data[index];
+            const pixelX = chartRef.current.scales.x.getPixelForValue(point.x);
+            const distance = Math.abs(mouseX - pixelX);
+            
+            if (distance < minDistance) {
+              minDistance = distance;
+              closestElement = element;
+            }
+          });
+        }
+        
+        const { datasetIndex, index } = closestElement;
+        const dataset = chartRef.current.data.datasets[datasetIndex];
+        const point = dataset.data[index];
+        const step = point.x;
         onSyncHover(step, chartId);
       } else {
         onSyncHover(null, chartId);
@@ -71,72 +98,130 @@ export default function ChartContainer({
   onMaxStepChange
 }) {
   const chartRefs = useRef(new Map());
+  const syncLockRef = useRef(false);
   const registerChart = useCallback((id, inst) => {
     chartRefs.current.set(id, inst);
   }, []);
 
   const syncHoverToAllCharts = useCallback((step, sourceId) => {
+    if (syncLockRef.current) return;
+    syncLockRef.current = true;
     chartRefs.current.forEach((chart, id) => {
-      if (!chart) return;
+      if (!chart || !chart.data || !chart.data.datasets) return;
       if (step === null) {
         chart.setActiveElements([]);
-        chart.tooltip.setActiveElements([]);
-        chart.update('none');
+        chart.tooltip.setActiveElements([], { x: 0, y: 0 });
+        chart.draw();
       } else if (id !== sourceId) {
         const activeElements = [];
+        const seen = new Set(); // 防止重复添加相同的数据点
         chart.data.datasets.forEach((dataset, datasetIndex) => {
-          if (dataset.data && dataset.data.length > step) {
-            activeElements.push({ datasetIndex, index: step });
+          if (!dataset || !dataset.data || !Array.isArray(dataset.data)) return;
+          const idx = dataset.data.findIndex(p => p && typeof p.x !== 'undefined' && p.x === step);
+          if (idx !== -1 && dataset.data[idx]) {
+            const elementKey = `${datasetIndex}-${idx}`;
+            if (!seen.has(elementKey)) {
+              // 验证元素的有效性
+              if (datasetIndex >= 0 && datasetIndex < chart.data.datasets.length && 
+                  idx >= 0 && idx < dataset.data.length) {
+                activeElements.push({ datasetIndex, index: idx });
+                seen.add(elementKey);
+              }
+            }
           }
         });
-        chart.setActiveElements(activeElements);
-        chart.tooltip.setActiveElements(activeElements, { x: 0, y: 0 });
-        chart.update('none');
+        
+        // 只有当activeElements不为空且所有元素都有效时才设置
+        if (activeElements.length > 0) {
+          try {
+            const pos = { x: chart.scales.x.getPixelForValue(step), y: 0 };
+            chart.setActiveElements(activeElements);
+            chart.tooltip.setActiveElements(activeElements, pos);
+            chart.draw();
+          } catch (error) {
+            console.warn('Error setting active elements:', error);
+            // 如果出错，清除所有activeElements
+            chart.setActiveElements([]);
+            chart.tooltip.setActiveElements([], { x: 0, y: 0 });
+            chart.draw();
+          }
+        } else {
+          // 如果没有找到有效的activeElements，清除当前的
+          chart.setActiveElements([]);
+          chart.tooltip.setActiveElements([], { x: 0, y: 0 });
+          chart.draw();
+        }
       }
     });
+    syncLockRef.current = false;
   }, []);
 
-  const parsedData = useMemo(() => {
-    const enabled = files.filter(f => f.enabled !== false);
-    return enabled.map(file => {
-      if (!file.content) return { ...file, metricsData: {} };
-      const lines = file.content.split('\n');
-      const metricsData = {};
+    const parsedData = useMemo(() => {
+      const enabled = files.filter(f => f.enabled !== false);
+      return enabled.map(file => {
+        if (!file.content) return { ...file, metricsData: {} };
+        const lines = file.content.split('\n');
+        const metricsData = {};
 
-      const extractByKeyword = (content, keyword) => {
-        const results = [];
-        const numberRegex = /[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/;
-        content.split('\n').forEach(line => {
-          const idx = line.toLowerCase().indexOf(keyword.toLowerCase());
+        const stepCfg = {
+          enabled: file.config?.useStepKeyword,
+          keyword: file.config?.stepKeyword || 'step:'
+        };
+
+        const extractStep = (line) => {
+          if (!stepCfg.enabled) return null;
+          const idx = line.toLowerCase().indexOf(stepCfg.keyword.toLowerCase());
           if (idx !== -1) {
-            const after = line.substring(idx + keyword.length);
-            const match = after.match(numberRegex);
+            const after = line.substring(idx + stepCfg.keyword.length);
+            const match = after.match(/[+-]?\d+/);
             if (match) {
-              const v = parseFloat(match[0]);
-              if (!isNaN(v)) results.push(v);
+              const s = parseInt(match[0], 10);
+              if (!isNaN(s)) return s;
             }
           }
-        });
-        return results;
-      };
+          return null;
+        };
 
-      metrics.forEach(metric => {
-        let values = [];
-        if (metric.mode === 'keyword') {
-          values = extractByKeyword(file.content, metric.keyword);
-        } else if (metric.regex) {
-          const reg = new RegExp(metric.regex);
-          lines.forEach(line => {
-            reg.lastIndex = 0;
-            const m = reg.exec(line);
-            if (m && m[1]) {
-              const v = parseFloat(m[1]);
-              if (!isNaN(v)) values.push(v);
+        const extractByKeyword = (linesArr, keyword) => {
+          const results = [];
+          const numberRegex = /[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/;
+          linesArr.forEach(line => {
+            const idx = line.toLowerCase().indexOf(keyword.toLowerCase());
+            if (idx !== -1) {
+              const after = line.substring(idx + keyword.length);
+              const match = after.match(numberRegex);
+              if (match) {
+                const v = parseFloat(match[0]);
+                if (!isNaN(v)) {
+                  const step = extractStep(line);
+                  results.push({ x: step !== null ? step : results.length, y: v });
+                }
+              }
             }
           });
-        }
-        metricsData[metric.name || metric.keyword] = values.map((v, i) => ({ x: i, y: v }));
-      });
+          return results;
+        };
+
+        metrics.forEach(metric => {
+          let points = [];
+          if (metric.mode === 'keyword') {
+            points = extractByKeyword(lines, metric.keyword);
+          } else if (metric.regex) {
+            const reg = new RegExp(metric.regex);
+            lines.forEach(line => {
+              reg.lastIndex = 0;
+              const m = reg.exec(line);
+              if (m && m[1]) {
+                const v = parseFloat(m[1]);
+                if (!isNaN(v)) {
+                  const step = extractStep(line);
+                  points.push({ x: step !== null ? step : points.length, y: v });
+                }
+              }
+            });
+          }
+          metricsData[metric.name || metric.keyword] = points;
+        });
 
       const range = file.config?.dataRange;
       if (range && (range.start > 0 || range.end !== undefined)) {
@@ -147,7 +232,7 @@ export default function ChartContainer({
           const endIndex = Math.min(data.length, end);
           return data.slice(start, endIndex);
         };
-        const reindex = data => data.map((p, idx) => ({ x: idx, y: p.y }));
+        const reindex = data => stepCfg.enabled ? data : data.map((p, idx) => ({ x: idx, y: p.y }));
         Object.keys(metricsData).forEach(k => {
           metricsData[k] = reindex(applyRange(metricsData[k]));
         });
@@ -177,55 +262,68 @@ export default function ChartContainer({
   }, [parsedData, onXRangeChange]);
 
   const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f97316'];
-  const createChartData = dataArray => ({
-    datasets: dataArray.map((item, index) => {
-      const color = colors[index % colors.length];
-      return {
-        label: item.name?.replace(/\.(log|txt)$/i, '') || `File ${index + 1}`,
-        data: item.data,
-        borderColor: color,
-        backgroundColor: `${color}33`,
-        borderWidth: 2,
-        fill: false,
-        tension: 0,
-        pointRadius: 0,
-        pointHoverRadius: 4,
-        pointBackgroundColor: color,
-        pointBorderColor: color,
-        pointBorderWidth: 1,
-        pointHoverBackgroundColor: color,
-        pointHoverBorderColor: color,
-        pointHoverBorderWidth: 1,
-        animation: false,
-        animations: { colors: false, x: false, y: false },
-      };
-    })
-  });
+  const createChartData = dataArray => {
+    // 确保没有重复的 datasets
+    const uniqueItems = dataArray.reduce((acc, item) => {
+      const exists = acc.find(existing => existing.name === item.name);
+      if (!exists) {
+        acc.push(item);
+      }
+      return acc;
+    }, []);
+    
+    return {
+      datasets: uniqueItems.map((item, index) => {
+        const color = colors[index % colors.length];
+        return {
+          label: item.name?.replace(/\.(log|txt)$/i, '') || `File ${index + 1}`,
+          data: item.data,
+          borderColor: color,
+          backgroundColor: `${color}33`,
+          borderWidth: 2,
+          fill: false,
+          tension: 0,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          pointBackgroundColor: color,
+          pointBorderColor: color,
+          pointBorderWidth: 1,
+          pointHoverBackgroundColor: color,
+          pointHoverBorderColor: color,
+          pointHoverBorderWidth: 1,
+          animation: false,
+          animations: { colors: false, x: false, y: false },
+        };
+      })
+    };
+  };
 
   const getComparisonData = (data1, data2, mode) => {
-    const minLength = Math.min(data1.length, data2.length);
+    const map2 = new Map(data2.map(p => [p.x, p.y]));
     const result = [];
-    for (let i = 0; i < minLength; i++) {
-      const v1 = data1[i].y;
-      const v2 = data2[i].y;
-      let diff;
-      switch (mode) {
-        case 'absolute':
-          diff = Math.abs(v2 - v1);
-          break;
-        case 'relative-normal':
-          diff = v1 !== 0 ? (v2 - v1) / v1 : 0;
-          break;
-        case 'relative': {
-          const ad = Math.abs(v2 - v1);
-          diff = v1 !== 0 ? ad / Math.abs(v1) : 0;
-          break;
+    data1.forEach(p1 => {
+      if (map2.has(p1.x)) {
+        const v1 = p1.y;
+        const v2 = map2.get(p1.x);
+        let diff;
+        switch (mode) {
+          case 'absolute':
+            diff = Math.abs(v2 - v1);
+            break;
+          case 'relative-normal':
+            diff = v1 !== 0 ? (v2 - v1) / v1 : 0;
+            break;
+          case 'relative': {
+            const ad = Math.abs(v2 - v1);
+            diff = v1 !== 0 ? ad / Math.abs(v1) : 0;
+            break;
+          }
+          default:
+            diff = v2 - v1;
         }
-        default:
-          diff = v2 - v1;
+        result.push({ x: p1.x, y: diff });
       }
-      result.push({ x: i, y: diff });
-    }
+    });
     return result;
   };
 
@@ -260,7 +358,7 @@ export default function ChartContainer({
     animations: { colors: false, x: false, y: false },
     hover: { animationDuration: 0 },
     responsiveAnimationDuration: 0,
-    interaction: { mode: 'index', intersect: false },
+    interaction: { mode: 'nearest', intersect: false, axis: 'x' },
     plugins: {
       zoom: {
         pan: {
@@ -309,8 +407,9 @@ export default function ChartContainer({
         }
       },
       tooltip: {
-        mode: 'index',
+        mode: 'nearest',
         intersect: false,
+        axis: 'x',
         animation: false,
         backgroundColor: 'rgba(15, 23, 42, 0.92)',
         titleColor: '#f1f5f9',
@@ -333,7 +432,8 @@ export default function ChartContainer({
           },
           label: function (context) {
             const value = Number(context.parsed.y.toPrecision(4));
-            return ` ${value}`;
+            const label = context.dataset?.label || 'Dataset';
+            return ` ${label}: ${value}`;
           },
           labelColor: function (context) {
             return {
@@ -517,6 +617,7 @@ export default function ChartContainer({
             chartId={`metric-comp-${idx}`}
             onRegisterChart={registerChart}
             onSyncHover={syncHoverToAllCharts}
+            syncRef={syncLockRef}
             data={compData}
             options={compOptions}
           />
@@ -531,6 +632,7 @@ export default function ChartContainer({
             chartId={`metric-${idx}`}
             onRegisterChart={registerChart}
             onSyncHover={syncHoverToAllCharts}
+            syncRef={syncLockRef}
             data={createChartData(dataArray)}
             options={options}
           />

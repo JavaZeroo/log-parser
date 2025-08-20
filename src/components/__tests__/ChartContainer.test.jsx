@@ -33,7 +33,8 @@ vi.mock('react-chartjs-2', async () => {
         data: props.data,
         setActiveElements: vi.fn(),
         tooltip: { setActiveElements: vi.fn() },
-        update: vi.fn(),
+        draw: vi.fn(),
+        scales: { x: { getPixelForValue: vi.fn(() => 0) } },
       };
       charts.push(chart);
       if (typeof ref === 'function') ref(chart);
@@ -101,10 +102,18 @@ describe('ChartContainer', () => {
     screen.getByText(/差值统计/);
     expect(onMaxStepChange).toHaveBeenCalledWith(1);
 
+    // interaction and tooltip should use nearest mode for precise point selection
+    const opts = __lineProps[0].options;
+    expect(opts.interaction.mode).toBe('nearest');
+    expect(opts.interaction.axis).toBe('x');
+    expect(opts.plugins.tooltip.mode).toBe('nearest');
+    expect(opts.plugins.tooltip.axis).toBe('x');
+
     // simulate hover to trigger sync
     const hover = __lineProps[0].options.onHover;
-    hover({}, [{ index: 0 }]);
+    hover({}, [{ index: 0, datasetIndex: 0 }]);
     expect(__charts[1].setActiveElements).toHaveBeenCalled();
+    expect(__charts[1].draw).toHaveBeenCalled();
   });
 
   it('parses metrics, applies range and triggers callbacks', () => {

@@ -207,6 +207,20 @@ export function RegexControls({
   const [showPreview, setShowPreview] = useState(false);
   const [previewResults, setPreviewResults] = useState({});
 
+  const handleStepToggle = useCallback((checked) => {
+    onGlobalParsingConfigChange({
+      ...globalParsingConfig,
+      useStepKeyword: checked
+    });
+  }, [globalParsingConfig, onGlobalParsingConfigChange]);
+
+  const handleStepKeywordChange = useCallback((value) => {
+    onGlobalParsingConfigChange({
+      ...globalParsingConfig,
+      stepKeyword: value
+    });
+  }, [globalParsingConfig, onGlobalParsingConfigChange]);
+
   // 提取数值的通用函数
   const extractValues = useCallback((content, mode, config) => {
     switch (mode) {
@@ -449,28 +463,51 @@ export function RegexControls({
       </div>
       
       <div className="space-y-4">
-        {globalParsingConfig.metrics.map((cfg, idx) => (
-          <div key={idx} className="border rounded-lg p-3 relative">
-            <button
-              onClick={() => removeMetric(idx)}
-              className="absolute top-1 right-1 text-red-500"
-              title="删除配置"
-            >
-              ×
-            </button>
-            <h4 className="text-sm font-medium text-gray-800 mb-2 flex items-center gap-1">
-              <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
-              {getMetricTitle(cfg, idx)} 解析配置
-            </h4>
-            {renderConfigPanel(`metric-${idx}`, cfg, (field, value) => handleMetricChange(idx, field, value), idx)}
+          {globalParsingConfig.metrics.map((cfg, idx) => (
+            <div key={idx} className="border rounded-lg p-3 relative">
+              <button
+                onClick={() => removeMetric(idx)}
+                className="absolute top-1 right-1 text-red-500"
+                title="删除配置"
+              >
+                ×
+              </button>
+              <h4 className="text-sm font-medium text-gray-800 mb-2 flex items-center gap-1">
+                <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
+                {getMetricTitle(cfg, idx)} 解析配置
+              </h4>
+              {renderConfigPanel(`metric-${idx}`, cfg, (field, value) => handleMetricChange(idx, field, value), idx)}
+            </div>
+          ))}
+          <button
+            onClick={addMetric}
+            className="px-2 py-1 text-xs bg-gray-100 rounded hover:bg-gray-200"
+          >
+            + 添加指标
+          </button>
+
+          <div className="border rounded-lg p-3">
+            <div className="flex items-center gap-2">
+              <label className="flex items-center text-xs text-gray-700">
+                <input
+                  type="checkbox"
+                  className="mr-2"
+                  checked={globalParsingConfig.useStepKeyword || false}
+                  onChange={(e) => handleStepToggle(e.target.checked)}
+                />
+                使用 Step 关键字
+              </label>
+              {globalParsingConfig.useStepKeyword && (
+                <input
+                  type="text"
+                  className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+                  value={globalParsingConfig.stepKeyword || 'step:'}
+                  onChange={(e) => handleStepKeywordChange(e.target.value)}
+                  placeholder="step:"
+                />
+              )}
+            </div>
           </div>
-        ))}
-        <button
-          onClick={addMetric}
-          className="px-2 py-1 text-xs bg-gray-100 rounded hover:bg-gray-200"
-        >
-          + 添加指标
-        </button>
 
         <div className="border rounded-lg p-3">
             <div className="flex items-center gap-2 mb-2">
