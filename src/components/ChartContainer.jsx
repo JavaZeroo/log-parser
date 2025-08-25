@@ -13,6 +13,7 @@ import {
   Legend,
 } from 'chart.js';
 import zoomPlugin from 'chartjs-plugin-zoom';
+import { ImageDown, Copy, FileDown } from 'lucide-react';
 import { getMinSteps } from "../utils/getMinSteps.js";
 
 ChartJS.register(
@@ -666,9 +667,33 @@ export default function ChartContainer({
       };
       const compActions = (
         <>
-          <button type="button" className="px-2 py-1 text-xs bg-blue-500 text-white rounded" onClick={() => exportChartPNG(`metric-comp-${idx}`)}>导出 PNG</button>
-          <button type="button" className="px-2 py-1 text-xs bg-blue-500 text-white rounded" onClick={() => copyChartImage(`metric-comp-${idx}`)}>复制图片</button>
-          <button type="button" className="px-2 py-1 text-xs bg-blue-500 text-white rounded" onClick={() => exportChartCSV(`metric-comp-${idx}`)}>导出 CSV</button>
+          <button
+            type="button"
+            className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
+            onClick={() => exportChartPNG(`metric-comp-${idx}`)}
+            aria-label="导出 PNG"
+            title="导出 PNG"
+          >
+            <ImageDown size={16} />
+          </button>
+          <button
+            type="button"
+            className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
+            onClick={() => copyChartImage(`metric-comp-${idx}`)}
+            aria-label="复制图片"
+            title="复制图片"
+          >
+            <Copy size={16} />
+          </button>
+          <button
+            type="button"
+            className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
+            onClick={() => exportChartCSV(`metric-comp-${idx}`)}
+            aria-label="导出 CSV"
+            title="导出 CSV"
+          >
+            <FileDown size={16} />
+          </button>
         </>
       );
       comparisonChart = (
@@ -692,9 +717,33 @@ export default function ChartContainer({
           initialHeight={440}
           actions={(
             <>
-              <button type="button" className="px-2 py-1 text-xs bg-blue-500 text-white rounded" onClick={() => exportChartPNG(`metric-${idx}`)}>导出 PNG</button>
-              <button type="button" className="px-2 py-1 text-xs bg-blue-500 text-white rounded" onClick={() => copyChartImage(`metric-${idx}`)}>复制图片</button>
-              <button type="button" className="px-2 py-1 text-xs bg-blue-500 text-white rounded" onClick={() => exportChartCSV(`metric-${idx}`)}>导出 CSV</button>
+              <button
+                type="button"
+                className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
+                onClick={() => exportChartPNG(`metric-${idx}`)}
+                aria-label="导出 PNG"
+                title="导出 PNG"
+              >
+                <ImageDown size={16} />
+              </button>
+              <button
+                type="button"
+                className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
+                onClick={() => copyChartImage(`metric-${idx}`)}
+                aria-label="复制图片"
+                title="复制图片"
+              >
+                <Copy size={16} />
+              </button>
+              <button
+                type="button"
+                className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
+                onClick={() => exportChartCSV(`metric-${idx}`)}
+                aria-label="导出 CSV"
+                title="导出 CSV"
+              >
+                <FileDown size={16} />
+              </button>
             </>
           )}
         >
