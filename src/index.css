@@ -76,12 +76,6 @@
   width: 100%;
 }
 
-.chart-panel {
-  position: relative;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-}
 
 .resizable-chart-container {
   position: relative;
@@ -89,8 +83,7 @@
   max-height: 600px;
   resize: vertical;
   overflow: hidden;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  @apply border border-gray-200 dark:border-gray-700 rounded-lg;
 }
 
 .resize-handle {
@@ -115,10 +108,7 @@
 }
 
 .chart-panel {
-  position: relative;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  @apply relative rounded-lg shadow-md bg-white dark:bg-gray-800;
 }
 
 .drag-area {

@@ -4,14 +4,14 @@ import { FileText, X, Settings } from 'lucide-react';
 export function FileList({ files, onFileRemove, onFileToggle, onFileConfig }) {
   if (files.length === 0) {
     return (
-      <section className="bg-white rounded-lg shadow-md p-3" aria-labelledby="file-list-heading">
+        <section className="bg-white dark:bg-gray-800 dark:text-gray-100 rounded-lg shadow-md p-3" aria-labelledby="file-list-heading">
         <h3 
           id="file-list-heading"
-          className="text-base font-semibold text-gray-800 mb-2"
+          className="text-base font-semibold text-gray-800 dark:text-gray-100 mb-2"
         >
           📋 已加载文件
         </h3>
-        <p className="text-gray-500 text-center py-4 text-sm" role="status">
+          <p className="text-gray-500 dark:text-gray-400 text-center py-4 text-sm" role="status">
           📂 暂无文件
         </p>
       </section>
@@ -19,10 +19,10 @@ export function FileList({ files, onFileRemove, onFileToggle, onFileConfig }) {
   }
 
   return (
-    <section className="bg-white rounded-lg shadow-md p-3" aria-labelledby="file-list-heading">
+      <section className="bg-white dark:bg-gray-800 dark:text-gray-100 rounded-lg shadow-md p-3" aria-labelledby="file-list-heading">
       <h3 
         id="file-list-heading"
-        className="text-base font-semibold text-gray-800 mb-2"
+          className="text-base font-semibold text-gray-800 dark:text-gray-100 mb-2"
       >
         📋 已加载文件 ({files.length})
       </h3>
@@ -30,7 +30,7 @@ export function FileList({ files, onFileRemove, onFileToggle, onFileConfig }) {
         {files.map((file, index) => (
           <li
             key={file.id}
-            className="p-2 bg-gray-50 rounded-lg hover:bg-gray-100"
+              className="p-2 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600"
             role="listitem"
           >
             <div className="flex items-center justify-between">
@@ -40,18 +40,18 @@ export function FileList({ files, onFileRemove, onFileToggle, onFileConfig }) {
                     type="checkbox"
                     checked={file.enabled !== false}
                     onChange={(e) => onFileToggle(index, e.target.checked)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                      className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                     aria-describedby={`file-status-${file.id}`}
                   />
                   <FileText 
                     size={14} 
-                    className={`${file.enabled !== false ? 'text-blue-600' : 'text-gray-400'}`}
+                    className={`${file.enabled !== false ? 'text-blue-600' : 'text-gray-400 dark:text-gray-500'}`}
                     aria-hidden="true"
                   />
                   <span 
-                    className={`text-xs font-medium truncate ${
-                      file.enabled !== false ? 'text-gray-700' : 'text-gray-400'
-                    }`}
+                      className={`text-xs font-medium truncate ${
+                        file.enabled !== false ? 'text-gray-700 dark:text-gray-200' : 'text-gray-400 dark:text-gray-500'
+                      }`}
                   >
                     {file.name}
                   </span>
@@ -67,7 +67,7 @@ export function FileList({ files, onFileRemove, onFileToggle, onFileConfig }) {
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => onFileConfig(file)}
-                  className="p-1 text-gray-400 hover:text-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
+                    className="p-1 text-gray-400 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
                   title={`配置文件 ${file.name}`}
                   aria-label={`配置文件 ${file.name}`}
                   disabled={file.enabled === false}
@@ -76,7 +76,7 @@ export function FileList({ files, onFileRemove, onFileToggle, onFileConfig }) {
                 </button>
                 <button
                   onClick={() => onFileRemove(index)}
-                  className="p-1 text-gray-400 hover:text-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 rounded"
+                    className="p-1 text-gray-400 dark:text-gray-300 hover:text-red-500 dark:hover:text-red-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 rounded"
                   title={`删除文件 ${file.name}`}
                   aria-label={`删除文件 ${file.name}`}
                 >

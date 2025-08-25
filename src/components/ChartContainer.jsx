@@ -532,8 +532,8 @@ export default function ChartContainer({
 
   if (parsedData.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-8">
-        <div className="text-center text-gray-500">
+      <div className="bg-white dark:bg-gray-800 dark:text-gray-100 rounded-lg shadow-md p-8">
+        <div className="text-center text-gray-500 dark:text-gray-400">
           <p className="text-lg mb-2">📊 暂无数据</p>
           <p>📁 请上传日志文件开始分析</p>
         </div>
@@ -559,8 +559,8 @@ export default function ChartContainer({
 
   if (metrics.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-8">
-        <div className="text-center text-gray-500">
+      <div className="bg-white dark:bg-gray-800 dark:text-gray-100 rounded-lg shadow-md p-8">
+        <div className="text-center text-gray-500 dark:text-gray-400">
           <p className="text-lg mb-2 font-medium">🎯 请选择要显示的图表</p>
         </div>
       </div>
@@ -639,8 +639,8 @@ export default function ChartContainer({
         </ResizablePanel>
         {comparisonChart}
         {stats && (
-          <div className="bg-white rounded-lg shadow-md p-3">
-            <h4 className="text-sm font-medium text-gray-700 mb-1">{key} 差值统计</h4>
+          <div className="bg-white dark:bg-gray-800 dark:text-gray-100 rounded-lg shadow-md p-3">
+            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{key} 差值统计</h4>
             <div className="space-y-1 text-xs">
               <p>平均误差 (normal): {stats.meanNormal.toFixed(6)}</p>
               <p>平均误差 (absolute): {stats.meanAbsolute.toFixed(6)}</p>
