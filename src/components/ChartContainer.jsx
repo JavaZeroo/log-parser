@@ -103,6 +103,59 @@ export default function ChartContainer({
     chartRefs.current.set(id, inst);
   }, []);
 
+  const exportChartPNG = useCallback((id) => {
+    const chart = chartRefs.current.get(id);
+    if (!chart) return;
+    const url = chart.toBase64Image();
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${id}.png`;
+    link.click();
+  }, []);
+
+  const copyChartImage = useCallback(async (id) => {
+    const chart = chartRefs.current.get(id);
+    if (!chart || !navigator?.clipboard) return;
+    const url = chart.toBase64Image();
+    const res = await fetch(url);
+    const blob = await res.blob();
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': blob })
+      ]);
+    } catch (e) {
+      console.error('复制图片失败', e);
+    }
+  }, []);
+
+  const exportChartCSV = useCallback((id) => {
+    const chart = chartRefs.current.get(id);
+    if (!chart) return;
+    const datasets = chart.data.datasets || [];
+    const xValues = new Set();
+    datasets.forEach(ds => {
+      (ds.data || []).forEach(p => xValues.add(p.x));
+    });
+    const sortedX = Array.from(xValues).sort((a, b) => a - b);
+    const header = ['step', ...datasets.map(ds => ds.label || '')];
+    const rows = sortedX.map(x => {
+      const cols = [x];
+      datasets.forEach(ds => {
+        const pt = (ds.data || []).find(p => p.x === x);
+        cols.push(pt ? pt.y : '');
+      });
+      return cols.join(',');
+    });
+    const csv = [header.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${id}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }, []);
+
   const syncHoverToAllCharts = useCallback((step, sourceId) => {
     if (syncLockRef.current) return;
     syncLockRef.current = true;
@@ -611,8 +664,15 @@ export default function ChartContainer({
           y: { ...chartOptions.scales.y, min: compRange.min, max: compRange.max }
         }
       };
+      const compActions = (
+        <>
+          <button type="button" className="px-2 py-1 text-xs bg-blue-500 text-white rounded" onClick={() => exportChartPNG(`metric-comp-${idx}`)}>导出 PNG</button>
+          <button type="button" className="px-2 py-1 text-xs bg-blue-500 text-white rounded" onClick={() => copyChartImage(`metric-comp-${idx}`)}>复制图片</button>
+          <button type="button" className="px-2 py-1 text-xs bg-blue-500 text-white rounded" onClick={() => exportChartCSV(`metric-comp-${idx}`)}>导出 CSV</button>
+        </>
+      );
       comparisonChart = (
-        <ResizablePanel title={`⚖️ ${key} 对比分析 (${compareMode})`} initialHeight={440}>
+        <ResizablePanel title={`⚖️ ${key} 对比分析 (${compareMode})`} initialHeight={440} actions={compActions}>
           <ChartWrapper
             chartId={`metric-comp-${idx}`}
             onRegisterChart={registerChart}
@@ -627,7 +687,17 @@ export default function ChartContainer({
 
     return (
       <div key={key} className="flex flex-col gap-3">
-        <ResizablePanel title={key} initialHeight={440}>
+        <ResizablePanel
+          title={key}
+          initialHeight={440}
+          actions={(
+            <>
+              <button type="button" className="px-2 py-1 text-xs bg-blue-500 text-white rounded" onClick={() => exportChartPNG(`metric-${idx}`)}>导出 PNG</button>
+              <button type="button" className="px-2 py-1 text-xs bg-blue-500 text-white rounded" onClick={() => copyChartImage(`metric-${idx}`)}>复制图片</button>
+              <button type="button" className="px-2 py-1 text-xs bg-blue-500 text-white rounded" onClick={() => exportChartCSV(`metric-${idx}`)}>导出 CSV</button>
+            </>
+          )}
+        >
           <ChartWrapper
             chartId={`metric-${idx}`}
             onRegisterChart={registerChart}

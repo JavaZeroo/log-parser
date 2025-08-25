@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 
-export function ResizablePanel({ children, title, initialHeight = 440, minHeight = 200, maxHeight = 800 }) {
+export function ResizablePanel({ children, title, initialHeight = 440, minHeight = 200, maxHeight = 800, actions = null }) {
   const [height, setHeight] = useState(initialHeight);
   const [isResizing, setIsResizing] = useState(false);
   const panelRef = useRef(null);
@@ -49,12 +49,17 @@ export function ResizablePanel({ children, title, initialHeight = 440, minHeight
       aria-labelledby={`panel-title-${title.replace(/\s+/g, '-').toLowerCase()}`}
     >
       <div className="flex items-center justify-between mb-2">
-        <h3 
+        <h3
           id={`panel-title-${title.replace(/\s+/g, '-').toLowerCase()}`}
           className="text-base font-semibold text-gray-800"
         >
           📊 {title}
         </h3>
+        {actions && (
+          <div className="flex gap-2" aria-label="图表操作按钮">
+            {actions}
+          </div>
+        )}
       </div>
       
       <div 
