@@ -1,35 +1,37 @@
 import React from 'react';
 import { FileText, X, Settings } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
-export function FileList({ files, onFileRemove, onFileToggle, onFileConfig }) {
-  if (files.length === 0) {
+  export function FileList({ files, onFileRemove, onFileToggle, onFileConfig }) {
+    const { t } = useTranslation();
+    if (files.length === 0) {
+      return (
+        <section className="card" aria-labelledby="file-list-heading">
+          <h3
+            id="file-list-heading"
+            className="card-title mb-2"
+          >
+            {t('fileList.title')}
+          </h3>
+          <p className="text-gray-500 dark:text-gray-400 text-center py-4 text-sm" role="status">
+            {t('fileList.empty')}
+          </p>
+        </section>
+      );
+    }
+
     return (
       <section className="card" aria-labelledby="file-list-heading">
         <h3
           id="file-list-heading"
           className="card-title mb-2"
         >
-          📋 已加载文件
+          {t('fileList.title')} ({files.length})
         </h3>
-        <p className="text-gray-500 dark:text-gray-400 text-center py-4 text-sm" role="status">
-          📂 暂无文件
-        </p>
-      </section>
-    );
-  }
-
-  return (
-    <section className="card" aria-labelledby="file-list-heading">
-      <h3
-        id="file-list-heading"
-        className="card-title mb-2"
-      >
-        📋 已加载文件 ({files.length})
-      </h3>
-      <ul className="space-y-2" role="list" aria-label={`已加载 ${files.length} 个文件`}>
-        {files.map((file, index) => (
-          <li
-            key={file.id}
+        <ul className="space-y-2" role="list" aria-label={t('fileList.loaded', { count: files.length })}>
+          {files.map((file, index) => (
+            <li
+              key={file.id}
             className="p-2 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600"
             role="listitem"
           >
@@ -55,33 +57,33 @@ export function FileList({ files, onFileRemove, onFileToggle, onFileConfig }) {
                   >
                     {file.name}
                   </span>
-                  <span 
-                    id={`file-status-${file.id}`}
-                    className="sr-only"
-                  >
-                    {file.enabled !== false ? '已启用' : '已禁用'}
-                  </span>
-                </label>
-              </div>
+                    <span
+                      id={`file-status-${file.id}`}
+                      className="sr-only"
+                    >
+                      {file.enabled !== false ? t('fileList.enabled') : t('fileList.disabled')}
+                    </span>
+                  </label>
+                </div>
               
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => onFileConfig(file)}
-                  className="p-1 text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
-                  title={`配置文件 ${file.name}`}
-                  aria-label={`配置文件 ${file.name}`}
-                  disabled={file.enabled === false}
-                >
-                  <Settings size={14} aria-hidden="true" />
-                </button>
-                <button
-                  onClick={() => onFileRemove(index)}
-                  className="p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 rounded"
-                  title={`删除文件 ${file.name}`}
-                  aria-label={`删除文件 ${file.name}`}
-                >
-                  <X size={14} aria-hidden="true" />
-                </button>
+                    className="p-1 text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
+                    title={t('fileList.config', { name: file.name })}
+                    aria-label={t('fileList.config', { name: file.name })}
+                    disabled={file.enabled === false}
+                  >
+                    <Settings size={14} aria-hidden="true" />
+                  </button>
+                  <button
+                    onClick={() => onFileRemove(index)}
+                    className="p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 rounded"
+                    title={t('fileList.delete', { name: file.name })}
+                    aria-label={t('fileList.delete', { name: file.name })}
+                  >
+                    <X size={14} aria-hidden="true" />
+                  </button>
               </div>
             </div>
           </li>

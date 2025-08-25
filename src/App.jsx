@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FileUpload } from './components/FileUpload';
 import { RegexControls } from './components/RegexControls';
 import { FileList } from './components/FileList';
@@ -6,6 +7,7 @@ import ChartContainer from './components/ChartContainer';
 import { ComparisonControls } from './components/ComparisonControls';
 import { FileConfigModal } from './components/FileConfigModal';
 import { ThemeToggle } from './components/ThemeToggle';
+import { Header } from './components/Header';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { mergeFilesWithReplacement } from './utils/mergeFiles.js';
 
@@ -30,7 +32,8 @@ export const DEFAULT_GLOBAL_PARSING_CONFIG = {
 };
 
 function App() {
-  const [uploadedFiles, setUploadedFiles] = useState(() => {
+    const { t } = useTranslation();
+    const [uploadedFiles, setUploadedFiles] = useState(() => {
     const stored = localStorage.getItem('uploadedFiles');
     return stored ? JSON.parse(stored) : [];
   });
@@ -317,7 +320,10 @@ function App() {
                 <h1 className="text-lg font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-purple-500 to-indigo-600 animate-gradient-slow">
                   Log Analyzer
                 </h1>
-                <ThemeToggle className="ml-auto" />
+                <div className="ml-auto flex items-center gap-2">
+                  <Header />
+                  <ThemeToggle />
+                </div>
                 <button
                   onClick={() => setSidebarVisible(false)}
                   className="p-1 text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
@@ -354,9 +360,9 @@ function App() {
                 <button
                   onClick={handleResetConfig}
                   className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-                  aria-label="重置配置"
+                  aria-label={t('resetConfig')}
                 >
-                  重置配置
+                  {t('resetConfig')}
                 </button>
               </div>
             </div>

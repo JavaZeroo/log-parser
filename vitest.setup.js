@@ -1,4 +1,5 @@
 import { vi } from 'vitest';
+import './src/i18n.js';
 
 if (!window.matchMedia) {
   Object.defineProperty(window, 'matchMedia', {
