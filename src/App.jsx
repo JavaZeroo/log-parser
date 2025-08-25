@@ -4,8 +4,8 @@ import { RegexControls } from './components/RegexControls';
 import { FileList } from './components/FileList';
 import ChartContainer from './components/ChartContainer';
 import { ComparisonControls } from './components/ComparisonControls';
-import { Header } from './components/Header';
 import { FileConfigModal } from './components/FileConfigModal';
+import { ThemeToggle } from './components/ThemeToggle';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { mergeFilesWithReplacement } from './utils/mergeFiles.js';
 
@@ -238,14 +238,14 @@ function App() {
   }, [handleGlobalDragEnter, handleGlobalDragOver, handleGlobalDragLeave, handleGlobalDrop]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 relative page-fade-in">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-700 relative page-fade-in">
       {/* 全页面拖拽覆盖层 */}
       {globalDragOver && (
         <div
-          className="fixed inset-0 bg-blue-600 bg-opacity-95 z-50 flex items-center justify-center backdrop-blur-sm drag-overlay-fade-in"
+          className="fixed inset-0 bg-blue-600 dark:bg-blue-950 bg-opacity-95 z-50 flex items-center justify-center backdrop-blur-sm drag-overlay-fade-in"
         >
-          <div 
-            className="bg-white rounded-xl shadow-2xl p-8 text-center max-w-md mx-4 border-4 border-dashed border-blue-300 drag-modal-scale-in"
+          <div
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-8 text-center max-w-md mx-4 border-4 border-dashed border-blue-300 dark:border-blue-700 drag-modal-scale-in"
           >
             <div className="mb-6">
               <div className="relative">
@@ -270,13 +270,13 @@ function App() {
                 </div>
               </div>
             </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-3">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-3">
               🎯 释放文件以上传
             </h3>
-            <p className="text-sm text-gray-600 mb-2">
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
               支持 <span className="font-semibold text-blue-600">所有文本格式</span> 文件
             </p>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               拖拽到页面任意位置即可快速上传文件
             </p>
           </div>
@@ -286,7 +286,7 @@ function App() {
       {!sidebarVisible && (
         <button
           onClick={() => setSidebarVisible(true)}
-          className="fixed top-3 left-3 z-40 p-2 bg-white rounded-full shadow-md text-gray-600 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="fixed top-3 left-3 z-40 p-2 bg-white dark:bg-gray-800 rounded-full shadow-md text-gray-600 dark:text-gray-200 hover:text-gray-800 dark:hover:text-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
           aria-label="显示工具栏"
         >
           <PanelLeftOpen size={20} aria-hidden="true" />
@@ -307,9 +307,9 @@ function App() {
               aria-label="控制面板"
             >
               {/* 标题信息 */}
-              <div className="bg-white rounded-lg shadow-md p-3">
+              <div className="card">
               <div className="flex items-center gap-2 mb-2">
-                <div className="p-2 bg-blue-100 rounded-lg">
+                <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
                   <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
@@ -317,22 +317,23 @@ function App() {
                 <h1 className="text-lg font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-purple-500 to-indigo-600 animate-gradient-slow">
                   Log Analyzer
                 </h1>
+                <ThemeToggle className="ml-auto" />
                 <button
                   onClick={() => setSidebarVisible(false)}
-                  className="ml-auto p-1 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                  className="p-1 text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
                   aria-label="隐藏工具栏"
                 >
                   <PanelLeftClose size={16} aria-hidden="true" />
                 </button>
               </div>
-              <p className="text-sm text-gray-600 mb-3">
+              <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
                 📊 分析和可视化大模型训练日志中的损失函数和梯度范数数据
               </p>
               
               {/* 状态和链接按钮 */}
               <div className="flex items-center gap-2" role="group" aria-label="工具状态和链接">
-                <span 
-                  className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"
+                <span
+                  className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
                   aria-label="当前为在线版本"
                 >
                   <span aria-hidden="true">🌐</span>
@@ -342,7 +343,7 @@ function App() {
                   href="https://github.com/JavaZeroo/log-parser"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
                   aria-label="访问 GitHub 仓库（在新窗口中打开）"
                 >
                   <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
@@ -385,26 +386,26 @@ function App() {
               />
             )}
 
-            <section className="bg-white rounded-lg shadow-md p-3" aria-labelledby="display-options-heading">
-              <h3 
+            <section className="card" aria-labelledby="display-options-heading">
+              <h3
                 id="display-options-heading"
-                className="text-base font-semibold text-gray-800 mb-2"
+                className="card-title mb-2"
               >
                 🎛️ 显示选项
               </h3>
               <div className="space-y-3">
                 <div>
-                  <h4 className="text-xs font-medium text-gray-700 mb-2">📊 图表显示</h4>
-                  <p className="text-xs text-gray-500">上传文件后自动展示所有已配置的指标图表</p>
+                  <h4 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">📊 图表显示</h4>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">上传文件后自动展示所有已配置的指标图表</p>
                 </div>
                 
-                <div className="border-t pt-3">
-                  <h4 className="text-xs font-medium text-gray-700 mb-2">基准线设置</h4>
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
+                  <h4 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">基准线设置</h4>
                   <div className="space-y-3">
                     <div>
-                      <label 
+                      <label
                         htmlFor="relative-baseline"
-                        className="block text-xs font-medium text-gray-700 mb-1"
+                        className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1"
                       >
                         相对误差 Baseline
                       </label>
@@ -414,7 +415,7 @@ function App() {
                         step="0.001"
                         value={relativeBaseline}
                         onChange={(e) => setRelativeBaseline(parseFloat(e.target.value) || 0)}
-                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+                        className="input-field"
                         placeholder="0.002"
                         aria-describedby="relative-baseline-description"
                       />
@@ -427,9 +428,9 @@ function App() {
                     </div>
                     
                     <div>
-                      <label 
+                      <label
                         htmlFor="absolute-baseline"
-                        className="block text-xs font-medium text-gray-700 mb-1"
+                        className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1"
                       >
                         绝对误差 Baseline
                       </label>
@@ -439,7 +440,7 @@ function App() {
                         step="0.001"
                         value={absoluteBaseline}
                         onChange={(e) => setAbsoluteBaseline(parseFloat(e.target.value) || 0)}
-                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+                        className="input-field"
                         placeholder="0.005"
                         aria-describedby="absolute-baseline-description"
                       />
