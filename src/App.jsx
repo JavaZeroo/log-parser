@@ -6,6 +6,7 @@ import ChartContainer from './components/ChartContainer';
 import { ComparisonControls } from './components/ComparisonControls';
 import { Header } from './components/Header';
 import { FileConfigModal } from './components/FileConfigModal';
+import ThemeToggle from './components/ThemeToggle';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { mergeFilesWithReplacement } from './utils/mergeFiles.js';
 
@@ -194,7 +195,7 @@ function App() {
   }, [handleGlobalDragEnter, handleGlobalDragOver, handleGlobalDragLeave, handleGlobalDrop]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 relative page-fade-in">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 relative page-fade-in">
       {/* 全页面拖拽覆盖层 */}
       {globalDragOver && (
         <div
@@ -287,7 +288,7 @@ function App() {
               
               {/* 状态和链接按钮 */}
               <div className="flex items-center gap-2" role="group" aria-label="工具状态和链接">
-                <span 
+                <span
                   className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"
                   aria-label="当前为在线版本"
                 >
@@ -306,6 +307,7 @@ function App() {
                   </svg>
                   <span>GitHub</span>
                 </a>
+                <ThemeToggle />
               </div>
             </div>
             
