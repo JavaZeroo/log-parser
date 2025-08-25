@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { FileUpload } from './components/FileUpload';
 import { RegexControls } from './components/RegexControls';
 import { FileList } from './components/FileList';
@@ -9,27 +9,36 @@ import { FileConfigModal } from './components/FileConfigModal';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { mergeFilesWithReplacement } from './utils/mergeFiles.js';
 
+// 默认全局解析配置
+export const DEFAULT_GLOBAL_PARSING_CONFIG = {
+  metrics: [
+    {
+      name: 'Loss',
+      mode: 'keyword',
+      keyword: 'loss:',
+      regex: 'loss:\\s*([\\d.eE+-]+)'
+    },
+    {
+      name: 'Grad Norm',
+      mode: 'keyword',
+      keyword: 'norm:',
+      regex: 'grad[\\s_]norm:\\s*([\\d.eE+-]+)'
+    }
+  ],
+  useStepKeyword: false,
+  stepKeyword: 'step:'
+};
+
 function App() {
-  const [uploadedFiles, setUploadedFiles] = useState([]);
-  
+  const [uploadedFiles, setUploadedFiles] = useState(() => {
+    const stored = localStorage.getItem('uploadedFiles');
+    return stored ? JSON.parse(stored) : [];
+  });
+
   // 全局解析配置状态
-  const [globalParsingConfig, setGlobalParsingConfig] = useState({
-    metrics: [
-      {
-        name: 'Loss',
-        mode: 'keyword', // 'keyword' | 'regex'
-        keyword: 'loss:',
-        regex: 'loss:\\s*([\\d.eE+-]+)'
-      },
-      {
-        name: 'Grad Norm',
-        mode: 'keyword',
-        keyword: 'norm:',
-        regex: 'grad[\\s_]norm:\\s*([\\d.eE+-]+)'
-      }
-    ],
-    useStepKeyword: false,
-    stepKeyword: 'step:'
+  const [globalParsingConfig, setGlobalParsingConfig] = useState(() => {
+    const stored = localStorage.getItem('globalParsingConfig');
+    return stored ? JSON.parse(stored) : JSON.parse(JSON.stringify(DEFAULT_GLOBAL_PARSING_CONFIG));
   });
   
   const [compareMode, setCompareMode] = useState('normal');
@@ -42,6 +51,29 @@ function App() {
   const [xRange, setXRange] = useState({ min: undefined, max: undefined });
   const [maxStep, setMaxStep] = useState(0);
   const [sidebarVisible, setSidebarVisible] = useState(true);
+  const savingDisabledRef = useRef(false);
+
+  // 持久化配置到 localStorage
+  useEffect(() => {
+    if (savingDisabledRef.current) return;
+    localStorage.setItem('globalParsingConfig', JSON.stringify(globalParsingConfig));
+  }, [globalParsingConfig]);
+
+  useEffect(() => {
+    if (savingDisabledRef.current) return;
+    const serialized = uploadedFiles.map(({ id, name, enabled, content, config }) => ({
+      id,
+      name,
+      enabled,
+      content,
+      config
+    }));
+    if (serialized.length > 0) {
+      localStorage.setItem('uploadedFiles', JSON.stringify(serialized));
+    } else {
+      localStorage.removeItem('uploadedFiles');
+    }
+  }, [uploadedFiles]);
 
   const handleFilesUploaded = useCallback((files) => {
     const filesWithDefaults = files.map(file => ({
@@ -132,7 +164,19 @@ function App() {
         useStepKeyword: newConfig.useStepKeyword,
         stepKeyword: newConfig.stepKeyword
       }
-    })));
+    }))); 
+  }, []);
+
+  // 重置配置
+  const handleResetConfig = useCallback(() => {
+    savingDisabledRef.current = true;
+    localStorage.removeItem('globalParsingConfig');
+    localStorage.removeItem('uploadedFiles');
+    setGlobalParsingConfig(JSON.parse(JSON.stringify(DEFAULT_GLOBAL_PARSING_CONFIG)));
+    setUploadedFiles([]);
+    setTimeout(() => {
+      savingDisabledRef.current = false;
+    }, 0);
   }, []);
 
   // 全局拖拽事件处理
@@ -306,9 +350,16 @@ function App() {
                   </svg>
                   <span>GitHub</span>
                 </a>
+                <button
+                  onClick={handleResetConfig}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                  aria-label="重置配置"
+                >
+                  重置配置
+                </button>
               </div>
             </div>
-            
+
             <FileUpload onFilesUploaded={handleFilesUploaded} />
             
             <RegexControls
