@@ -51,7 +51,7 @@ export function ResizablePanel({ children, title, initialHeight = 440, minHeight
       <div className="flex items-center justify-between mb-2">
         <h3 
           id={`panel-title-${title.replace(/\s+/g, '-').toLowerCase()}`}
-          className="text-base font-semibold text-gray-800"
+          className="text-base font-semibold text-gray-800 dark:text-gray-100"
         >
           📊 {title}
         </h3>
