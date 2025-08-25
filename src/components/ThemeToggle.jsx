@@ -5,7 +5,9 @@ const themes = ['system', 'light', 'dark'];
 
 function applyTheme(theme) {
   const root = document.documentElement;
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const prefersDark = window.matchMedia
+    ? window.matchMedia('(prefers-color-scheme: dark)').matches
+    : false;
   if (theme === 'dark' || (theme === 'system' && prefersDark)) {
     root.classList.add('dark');
   } else {
@@ -22,10 +24,12 @@ export function ThemeToggle({ className = '' }) {
   }, [theme]);
 
   useEffect(() => {
-    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const media = window.matchMedia
+      ? window.matchMedia('(prefers-color-scheme: dark)')
+      : null;
     const listener = () => theme === 'system' && applyTheme('system');
-    media.addEventListener('change', listener);
-    return () => media.removeEventListener('change', listener);
+    media?.addEventListener('change', listener);
+    return () => media?.removeEventListener('change', listener);
   }, [theme]);
 
   const cycleTheme = () => {
