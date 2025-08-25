@@ -62,7 +62,6 @@
   }
 }
 
-/* Global form control styles */
 @layer base {
   input,
   select,
@@ -87,6 +86,12 @@
   width: 100%;
 }
 
+.chart-panel {
+  position: relative;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
 
 .resizable-chart-container {
   position: relative;
@@ -94,7 +99,8 @@
   max-height: 600px;
   resize: vertical;
   overflow: hidden;
-  @apply border border-gray-200 dark:border-gray-700 rounded-lg;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
 }
 
 .resize-handle {
@@ -119,15 +125,19 @@
 }
 
 .chart-panel {
-  @apply relative rounded-lg shadow-md bg-white dark:bg-gray-800;
+  position: relative;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
 .drag-area {
-  @apply border-2 border-dashed border-gray-300 dark:border-gray-600;
+  border: 2px dashed #e2e8f0;
 }
 
 .drag-area.dragover {
-  @apply border-blue-500 bg-blue-50 dark:bg-blue-900;
+  border-color: #3b82f6;
+  background-color: #dbeafe;
 }
 
 /* Enhanced focus indicators for interactive elements */

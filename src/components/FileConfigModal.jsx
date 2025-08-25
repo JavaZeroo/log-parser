@@ -118,10 +118,10 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
     return (
       <div className="space-y-2">
         <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">预设</label>
+          <label className="block text-xs font-medium text-gray-700 mb-1">预设</label>
           <select
             onChange={(e) => applyPreset(index, e.target.value)}
-            className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+            className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
             defaultValue=""
           >
             <option value="">选择预设</option>
@@ -132,13 +132,13 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
         </div>
         {/* 模式选择 */}
         <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label className="block text-xs font-medium text-gray-700 mb-1">
             匹配模式
           </label>
           <select
             value={configItem.mode}
             onChange={(e) => handleMetricChange(index, 'mode', e.target.value)}
-            className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+            className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
           >
             {Object.entries(MODE_CONFIG).map(([key, modeConfig]) => (
               <option key={key} value={key}>
@@ -146,7 +146,7 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
               </option>
             ))}
           </select>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-xs text-gray-500 mt-1">
             <ModeIcon size={10} className="inline mr-1" />
             {MODE_CONFIG[configItem.mode].description}
           </p>
@@ -155,17 +155,17 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
         {/* 根据模式显示不同的配置项 */}
         {configItem.mode === MATCH_MODES.KEYWORD && (
           <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className="block text-xs font-medium text-gray-700 mb-1">
               关键词
             </label>
             <input
               type="text"
               value={configItem.keyword}
               onChange={(e) => handleMetricChange(index, 'keyword', e.target.value)}
-              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+              className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
               placeholder="keyword"
             />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-xs text-gray-500 mt-1">
               支持模糊匹配，如 "loss" 可匹配 "training_loss"
             </p>
           </div>
@@ -173,17 +173,17 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
 
         {configItem.mode === MATCH_MODES.REGEX && (
           <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className="block text-xs font-medium text-gray-700 mb-1">
               正则表达式
             </label>
             <input
               type="text"
               value={configItem.regex}
               onChange={(e) => handleMetricChange(index, 'regex', e.target.value)}
-              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none font-mono"
+              className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none font-mono"
               placeholder="value:\\s*([\\d.eE+-]+)"
             />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-xs text-gray-500 mt-1">
               使用捕获组 () 来提取数值
             </p>
           </div>
@@ -202,20 +202,20 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
       aria-modal="true"
       onClick={onClose}
     >
-      <div
-        className="bg-white dark:bg-gray-800 dark:text-gray-100 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+      <div 
+        className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-4 border-b bg-gray-50 dark:bg-gray-700 dark:border-gray-700">
+        <div className="flex items-center justify-between p-4 border-b bg-gray-50">
           <div className="flex items-center gap-2">
             <Settings size={20} className="text-blue-600" aria-hidden="true" />
-            <h2 id="config-modal-title" className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+            <h2 id="config-modal-title" className="text-lg font-semibold text-gray-800">
               配置文件: {file.name}
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="p-1 text-gray-400 hover:text-gray-600 dark:text-gray-300 dark:hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+            className="p-1 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
             aria-label="关闭配置对话框"
           >
             <X size={20} />
@@ -227,13 +227,13 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
           <section>
             {/* 全局同步按钮 */}
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-medium text-gray-800 dark:text-gray-100 flex items-center gap-2">
+              <h3 className="text-base font-medium text-gray-800 flex items-center gap-2">
                 <BarChart3 size={16} className="text-indigo-600" aria-hidden="true" />
                 解析配置
               </h3>
               <button
                 onClick={syncFromGlobal}
-                className="flex items-center gap-1 px-3 py-1 text-xs text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900 hover:bg-blue-100 dark:hover:bg-blue-800 border border-blue-200 dark:border-blue-700 rounded-md transition-colors"
+                className="flex items-center gap-1 px-3 py-1 text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-md transition-colors"
                 title="从全局配置同步"
               >
                 <Zap size={12} />
@@ -243,8 +243,8 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
             
             <div className="space-y-4">
               {config.metrics.map((cfg, idx) => (
-                <div key={idx} className="border rounded-lg p-3 dark:border-gray-700">
-                  <h4 className="text-sm font-medium text-gray-800 dark:text-gray-100 mb-2 flex items-center gap-1">
+                <div key={idx} className="border rounded-lg p-3">
+                  <h4 className="text-sm font-medium text-gray-800 mb-2 flex items-center gap-1">
                     <TrendingDown size={16} className="text-red-500" aria-hidden="true" />
                     {getMetricTitle(cfg, idx)} 解析配置
                   </h4>
@@ -256,22 +256,22 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
 
           {/* 数据范围配置 */}
           <section>
-            <h3 className="text-base font-medium text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
+            <h3 className="text-base font-medium text-gray-800 mb-4 flex items-center gap-2">
               <Sliders size={16} className="text-purple-600" aria-hidden="true" />
               数据范围配置
             </h3>
             
             <div className="space-y-4">
-              <p className="text-sm text-gray-600 dark:text-gray-300">
+              <p className="text-sm text-gray-600">
                 配置要显示的数据点范围。默认显示全部数据（从第一个到最后一个数据点）。
               </p>
               
-              <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
+              <div className="bg-gray-50 p-4 rounded-lg border">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label 
                       htmlFor="range-start"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                      className="block text-sm font-medium text-gray-700 mb-2"
                     >
                       起始位置
                     </label>
@@ -282,9 +282,9 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
                       placeholder="0（默认从第一个数据点）"
                       value={config.dataRange.start || ''}
                       onChange={(e) => handleRangeChange('start', parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm bg-white dark:bg-gray-800"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm"
                     />
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    <p className="text-xs text-gray-500 mt-1">
                       第几个数据点开始（从0开始计数）
                     </p>
                   </div>
@@ -292,7 +292,7 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
                   <div>
                     <label 
                       htmlFor="range-end"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                      className="block text-sm font-medium text-gray-700 mb-2"
                     >
                       结束位置
                     </label>
@@ -303,19 +303,19 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
                       placeholder="留空显示到最后"
                       value={config.dataRange.end || ''}
                       onChange={(e) => handleRangeChange('end', e.target.value ? parseInt(e.target.value) : undefined)}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm bg-white dark:bg-gray-800"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm"
                     />
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    <p className="text-xs text-gray-500 mt-1">
                       第几个数据点结束（不包含该点）
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900 rounded border border-blue-200 dark:border-blue-700">
-                  <p className="text-sm text-blue-800 dark:text-blue-200 font-medium">
+                <div className="mt-3 p-3 bg-blue-50 rounded border border-blue-200">
+                  <p className="text-sm text-blue-800 font-medium">
                     示例说明：
                   </p>
-                  <ul className="text-xs text-blue-700 dark:text-blue-200 mt-2 space-y-1">
+                  <ul className="text-xs text-blue-700 mt-2 space-y-1">
                     <li>• 起始: 0, 结束: 100 → 显示第1到第100个数据点</li>
                     <li>• 起始: 50, 结束: 留空 → 显示第51个数据点到结尾</li>
                     <li>• 起始: 0, 结束: 留空 → 显示全部数据点（默认）</li>
@@ -326,10 +326,10 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
           </section>
         </div>
 
-        <div className="flex justify-end gap-3 p-4 border-t bg-gray-50 dark:bg-gray-700 dark:border-gray-700">
+        <div className="flex justify-end gap-3 p-4 border-t bg-gray-50">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
           >
             取消
           </button>

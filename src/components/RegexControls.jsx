@@ -345,16 +345,16 @@ export function RegexControls({
     return (
       <div className="space-y-2">
         <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">指标名称</label>
+          <label className="block text-xs font-medium text-gray-700 mb-1">指标名称</label>
           <input
             type="text"
             value={config.name}
             onChange={(e) => onConfigChange('name', e.target.value)}
-            className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+            className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
           />
           <select
             onChange={(e) => applyPreset(index, e.target.value)}
-            className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md mt-1 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+            className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md mt-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
             defaultValue=""
           >
             <option value="">选择预设</option>
@@ -365,13 +365,13 @@ export function RegexControls({
         </div>
         {/* 模式选择 */}
         <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label className="block text-xs font-medium text-gray-700 mb-1">
             匹配模式
           </label>
           <select
             value={config.mode}
             onChange={(e) => onConfigChange('mode', e.target.value)}
-            className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+            className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
           >
             {Object.entries(MODE_CONFIG).map(([key, modeConfig]) => (
               <option key={key} value={key}>
@@ -379,7 +379,7 @@ export function RegexControls({
               </option>
             ))}
           </select>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-xs text-gray-500 mt-1">
             <ModeIcon size={10} className="inline mr-1" />
             {MODE_CONFIG[config.mode].description}
           </p>
@@ -388,17 +388,17 @@ export function RegexControls({
         {/* 根据模式显示不同的配置项 */}
         {config.mode === MATCH_MODES.KEYWORD && (
           <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className="block text-xs font-medium text-gray-700 mb-1">
               关键词
             </label>
             <input
               type="text"
               value={config.keyword}
               onChange={(e) => onConfigChange('keyword', e.target.value)}
-              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+              className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
               placeholder="keyword"
             />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-xs text-gray-500 mt-1">
               支持模糊匹配，如 "loss" 可匹配 "training_loss"
             </p>
           </div>
@@ -406,17 +406,17 @@ export function RegexControls({
 
         {config.mode === MATCH_MODES.REGEX && (
           <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className="block text-xs font-medium text-gray-700 mb-1">
               正则表达式
             </label>
             <input
               type="text"
               value={config.regex}
               onChange={(e) => onConfigChange('regex', e.target.value)}
-              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none font-mono"
+              className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none font-mono"
               placeholder="value:\\s*([\\d.eE+-]+)"
             />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-xs text-gray-500 mt-1">
               使用捕获组 () 来提取数值
             </p>
           </div>
@@ -426,17 +426,17 @@ export function RegexControls({
   };
 
   return (
-    <section className="bg-white dark:bg-gray-800 dark:text-gray-100 rounded-lg shadow-md p-3" aria-labelledby="regex-controls-heading">
+    <section className="bg-white rounded-lg shadow-md p-3" aria-labelledby="regex-controls-heading">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Settings
-            size={16}
-            className="text-gray-600 dark:text-gray-300"
+          <Settings 
+            size={16} 
+            className="text-gray-600" 
             aria-hidden="true"
           />
-          <h3
+          <h3 
             id="regex-controls-heading"
-            className="text-base font-semibold text-gray-800 dark:text-gray-100"
+            className="text-base font-semibold text-gray-800"
           >
             数据解析配置
           </h3>
@@ -446,7 +446,7 @@ export function RegexControls({
           {uploadedFiles.length > 0 && (
             <button
               onClick={smartRecommend}
-              className="p-1 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900 rounded transition-colors"
+              className="p-1 text-purple-600 hover:bg-purple-50 rounded transition-colors"
               title="智能推荐最佳配置"
             >
               <Zap size={14} />
@@ -454,7 +454,7 @@ export function RegexControls({
           )}
           <button
             onClick={() => setShowPreview(!showPreview)}
-            className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900 rounded transition-colors"
+            className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
             title="预览匹配结果"
           >
             <Eye size={14} />
@@ -464,7 +464,7 @@ export function RegexControls({
       
       <div className="space-y-4">
           {globalParsingConfig.metrics.map((cfg, idx) => (
-            <div key={idx} className="border rounded-lg p-3 relative dark:border-gray-700">
+            <div key={idx} className="border rounded-lg p-3 relative">
               <button
                 onClick={() => removeMetric(idx)}
                 className="absolute top-1 right-1 text-red-500"
@@ -472,7 +472,7 @@ export function RegexControls({
               >
                 ×
               </button>
-              <h4 className="text-sm font-medium text-gray-800 dark:text-gray-100 mb-2 flex items-center gap-1">
+              <h4 className="text-sm font-medium text-gray-800 mb-2 flex items-center gap-1">
                 <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
                 {getMetricTitle(cfg, idx)} 解析配置
               </h4>
@@ -481,14 +481,14 @@ export function RegexControls({
           ))}
           <button
             onClick={addMetric}
-            className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
+            className="px-2 py-1 text-xs bg-gray-100 rounded hover:bg-gray-200"
           >
             + 添加指标
           </button>
 
-          <div className="border rounded-lg p-3 dark:border-gray-700">
+          <div className="border rounded-lg p-3">
             <div className="flex items-center gap-2">
-              <label className="flex items-center text-xs text-gray-700 dark:text-gray-300">
+              <label className="flex items-center text-xs text-gray-700">
                 <input
                   type="checkbox"
                   className="mr-2"
@@ -500,7 +500,7 @@ export function RegexControls({
               {globalParsingConfig.useStepKeyword && (
                 <input
                   type="text"
-                  className="flex-1 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-800"
+                  className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
                   value={globalParsingConfig.stepKeyword || 'step:'}
                   onChange={(e) => handleStepKeywordChange(e.target.value)}
                   placeholder="step:"
@@ -509,14 +509,14 @@ export function RegexControls({
             </div>
           </div>
 
-        <div className="border rounded-lg p-3 dark:border-gray-700">
+        <div className="border rounded-lg p-3">
             <div className="flex items-center gap-2 mb-2">
-                <ZoomIn
-                    size={16}
-                    className="text-gray-600 dark:text-gray-300"
+                <ZoomIn 
+                    size={16} 
+                    className="text-gray-600" 
                     aria-hidden="true"
                 />
-                <h4 className="text-base font-semibold text-gray-800 dark:text-gray-100">
+                <h4 className="text-base font-semibold text-gray-800">
                     X轴范围
                 </h4>
             </div>
@@ -526,50 +526,50 @@ export function RegexControls({
                     placeholder="Min"
                     value={xRange.min === undefined ? 0 : xRange.min}
                     onChange={(e) => handleXRangeChange('min', e.target.value)}
-                    className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-800"
+                    className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
                 />
-                <span className="text-gray-500 dark:text-gray-400">-</span>
+                <span className="text-gray-500">-</span>
                 <input
                     type="number"
                     placeholder={xRange.max === undefined && maxStep !== undefined ? `${maxStep}` : 'Max'}
                     value={xRange.max === undefined ? maxStep : xRange.max}
                     onChange={(e) => handleXRangeChange('max', e.target.value)}
-                    className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-800"
+                    className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
                 />
                 <button
                     onClick={() => onXRangeChange({ min: undefined, max: undefined })}
-                    className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 whitespace-nowrap"
+                    className="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 whitespace-nowrap"
                 >
                     复位
                 </button>
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-xs text-gray-500 mt-1">
                 在图表上按住 <kbd>Shift</kbd> 键并拖动鼠标可选择范围，或直接输入数值。
             </p>
         </div>
 
         {/* 预览结果 */}
         {showPreview && uploadedFiles.length > 0 && (
-          <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900 rounded border border-blue-200 dark:border-blue-700">
-            <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">匹配预览</h4>
+          <div className="mt-3 p-3 bg-blue-50 rounded border border-blue-200">
+            <h4 className="text-sm font-medium text-blue-800 mb-2">匹配预览</h4>
             <div className="space-y-3 text-xs">
               {Object.entries(previewResults).map(([key, results]) => (
                 results.map((result, idx) => (
                   <div key={`${key}-${idx}`} className="border-l-4 border-blue-300 pl-3">
                     <div className="flex items-center justify-between">
-                      <span className="font-medium text-blue-700 dark:text-blue-200">{key} - {result.fileName}</span>
-                      <span className="text-gray-600 dark:text-gray-300">({result.count} 个匹配)</span>
+                      <span className="font-medium text-blue-700">{key} - {result.fileName}</span>
+                      <span className="text-gray-600">({result.count} 个匹配)</span>
                     </div>
                     {result.examples.length > 0 && (
                       <div className="mt-1 space-y-1">
                         {result.examples.map((example, exIdx) => (
-                          <div key={exIdx} className="text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 p-1 rounded text-xs">
-                            <span className="font-mono text-blue-600 dark:text-blue-400">{example.value}</span>
-                            <span className="text-gray-500 dark:text-gray-400 ml-2">(第{example.line}行)</span>
+                          <div key={exIdx} className="text-gray-600 bg-white p-1 rounded text-xs">
+                            <span className="font-mono text-blue-600">{example.value}</span>
+                            <span className="text-gray-500 ml-2">(第{example.line}行)</span>
                             {example.format && (
-                              <span className="text-purple-600 dark:text-purple-400 ml-2">[{example.format}]</span>
+                              <span className="text-purple-600 ml-2">[{example.format}]</span>
                             )}
-                            <div className="text-gray-400 dark:text-gray-500 truncate">{example.text}</div>
+                            <div className="text-gray-400 truncate">{example.text}</div>
                           </div>
                         ))}
                       </div>
@@ -581,8 +581,8 @@ export function RegexControls({
           </div>
         )}
         
-        <div
-          className="text-xs text-gray-500 dark:text-gray-400 p-2 bg-gray-50 dark:bg-gray-700 rounded"
+        <div 
+          className="text-xs text-gray-500 p-2 bg-gray-50 rounded"
           role="region"
           aria-label="功能说明"
         >
