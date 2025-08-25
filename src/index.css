@@ -62,6 +62,16 @@
   }
 }
 
+@layer base {
+  input,
+  select,
+  textarea {
+    @apply bg-white text-gray-900 border border-gray-300 rounded-md;
+    @apply dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600;
+    @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+  }
+}
+
 /* Custom styles */
 .chart-container {
   position: relative;

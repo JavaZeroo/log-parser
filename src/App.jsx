@@ -6,6 +6,7 @@ import ChartContainer from './components/ChartContainer';
 import { ComparisonControls } from './components/ComparisonControls';
 import { Header } from './components/Header';
 import { FileConfigModal } from './components/FileConfigModal';
+import ThemeToggle from './components/ThemeToggle';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { mergeFilesWithReplacement } from './utils/mergeFiles.js';
 
@@ -194,7 +195,7 @@ function App() {
   }, [handleGlobalDragEnter, handleGlobalDragOver, handleGlobalDragLeave, handleGlobalDrop]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 relative page-fade-in">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 relative page-fade-in text-gray-700 dark:text-gray-200">
       {/* 全页面拖拽覆盖层 */}
       {globalDragOver && (
         <div
@@ -294,7 +295,7 @@ function App() {
                   <span aria-hidden="true">🌐</span>
                   <span className="ml-1">在线使用</span>
                 </span>
-                <a
+              <a
                   href="https://github.com/JavaZeroo/log-parser"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -306,6 +307,7 @@ function App() {
                   </svg>
                   <span>GitHub</span>
                 </a>
+                <ThemeToggle />
               </div>
             </div>
             

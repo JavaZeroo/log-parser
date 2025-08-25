@@ -63,16 +63,18 @@ export function FileUpload({ onFilesUploaded }) {
   }, [processFiles]);
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-3">
+    <div className="bg-white dark:bg-gray-800 dark:text-gray-100 rounded-lg shadow-md p-3">
       <h3 
         id="file-upload-heading"
-        className="text-base font-semibold text-gray-800 mb-2"
+        className="text-base font-semibold text-gray-800 dark:text-gray-100 mb-2"
       >
         📁 文件上传
       </h3>
       <div
-        className={`drag-area border-2 border-dashed rounded-lg p-4 text-center cursor-pointer ${
-          isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
+        className={`drag-area rounded-lg p-4 text-center cursor-pointer ${
+          isDragOver
+            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900'
+            : 'hover:border-gray-400 dark:hover:border-gray-500'
         }`}
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
@@ -90,17 +92,17 @@ export function FileUpload({ onFilesUploaded }) {
           }
         }}
       >
-        <Upload 
-          className="mx-auto mb-2 text-gray-400" 
-          size={32} 
+        <Upload
+          className="mx-auto mb-2 text-gray-400 dark:text-gray-300"
+          size={32}
           aria-hidden="true"
         />
-        <p className="text-sm text-gray-600 mb-1">
+        <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">
           🎯 拖拽文件到此处或点击选择文件
         </p>
-        <p 
+        <p
           id="file-upload-description"
-          className="text-xs text-gray-500"
+          className="text-xs text-gray-500 dark:text-gray-400"
         >
           📄 支持所有文本格式文件
         </p>
