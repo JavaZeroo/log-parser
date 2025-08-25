@@ -6,6 +6,7 @@ import ChartContainer from './components/ChartContainer';
 import { ComparisonControls } from './components/ComparisonControls';
 import { Header } from './components/Header';
 import { FileConfigModal } from './components/FileConfigModal';
+import { ThemeToggle } from './components/ThemeToggle';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { mergeFilesWithReplacement } from './utils/mergeFiles.js';
 
@@ -273,9 +274,10 @@ function App() {
                 <h1 className="text-lg font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-purple-500 to-indigo-600 animate-gradient-slow">
                   Log Analyzer
                 </h1>
+                <ThemeToggle className="ml-auto" />
                 <button
                   onClick={() => setSidebarVisible(false)}
-                  className="ml-auto p-1 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                  className="p-1 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
                   aria-label="隐藏工具栏"
                 >
                   <PanelLeftClose size={16} aria-hidden="true" />
