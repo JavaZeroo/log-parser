@@ -15,6 +15,7 @@ import {
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { ImageDown, Copy, FileDown } from 'lucide-react';
 import { getMinSteps } from "../utils/getMinSteps.js";
+import { useTranslation } from 'react-i18next';
 
 ChartJS.register(
   CategoryScale,
@@ -99,6 +100,7 @@ export default function ChartContainer({
   onMaxStepChange
 }) {
   const chartRefs = useRef(new Map());
+  const { t } = useTranslation();
   const syncLockRef = useRef(false);
   const registerChart = useCallback((id, inst) => {
     chartRefs.current.set(id, inst);
@@ -125,9 +127,9 @@ export default function ChartContainer({
         new ClipboardItem({ 'image/png': blob })
       ]);
     } catch (e) {
-      console.error('复制图片失败', e);
+      console.error(t('copyImageError'), e);
     }
-  }, []);
+  }, [t]);
 
   const exportChartCSV = useCallback((id) => {
     const chart = chartRefs.current.get(id);
@@ -588,8 +590,8 @@ export default function ChartContainer({
     return (
       <div className="card p-8">
         <div className="text-center text-gray-500 dark:text-gray-400">
-          <p className="text-lg mb-2">📊 暂无数据</p>
-          <p>📁 请上传日志文件开始分析</p>
+          <p className="text-lg mb-2">{t('chart.noData')}</p>
+          <p>{t('chart.uploadPrompt')}</p>
         </div>
       </div>
     );
@@ -615,7 +617,7 @@ export default function ChartContainer({
     return (
       <div className="card p-8">
         <div className="text-center text-gray-500 dark:text-gray-400">
-          <p className="text-lg mb-2 font-medium">🎯 请选择要显示的图表</p>
+          <p className="text-lg mb-2 font-medium">{t('chart.selectPrompt')}</p>
         </div>
       </div>
     );
@@ -671,8 +673,8 @@ export default function ChartContainer({
             type="button"
             className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
             onClick={() => exportChartPNG(`metric-comp-${idx}`)}
-            aria-label="导出 PNG"
-            title="导出 PNG"
+            aria-label={t('exportPNG')}
+            title={t('exportPNG')}
           >
             <ImageDown size={16} />
           </button>
@@ -680,8 +682,8 @@ export default function ChartContainer({
             type="button"
             className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
             onClick={() => copyChartImage(`metric-comp-${idx}`)}
-            aria-label="复制图片"
-            title="复制图片"
+            aria-label={t('copyImage')}
+            title={t('copyImage')}
           >
             <Copy size={16} />
           </button>
@@ -689,8 +691,8 @@ export default function ChartContainer({
             type="button"
             className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
             onClick={() => exportChartCSV(`metric-comp-${idx}`)}
-            aria-label="导出 CSV"
-            title="导出 CSV"
+            aria-label={t('exportCSV')}
+            title={t('exportCSV')}
           >
             <FileDown size={16} />
           </button>
@@ -721,8 +723,8 @@ export default function ChartContainer({
                 type="button"
                 className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
                 onClick={() => exportChartPNG(`metric-${idx}`)}
-                aria-label="导出 PNG"
-                title="导出 PNG"
+                aria-label={t('exportPNG')}
+                title={t('exportPNG')}
               >
                 <ImageDown size={16} />
               </button>
@@ -730,8 +732,8 @@ export default function ChartContainer({
                 type="button"
                 className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
                 onClick={() => copyChartImage(`metric-${idx}`)}
-                aria-label="复制图片"
-                title="复制图片"
+                aria-label={t('copyImage')}
+                title={t('copyImage')}
               >
                 <Copy size={16} />
               </button>
@@ -739,8 +741,8 @@ export default function ChartContainer({
                 type="button"
                 className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
                 onClick={() => exportChartCSV(`metric-${idx}`)}
-                aria-label="导出 CSV"
-                title="导出 CSV"
+                aria-label={t('exportCSV')}
+                title={t('exportCSV')}
               >
                 <FileDown size={16} />
               </button>
@@ -759,7 +761,7 @@ export default function ChartContainer({
         {comparisonChart}
         {stats && (
           <div className="card">
-            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{key} 差值统计</h4>
+            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{key} {t('chart.diffStats')}</h4>
             <div className="space-y-1 text-xs">
               <p>平均误差 (normal): {stats.meanNormal.toFixed(6)}</p>
               <p>平均误差 (absolute): {stats.meanAbsolute.toFixed(6)}</p>

@@ -1,16 +1,18 @@
 import React from 'react';
 import { BarChart2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
-export function ComparisonControls({ 
-  compareMode, 
-  onCompareModeChange
-}) {
-  const modes = [
-    { value: 'normal', label: '📊 平均误差 (normal)', description: '未取绝对值的平均误差' },
-    { value: 'absolute', label: '📈 平均误差 (absolute)', description: '绝对值差值的平均' },
-    { value: 'relative-normal', label: '📉 相对误差 (normal)', description: '不取绝对值的相对误差' },
-    { value: 'relative', label: '📊 平均相对误差 (absolute)', description: '绝对相对误差的平均' }
-  ];
+  export function ComparisonControls({
+    compareMode,
+    onCompareModeChange
+  }) {
+    const { t } = useTranslation();
+    const modes = [
+      { value: 'normal', label: t('comparison.normal'), description: t('comparison.normalDesc') },
+      { value: 'absolute', label: t('comparison.absolute'), description: t('comparison.absoluteDesc') },
+      { value: 'relative-normal', label: t('comparison.relativeNormal'), description: t('comparison.relativeNormalDesc') },
+      { value: 'relative', label: t('comparison.relative'), description: t('comparison.relativeDesc') }
+    ];
 
   return (
     <section className="card" aria-labelledby="comparison-controls-heading">
@@ -24,14 +26,14 @@ export function ComparisonControls({
           id="comparison-controls-heading"
           className="card-title"
         >
-          ⚖️ 对比模式
-        </h3>
-      </div>
-      
-      <fieldset className="space-y-2">
-        <legend className="sr-only">选择数据对比模式</legend>
-        {modes.map(mode => (
-          <label
+            {t('comparison.title')}
+          </h3>
+        </div>
+
+        <fieldset className="space-y-2">
+          <legend className="sr-only">{t('comparison.select')}</legend>
+          {modes.map(mode => (
+            <label
             key={mode.value}
             className="flex items-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-1 rounded"
           >

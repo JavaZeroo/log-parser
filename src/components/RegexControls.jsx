@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Settings, Zap, Eye, ChevronDown, ChevronUp, Target, Code, ZoomIn } from 'lucide-react';
 import { METRIC_PRESETS } from '../metricPresets.js';
+import { useTranslation } from 'react-i18next';
 
 // 匹配模式枚举
 const MATCH_MODES = {
@@ -206,6 +207,7 @@ export function RegexControls({
 }) {
   const [showPreview, setShowPreview] = useState(false);
   const [previewResults, setPreviewResults] = useState({});
+  const { t } = useTranslation();
 
   const handleStepToggle = useCallback((checked) => {
     onGlobalParsingConfigChange({
@@ -495,15 +497,15 @@ export function RegexControls({
                   checked={globalParsingConfig.useStepKeyword || false}
                   onChange={(e) => handleStepToggle(e.target.checked)}
                 />
-                使用 Step 关键字
+                {t('useStepKeyword')}
               </label>
               {globalParsingConfig.useStepKeyword && (
                 <input
                   type="text"
                   className="flex-1 input-field"
-                  value={globalParsingConfig.stepKeyword || 'step:'}
+                  value={globalParsingConfig.stepKeyword || t('placeholder.step')}
                   onChange={(e) => handleStepKeywordChange(e.target.value)}
-                  placeholder="step:"
+                  placeholder={t('placeholder.step')}
                 />
               )}
             </div>

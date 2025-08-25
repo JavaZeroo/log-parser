@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Moon, Sun, Monitor } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const themes = ['system', 'light', 'dark'];
 
@@ -15,8 +16,9 @@ function applyTheme(theme) {
   }
 }
 
-export function ThemeToggle({ className = '' }) {
-  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'system');
+  export function ThemeToggle({ className = '' }) {
+    const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'system');
+    const { t } = useTranslation();
 
   useEffect(() => {
     applyTheme(theme);
@@ -45,11 +47,11 @@ export function ThemeToggle({ className = '' }) {
 
   return (
     <button
-      onClick={cycleTheme}
-      aria-label="切换主题"
-      className={`p-1 text-gray-400 hover:text-gray-600 dark:text-gray-300 dark:hover:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded ${className}`}
-    >
-      {icons[theme]}
+        onClick={cycleTheme}
+        aria-label={t('themeToggle.aria')}
+        className={`p-1 text-gray-400 hover:text-gray-600 dark:text-gray-300 dark:hover:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded ${className}`}
+      >
+        {icons[theme]}
     </button>
   );
 }
