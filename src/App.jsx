@@ -4,7 +4,6 @@ import { RegexControls } from './components/RegexControls';
 import { FileList } from './components/FileList';
 import ChartContainer from './components/ChartContainer';
 import { ComparisonControls } from './components/ComparisonControls';
-import { Header } from './components/Header';
 import { FileConfigModal } from './components/FileConfigModal';
 import { ThemeToggle } from './components/ThemeToggle';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
