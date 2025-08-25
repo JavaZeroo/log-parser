@@ -354,7 +354,7 @@ export function RegexControls({
           />
           <select
             onChange={(e) => applyPreset(index, e.target.value)}
-            className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md mt-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+            className="input-field mt-1"
             defaultValue=""
           >
             <option value="">选择预设</option>
