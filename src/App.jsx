@@ -10,6 +10,7 @@ import { ThemeToggle } from './components/ThemeToggle';
 import { Header } from './components/Header';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { mergeFilesWithReplacement } from './utils/mergeFiles.js';
+import { encodeConfig, decodeConfig } from './utils/shareConfig.js';
 
 // Default global parsing configuration
 export const DEFAULT_GLOBAL_PARSING_CONFIG = {
@@ -55,6 +56,19 @@ function App() {
   const [maxStep, setMaxStep] = useState(0);
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const savingDisabledRef = useRef(false);
+
+  // Load config from URL if present
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const cfg = params.get('config');
+    if (cfg) {
+      const data = decodeConfig(cfg);
+      if (data?.globalParsingConfig && data?.uploadedFiles) {
+        setGlobalParsingConfig(data.globalParsingConfig);
+        setUploadedFiles(data.uploadedFiles);
+      }
+    }
+  }, []);
 
   // Persist configuration to localStorage
   useEffect(() => {
@@ -181,6 +195,41 @@ function App() {
       savingDisabledRef.current = false;
     }, 0);
   }, []);
+
+  const handleShareConfig = useCallback(() => {
+    const data = encodeConfig({ globalParsingConfig, uploadedFiles });
+    const url = `${window.location.origin}${window.location.pathname}?config=${data}`;
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(url).then(() => {
+        alert(t('shareConfig.copied'));
+      }).catch(() => {
+        window.prompt('', url);
+      });
+    } else {
+      window.prompt('', url);
+    }
+  }, [globalParsingConfig, uploadedFiles, t]);
+
+  const handleImportConfigFile = useCallback((e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const json = JSON.parse(ev.target.result);
+        if (json.globalParsingConfig && json.uploadedFiles) {
+          setGlobalParsingConfig(json.globalParsingConfig);
+          setUploadedFiles(json.uploadedFiles);
+        } else {
+          alert(t('importConfig.error'));
+        }
+      } catch {
+        alert(t('importConfig.error'));
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }, [t]);
 
   // Global drag event handlers
   const handleGlobalDragEnter = useCallback((e) => {
@@ -365,6 +414,27 @@ function App() {
                   aria-label={t('resetConfig')}
                 >
                   {t('resetConfig')}
+                </button>
+                <button
+                  onClick={handleShareConfig}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                  aria-label={t('shareConfig')}
+                >
+                  {t('shareConfig')}
+                </button>
+                <input
+                  id="import-config-input"
+                  type="file"
+                  accept="application/json"
+                  onChange={handleImportConfigFile}
+                  className="hidden"
+                />
+                <button
+                  onClick={() => document.getElementById('import-config-input').click()}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                  aria-label={t('importConfig')}
+                >
+                  {t('importConfig')}
                 </button>
               </div>
             </div>
