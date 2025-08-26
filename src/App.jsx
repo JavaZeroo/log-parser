@@ -57,9 +57,10 @@ function App() {
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const savingDisabledRef = useRef(false);
 
-  // Load config from URL if present
+  // Load config from URL hash if present
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    const hash = window.location.hash.slice(1); // remove leading '#'
+    const params = new URLSearchParams(hash);
     const cfg = params.get('config');
     if (cfg) {
       const data = decodeConfig(cfg);
@@ -198,7 +199,7 @@ function App() {
 
   const handleShareConfig = useCallback(() => {
     const data = encodeConfig({ globalParsingConfig, uploadedFiles });
-    const url = `${window.location.origin}${window.location.pathname}?config=${data}`;
+    const url = `${window.location.origin}${window.location.pathname}#config=${data}`;
     if (navigator?.clipboard?.writeText) {
       navigator.clipboard.writeText(url).then(() => {
         alert(t('shareConfig.copied'));
