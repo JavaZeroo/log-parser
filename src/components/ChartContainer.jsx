@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useCallback, useEffect } from 'react';
+import React, { useMemo, useRef, useCallback, useEffect, useState } from 'react';
 import { Line } from 'react-chartjs-2';
 import { ResizablePanel } from './ResizablePanel';
 import {
@@ -13,7 +13,8 @@ import {
   Legend,
 } from 'chart.js';
 import zoomPlugin from 'chartjs-plugin-zoom';
-import { ImageDown, Copy, FileDown } from 'lucide-react';
+import { Copy, FileDown } from 'lucide-react';
+import jsPDF from 'jspdf';
 import { getMinSteps } from "../utils/getMinSteps.js";
 import { useTranslation } from 'react-i18next';
 
@@ -102,14 +103,86 @@ export default function ChartContainer({
   const chartRefs = useRef(new Map());
   const { t } = useTranslation();
   const syncLockRef = useRef(false);
+  const [smoothing, setSmoothing] = useState({ method: 'none', window: 5 });
+  const [exportFormat, setExportFormat] = useState('png');
+
   const registerChart = useCallback((id, inst) => {
     chartRefs.current.set(id, inst);
   }, []);
 
-  const exportChartPNG = useCallback((id) => {
+  const exportChart = useCallback((id, format) => {
     const chart = chartRefs.current.get(id);
     if (!chart) return;
+
+    const datasets = chart.data.datasets || [];
+    const xValues = new Set();
+    datasets.forEach(ds => {
+      (ds.data || []).forEach(p => xValues.add(p.x));
+    });
+    const sortedX = Array.from(xValues).sort((a, b) => a - b);
+
+    if (format === 'csv') {
+      const header = ['step', ...datasets.map(ds => ds.label || '')];
+      const rows = sortedX.map(x => {
+        const cols = [x];
+        datasets.forEach(ds => {
+          const pt = (ds.data || []).find(p => p.x === x);
+          cols.push(pt ? pt.y : '');
+        });
+        return cols.join(',');
+      });
+      const csv = [header.join(','), ...rows].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${id}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    if (format === 'json') {
+      const jsonData = sortedX.map(x => {
+        const entry = { step: x };
+        datasets.forEach(ds => {
+          const pt = (ds.data || []).find(p => p.x === x);
+          entry[ds.label || ''] = pt ? pt.y : null;
+        });
+        return entry;
+      });
+      const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${id}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+
     const url = chart.toBase64Image();
+
+    if (format === 'pdf') {
+      const pdf = new jsPDF();
+      const width = pdf.internal.pageSize.getWidth();
+      const height = (chart.height / chart.width) * width;
+      pdf.addImage(url, 'PNG', 0, 0, width, height);
+      pdf.save(`${id}.pdf`);
+      return;
+    }
+
+    if (format === 'svg') {
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${chart.width}" height="${chart.height}"><image href="${url}" width="100%" height="100%"/></svg>`;
+      const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${id}.svg`;
+      link.click();
+      return;
+    }
+
+    // default PNG export
     const link = document.createElement('a');
     link.href = url;
     link.download = `${id}.png`;
@@ -131,33 +204,20 @@ export default function ChartContainer({
     }
   }, [t]);
 
-  const exportChartCSV = useCallback((id) => {
-    const chart = chartRefs.current.get(id);
-    if (!chart) return;
-    const datasets = chart.data.datasets || [];
-    const xValues = new Set();
-    datasets.forEach(ds => {
-      (ds.data || []).forEach(p => xValues.add(p.x));
+  const applyMovingAverage = (data, windowSize) => {
+    if (windowSize <= 1) return data;
+    const half = Math.floor(windowSize / 2);
+    return data.map((point, idx) => {
+      const start = Math.max(0, idx - half);
+      const end = Math.min(data.length - 1, idx + half);
+      let sum = 0;
+      for (let i = start; i <= end; i++) {
+        sum += data[i].y;
+      }
+      const avg = sum / (end - start + 1);
+      return { x: point.x, y: avg };
     });
-    const sortedX = Array.from(xValues).sort((a, b) => a - b);
-    const header = ['step', ...datasets.map(ds => ds.label || '')];
-    const rows = sortedX.map(x => {
-      const cols = [x];
-      datasets.forEach(ds => {
-        const pt = (ds.data || []).find(p => p.x === x);
-        cols.push(pt ? pt.y : '');
-      });
-      return cols.join(',');
-    });
-    const csv = [header.join(','), ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${id}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-  }, []);
+  };
 
   const syncHoverToAllCharts = useCallback((step, sourceId) => {
     if (syncLockRef.current) return;
@@ -290,13 +350,17 @@ export default function ChartContainer({
         };
         const reindex = data => stepCfg.enabled ? data : data.map((p, idx) => ({ x: idx, y: p.y }));
         Object.keys(metricsData).forEach(k => {
-          metricsData[k] = reindex(applyRange(metricsData[k]));
+          let processed = reindex(applyRange(metricsData[k]));
+          if (smoothing.method === 'moving-average') {
+            processed = applyMovingAverage(processed, smoothing.window);
+          }
+          metricsData[k] = processed;
         });
       }
 
       return { ...file, metricsData };
     });
-  }, [files, metrics]);
+  }, [files, metrics, smoothing]);
 
   useEffect(() => {
     const maxStep = parsedData.reduce((m, f) => {
@@ -672,11 +736,11 @@ export default function ChartContainer({
           <button
             type="button"
             className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
-            onClick={() => exportChartPNG(`metric-comp-${idx}`)}
-            aria-label={t('exportPNG')}
-            title={t('exportPNG')}
+            onClick={() => exportChart(`metric-comp-${idx}`, exportFormat)}
+            aria-label="Export"
+            title="Export"
           >
-            <ImageDown size={16} />
+            <FileDown size={16} />
           </button>
           <button
             type="button"
@@ -686,15 +750,6 @@ export default function ChartContainer({
             title={t('copyImage')}
           >
             <Copy size={16} />
-          </button>
-          <button
-            type="button"
-            className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
-            onClick={() => exportChartCSV(`metric-comp-${idx}`)}
-            aria-label={t('exportCSV')}
-            title={t('exportCSV')}
-          >
-            <FileDown size={16} />
           </button>
         </>
       );
@@ -722,11 +777,11 @@ export default function ChartContainer({
               <button
                 type="button"
                 className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
-                onClick={() => exportChartPNG(`metric-${idx}`)}
-                aria-label={t('exportPNG')}
-                title={t('exportPNG')}
+                onClick={() => exportChart(`metric-${idx}`, exportFormat)}
+                aria-label="Export"
+                title="Export"
               >
-                <ImageDown size={16} />
+                <FileDown size={16} />
               </button>
               <button
                 type="button"
@@ -736,15 +791,6 @@ export default function ChartContainer({
                 title={t('copyImage')}
               >
                 <Copy size={16} />
-              </button>
-              <button
-                type="button"
-                className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
-                onClick={() => exportChartCSV(`metric-${idx}`)}
-                aria-label={t('exportCSV')}
-                title={t('exportCSV')}
-              >
-                <FileDown size={16} />
               </button>
             </>
           )}
@@ -775,8 +821,46 @@ export default function ChartContainer({
   });
 
   return (
-    <div className="grid grid-cols-2 gap-3">
-      {metricElements}
+    <div className="flex flex-col gap-3">
+      <div className="flex justify-end gap-2 items-center">
+        <label className="text-xs flex items-center gap-1">
+          Smoothing:
+          <select
+            value={smoothing.method}
+            onChange={(e) => setSmoothing({ ...smoothing, method: e.target.value })}
+            className="border rounded p-0.5 text-xs"
+          >
+            <option value="none">None</option>
+            <option value="moving-average">Moving Avg</option>
+          </select>
+        </label>
+        {smoothing.method === 'moving-average' && (
+          <input
+            type="number"
+            min="1"
+            value={smoothing.window}
+            onChange={(e) => setSmoothing({ ...smoothing, window: Math.max(1, parseInt(e.target.value) || 1) })}
+            className="w-16 border rounded p-0.5 text-xs"
+          />
+        )}
+        <label className="text-xs flex items-center gap-1">
+          Export:
+          <select
+            value={exportFormat}
+            onChange={(e) => setExportFormat(e.target.value)}
+            className="border rounded p-0.5 text-xs"
+          >
+            <option value="png">PNG</option>
+            <option value="csv">CSV</option>
+            <option value="pdf">PDF</option>
+            <option value="svg">SVG</option>
+            <option value="json">JSON</option>
+          </select>
+        </label>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        {metricElements}
+      </div>
     </div>
   );
 }
