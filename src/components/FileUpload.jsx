@@ -1,8 +1,10 @@
 import React, { useCallback, useState } from 'react';
 import { Upload, FileText } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
-export function FileUpload({ onFilesUploaded }) {
-  const [isDragOver, setIsDragOver] = useState(false);
+  export function FileUpload({ onFilesUploaded }) {
+    const [isDragOver, setIsDragOver] = useState(false);
+    const { t } = useTranslation();
 
   const processFiles = useCallback((files) => {
     const fileArray = Array.from(files);
@@ -34,25 +36,25 @@ export function FileUpload({ onFilesUploaded }) {
 
   const handleDragEnter = useCallback((e) => {
     e.preventDefault();
-    e.stopPropagation(); // 阻止事件冒泡到全局处理器
+    e.stopPropagation(); // prevent bubbling to global handler
     setIsDragOver(true);
   }, []);
 
   const handleDragOver = useCallback((e) => {
     e.preventDefault();
-    e.stopPropagation(); // 阻止事件冒泡到全局处理器
+    e.stopPropagation(); // prevent bubbling to global handler
     setIsDragOver(true);
   }, []);
 
   const handleDragLeave = useCallback((e) => {
     e.preventDefault();
-    e.stopPropagation(); // 阻止事件冒泡到全局处理器
+    e.stopPropagation(); // prevent bubbling to global handler
     setIsDragOver(false);
   }, []);
 
   const handleDrop = useCallback((e) => {
     e.preventDefault();
-    e.stopPropagation(); // 阻止事件冒泡到全局处理器
+    e.stopPropagation(); // prevent bubbling to global handler
     setIsDragOver(false);
     processFiles(e.dataTransfer.files);
   }, [processFiles]);
@@ -64,12 +66,12 @@ export function FileUpload({ onFilesUploaded }) {
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-3">
-      <h3 
-        id="file-upload-heading"
-        className="text-base font-semibold text-gray-800 dark:text-gray-100 mb-2"
-      >
-        📁 文件上传
-      </h3>
+        <h3
+          id="file-upload-heading"
+          className="text-base font-semibold text-gray-800 dark:text-gray-100 mb-2"
+        >
+          {t('fileUpload.title')}
+        </h3>
       <div
         className={`drag-area border-2 border-dashed rounded-lg p-4 text-center cursor-pointer ${
           isDragOver
@@ -97,23 +99,23 @@ export function FileUpload({ onFilesUploaded }) {
           size={32}
           aria-hidden="true"
         />
-        <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">
-          🎯 拖拽文件到此处或点击选择文件
-        </p>
+          <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">
+            {t('fileUpload.drag')}
+          </p>
         <p 
           id="file-upload-description"
-          className="text-xs text-gray-500 dark:text-gray-400"
-        >
-          📄 支持所有文本格式文件
-        </p>
+            className="text-xs text-gray-500 dark:text-gray-400"
+          >
+            {t('fileUpload.support')}
+          </p>
         <input
           id="fileInput"
           type="file"
           multiple
           onChange={handleFileSelect}
-          className="sr-only"
-          aria-label="选择日志文件，支持所有文本格式"
-        />
+            className="sr-only"
+            aria-label={t('fileUpload.aria')}
+          />
       </div>
     </div>
   );

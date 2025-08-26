@@ -1,7 +1,9 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
-export function ResizablePanel({ children, title, initialHeight = 440, minHeight = 200, maxHeight = 800, actions = null }) {
-  const [height, setHeight] = useState(initialHeight);
+  export function ResizablePanel({ children, title, initialHeight = 440, minHeight = 200, maxHeight = 800, actions = null }) {
+    const [height, setHeight] = useState(initialHeight);
+    const { t } = useTranslation();
   const [isResizing, setIsResizing] = useState(false);
   const panelRef = useRef(null);
   const startY = useRef(0);
@@ -53,10 +55,10 @@ export function ResizablePanel({ children, title, initialHeight = 440, minHeight
           id={`panel-title-${title.replace(/\s+/g, '-').toLowerCase()}`}
           className="text-base font-semibold text-gray-800 dark:text-gray-100"
         >
-          📊 {title}
-        </h3>
+            📊 {title}
+          </h3>
         {actions && (
-          <div className="flex gap-2" aria-label="图表操作按钮">
+          <div className="flex gap-2" aria-label={t('chart.actions')}>
             {actions}
           </div>
         )}
@@ -66,16 +68,16 @@ export function ResizablePanel({ children, title, initialHeight = 440, minHeight
         className="chart-container" 
         style={{ height: `${height - 60}px` }}
         role="img"
-        aria-label={`${title} 图表`}
-      >
-        {children}
-      </div>
+          aria-label={`${title} ${t('chart')}`}
+        >
+          {children}
+        </div>
       
       <button
         className="resize-handle"
-        onMouseDown={handleMouseDown}
-        title="拖拽调整图表高度"
-        aria-label={`调整 ${title} 图表高度`}
+          onMouseDown={handleMouseDown}
+          title={t('resize.drag')}
+          aria-label={t('resize.adjust', { title })}
         onKeyDown={(e) => {
           if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
             e.preventDefault();

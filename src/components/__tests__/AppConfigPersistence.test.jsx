@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import App from '../../App.jsx';
+import i18n from '../../i18n';
 
 // Mock chart.js and react-chartjs-2 to avoid canvas requirements
 vi.mock('chart.js', () => {
@@ -56,13 +57,13 @@ describe('App configuration persistence', () => {
 
     const { unmount } = render(<App />);
 
-    const input = screen.getByLabelText('选择日志文件，支持所有文本格式');
+    const input = screen.getByLabelText(i18n.t('fileUpload.aria'));
     const file = new File(['hello'], 'test.log', { type: 'text/plain' });
     await user.upload(input, file);
 
-    const stepToggle = screen.getAllByLabelText('使用 Step 关键字')[0];
+    const stepToggle = screen.getAllByLabelText(i18n.t('useStepKeyword'))[0];
     await user.click(stepToggle);
-    const stepInput = screen.getByPlaceholderText('step:');
+    const stepInput = screen.getByPlaceholderText(i18n.t('placeholder.step'));
     fireEvent.change(stepInput, { target: { value: 'iter:' } });
 
     await waitFor(() => expect(JSON.parse(localStorage.getItem('uploadedFiles'))).toHaveLength(1));
@@ -77,9 +78,9 @@ describe('App configuration persistence', () => {
     render(<App />);
 
     expect(await screen.findByText('test.log')).toBeInTheDocument();
-    const restoredToggle = screen.getAllByLabelText('使用 Step 关键字')[0];
+    const restoredToggle = screen.getAllByLabelText(i18n.t('useStepKeyword'))[0];
     expect(restoredToggle).toBeChecked();
-    const restoredInput = screen.getByPlaceholderText('step:');
+    const restoredInput = screen.getByPlaceholderText(i18n.t('placeholder.step'));
     expect(restoredInput.value).toBe('iter:');
   });
 
@@ -99,9 +100,9 @@ describe('App configuration persistence', () => {
     render(<App />);
 
     expect(screen.getByText('saved.log')).toBeInTheDocument();
-    expect(screen.getAllByLabelText('使用 Step 关键字')[0]).toBeChecked();
+    expect(screen.getAllByLabelText(i18n.t('useStepKeyword'))[0]).toBeChecked();
 
-    const resetButtons = screen.getAllByRole('button', { name: '重置配置' });
+    const resetButtons = screen.getAllByRole('button', { name: i18n.t('resetConfig') });
     for (const btn of resetButtons) {
       await user.click(btn);
     }
@@ -112,7 +113,7 @@ describe('App configuration persistence', () => {
       expect(screen.queryByText('saved.log')).not.toBeInTheDocument();
     });
 
-    expect(screen.getAllByLabelText('使用 Step 关键字')[0]).not.toBeChecked();
+    expect(screen.getAllByLabelText(i18n.t('useStepKeyword'))[0]).not.toBeChecked();
   });
 });
 

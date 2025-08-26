@@ -15,6 +15,7 @@ import {
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { ImageDown, Copy, FileDown } from 'lucide-react';
 import { getMinSteps } from "../utils/getMinSteps.js";
+import { useTranslation } from 'react-i18next';
 
 ChartJS.register(
   CategoryScale,
@@ -42,11 +43,11 @@ const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover, sy
     onHover: (event, activeElements) => {
       if (syncRef?.current) return;
       if (activeElements.length > 0 && chartRef.current) {
-        // 找到距离鼠标最近的数据点
+        // Find the data point closest to the cursor
         let closestElement = activeElements[0];
         let minDistance = Infinity;
         
-        // 检查canvas是否存在（在测试环境中可能不存在）
+        // Ensure canvas exists (may not in tests)
         if (chartRef.current.canvas && chartRef.current.canvas.getBoundingClientRect) {
           const canvasRect = chartRef.current.canvas.getBoundingClientRect();
           const mouseX = event.native ? event.native.clientX - canvasRect.left : event.x;
@@ -99,6 +100,7 @@ export default function ChartContainer({
   onMaxStepChange
 }) {
   const chartRefs = useRef(new Map());
+  const { t } = useTranslation();
   const syncLockRef = useRef(false);
   const registerChart = useCallback((id, inst) => {
     chartRefs.current.set(id, inst);
@@ -125,9 +127,9 @@ export default function ChartContainer({
         new ClipboardItem({ 'image/png': blob })
       ]);
     } catch (e) {
-      console.error('复制图片失败', e);
+      console.error(t('copyImageError'), e);
     }
-  }, []);
+  }, [t]);
 
   const exportChartCSV = useCallback((id) => {
     const chart = chartRefs.current.get(id);
@@ -168,14 +170,14 @@ export default function ChartContainer({
         chart.draw();
       } else if (id !== sourceId) {
         const activeElements = [];
-        const seen = new Set(); // 防止重复添加相同的数据点
+        const seen = new Set(); // avoid adding duplicate points
         chart.data.datasets.forEach((dataset, datasetIndex) => {
           if (!dataset || !dataset.data || !Array.isArray(dataset.data)) return;
           const idx = dataset.data.findIndex(p => p && typeof p.x !== 'undefined' && p.x === step);
           if (idx !== -1 && dataset.data[idx]) {
             const elementKey = `${datasetIndex}-${idx}`;
             if (!seen.has(elementKey)) {
-              // 验证元素的有效性
+              // Validate element
               if (datasetIndex >= 0 && datasetIndex < chart.data.datasets.length && 
                   idx >= 0 && idx < dataset.data.length) {
                 activeElements.push({ datasetIndex, index: idx });
@@ -185,7 +187,7 @@ export default function ChartContainer({
           }
         });
         
-        // 只有当activeElements不为空且所有元素都有效时才设置
+        // Only set when activeElements are valid
         if (activeElements.length > 0) {
           try {
             const pos = { x: chart.scales.x.getPixelForValue(step), y: 0 };
@@ -194,13 +196,13 @@ export default function ChartContainer({
             chart.draw();
           } catch (error) {
             console.warn('Error setting active elements:', error);
-            // 如果出错，清除所有activeElements
+            // On error clear activeElements
             chart.setActiveElements([]);
             chart.tooltip.setActiveElements([], { x: 0, y: 0 });
             chart.draw();
           }
         } else {
-          // 如果没有找到有效的activeElements，清除当前的
+          // Clear current if no valid activeElements
           chart.setActiveElements([]);
           chart.tooltip.setActiveElements([], { x: 0, y: 0 });
           chart.draw();
@@ -317,7 +319,7 @@ export default function ChartContainer({
 
   const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f97316'];
   const createChartData = dataArray => {
-    // 确保没有重复的 datasets
+    // Ensure no duplicate datasets
     const uniqueItems = dataArray.reduce((acc, item) => {
       const exists = acc.find(existing => existing.name === item.name);
       if (!exists) {
@@ -539,7 +541,7 @@ export default function ChartContainer({
           : 0;
     const datasets = [
       {
-        label: `${title} 差值`,
+        label: t('chart.diffLabel', { title }),
         data: comparisonData,
         borderColor: '#dc2626',
         backgroundColor: '#dc2626',
@@ -588,8 +590,8 @@ export default function ChartContainer({
     return (
       <div className="card p-8">
         <div className="text-center text-gray-500 dark:text-gray-400">
-          <p className="text-lg mb-2">📊 暂无数据</p>
-          <p>📁 请上传日志文件开始分析</p>
+          <p className="text-lg mb-2">{t('chart.noData')}</p>
+          <p>{t('chart.uploadPrompt')}</p>
         </div>
       </div>
     );
@@ -615,7 +617,7 @@ export default function ChartContainer({
     return (
       <div className="card p-8">
         <div className="text-center text-gray-500 dark:text-gray-400">
-          <p className="text-lg mb-2 font-medium">🎯 请选择要显示的图表</p>
+          <p className="text-lg mb-2 font-medium">{t('chart.selectPrompt')}</p>
         </div>
       </div>
     );
@@ -671,8 +673,8 @@ export default function ChartContainer({
             type="button"
             className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
             onClick={() => exportChartPNG(`metric-comp-${idx}`)}
-            aria-label="导出 PNG"
-            title="导出 PNG"
+            aria-label={t('exportPNG')}
+            title={t('exportPNG')}
           >
             <ImageDown size={16} />
           </button>
@@ -680,8 +682,8 @@ export default function ChartContainer({
             type="button"
             className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
             onClick={() => copyChartImage(`metric-comp-${idx}`)}
-            aria-label="复制图片"
-            title="复制图片"
+            aria-label={t('copyImage')}
+            title={t('copyImage')}
           >
             <Copy size={16} />
           </button>
@@ -689,15 +691,15 @@ export default function ChartContainer({
             type="button"
             className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
             onClick={() => exportChartCSV(`metric-comp-${idx}`)}
-            aria-label="导出 CSV"
-            title="导出 CSV"
+            aria-label={t('exportCSV')}
+            title={t('exportCSV')}
           >
             <FileDown size={16} />
           </button>
         </>
       );
       comparisonChart = (
-        <ResizablePanel title={`⚖️ ${key} 对比分析 (${compareMode})`} initialHeight={440} actions={compActions}>
+        <ResizablePanel title={t('comparison.panelTitle', { key, mode: compareMode })} initialHeight={440} actions={compActions}>
           <ChartWrapper
             chartId={`metric-comp-${idx}`}
             onRegisterChart={registerChart}
@@ -721,8 +723,8 @@ export default function ChartContainer({
                 type="button"
                 className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
                 onClick={() => exportChartPNG(`metric-${idx}`)}
-                aria-label="导出 PNG"
-                title="导出 PNG"
+                aria-label={t('exportPNG')}
+                title={t('exportPNG')}
               >
                 <ImageDown size={16} />
               </button>
@@ -730,8 +732,8 @@ export default function ChartContainer({
                 type="button"
                 className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
                 onClick={() => copyChartImage(`metric-${idx}`)}
-                aria-label="复制图片"
-                title="复制图片"
+                aria-label={t('copyImage')}
+                title={t('copyImage')}
               >
                 <Copy size={16} />
               </button>
@@ -739,8 +741,8 @@ export default function ChartContainer({
                 type="button"
                 className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
                 onClick={() => exportChartCSV(`metric-${idx}`)}
-                aria-label="导出 CSV"
-                title="导出 CSV"
+                aria-label={t('exportCSV')}
+                title={t('exportCSV')}
               >
                 <FileDown size={16} />
               </button>
@@ -759,12 +761,12 @@ export default function ChartContainer({
         {comparisonChart}
         {stats && (
           <div className="card">
-            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{key} 差值统计</h4>
+            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{key} {t('chart.diffStats')}</h4>
             <div className="space-y-1 text-xs">
-              <p>平均误差 (normal): {stats.meanNormal.toFixed(6)}</p>
-              <p>平均误差 (absolute): {stats.meanAbsolute.toFixed(6)}</p>
-              <p>相对误差 (normal): {stats.relativeError.toFixed(6)}</p>
-              <p>平均相对误差 (absolute): {stats.meanRelative.toFixed(6)}</p>
+              <p>{t('comparison.meanNormal', { value: stats.meanNormal.toFixed(6) })}</p>
+              <p>{t('comparison.meanAbsolute', { value: stats.meanAbsolute.toFixed(6) })}</p>
+              <p>{t('comparison.relativeError', { value: stats.relativeError.toFixed(6) })}</p>
+              <p>{t('comparison.meanRelative', { value: stats.meanRelative.toFixed(6) })}</p>
             </div>
           </div>
         )}

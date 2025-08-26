@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { useTranslation, Trans } from 'react-i18next';
 import { FileUpload } from './components/FileUpload';
 import { RegexControls } from './components/RegexControls';
 import { FileList } from './components/FileList';
@@ -6,10 +7,11 @@ import ChartContainer from './components/ChartContainer';
 import { ComparisonControls } from './components/ComparisonControls';
 import { FileConfigModal } from './components/FileConfigModal';
 import { ThemeToggle } from './components/ThemeToggle';
+import { Header } from './components/Header';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { mergeFilesWithReplacement } from './utils/mergeFiles.js';
 
-// 默认全局解析配置
+// Default global parsing configuration
 export const DEFAULT_GLOBAL_PARSING_CONFIG = {
   metrics: [
     {
@@ -30,12 +32,13 @@ export const DEFAULT_GLOBAL_PARSING_CONFIG = {
 };
 
 function App() {
-  const [uploadedFiles, setUploadedFiles] = useState(() => {
+    const { t } = useTranslation();
+    const [uploadedFiles, setUploadedFiles] = useState(() => {
     const stored = localStorage.getItem('uploadedFiles');
     return stored ? JSON.parse(stored) : [];
   });
 
-  // 全局解析配置状态
+  // Global parsing configuration state
   const [globalParsingConfig, setGlobalParsingConfig] = useState(() => {
     const stored = localStorage.getItem('globalParsingConfig');
     return stored ? JSON.parse(stored) : JSON.parse(JSON.stringify(DEFAULT_GLOBAL_PARSING_CONFIG));
@@ -53,7 +56,7 @@ function App() {
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const savingDisabledRef = useRef(false);
 
-  // 持久化配置到 localStorage
+  // Persist configuration to localStorage
   useEffect(() => {
     if (savingDisabledRef.current) return;
     localStorage.setItem('globalParsingConfig', JSON.stringify(globalParsingConfig));
@@ -80,12 +83,12 @@ function App() {
       ...file,
       enabled: true,
       config: {
-        // 使用全局解析配置作为默认值
+        // Use global parsing config as default values
         metrics: globalParsingConfig.metrics.map(m => ({ ...m })),
         dataRange: {
-          start: 0,        // 默认从第一个数据点开始
-          end: undefined,  // 默认到最后一个数据点
-          useRange: false  // 保留这个字段用于向后兼容，但默认不启用
+          start: 0,        // start from first data point by default
+          end: undefined,  // default to last data point
+          useRange: false  // keep for backward compatibility but disabled by default
         },
         useStepKeyword: globalParsingConfig.useStepKeyword,
         stepKeyword: globalParsingConfig.stepKeyword
@@ -94,7 +97,7 @@ function App() {
     setUploadedFiles(prev => mergeFilesWithReplacement(prev, filesWithDefaults));
   }, [globalParsingConfig]);
 
-  // 全局文件处理函数
+  // Global file processing function
   const processGlobalFiles = useCallback((files) => {
     const fileArray = Array.from(files);
 
@@ -151,11 +154,11 @@ function App() {
     setConfigFile(null);
   }, []);
 
-  // 全局解析配置变更处理
+  // Handle global parsing config changes
   const handleGlobalParsingConfigChange = useCallback((newConfig) => {
     setGlobalParsingConfig(newConfig);
 
-    // 同步所有文件的解析配置
+    // Sync parsing config to all files
     setUploadedFiles(prev => prev.map(file => ({
       ...file,
       config: {
@@ -167,7 +170,7 @@ function App() {
     }))); 
   }, []);
 
-  // 重置配置
+  // Reset configuration
   const handleResetConfig = useCallback(() => {
     savingDisabledRef.current = true;
     localStorage.removeItem('globalParsingConfig');
@@ -179,12 +182,12 @@ function App() {
     }, 0);
   }, []);
 
-  // 全局拖拽事件处理
+  // Global drag event handlers
   const handleGlobalDragEnter = useCallback((e) => {
     e.preventDefault();
     setDragCounter(prev => prev + 1);
     
-    // 检查是否包含文件
+    // Check if files are included
     if (e.dataTransfer.types.includes('Files')) {
       setGlobalDragOver(true);
     }
@@ -192,7 +195,7 @@ function App() {
 
   const handleGlobalDragOver = useCallback((e) => {
     e.preventDefault();
-    // 设置拖拽效果
+    // Set drag effect
     e.dataTransfer.dropEffect = 'copy';
   }, []);
 
@@ -217,7 +220,7 @@ function App() {
     }
   }, [processGlobalFiles]);
 
-  // 添加全局拖拽监听器
+  // Add global drag listeners
   useEffect(() => {
     const handleDragEnter = (e) => handleGlobalDragEnter(e);
     const handleDragOver = (e) => handleGlobalDragOver(e);
@@ -239,7 +242,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-700 relative page-fade-in">
-      {/* 全页面拖拽覆盖层 */}
+      {/* Full-page drag overlay */}
       {globalDragOver && (
         <div
           className="fixed inset-0 bg-blue-600 dark:bg-blue-950 bg-opacity-95 z-50 flex items-center justify-center backdrop-blur-sm drag-overlay-fade-in"
@@ -271,13 +274,15 @@ function App() {
               </div>
             </div>
             <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-3">
-              🎯 释放文件以上传
+              {t('globalDrag.release')}
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
-              支持 <span className="font-semibold text-blue-600">所有文本格式</span> 文件
+              <Trans i18nKey="globalDrag.support">
+                Supports <span className="font-semibold text-blue-600">all text formats</span> files
+              </Trans>
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              拖拽到页面任意位置即可快速上传文件
+              {t('globalDrag.tip')}
             </p>
           </div>
         </div>
@@ -287,7 +292,7 @@ function App() {
         <button
           onClick={() => setSidebarVisible(true)}
           className="fixed top-3 left-3 z-40 p-2 bg-white dark:bg-gray-800 rounded-full shadow-md text-gray-600 dark:text-gray-200 hover:text-gray-800 dark:hover:text-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          aria-label="显示工具栏"
+          aria-label={t('showToolbar')}
         >
           <PanelLeftOpen size={20} aria-hidden="true" />
         </button>
@@ -304,9 +309,9 @@ function App() {
             <aside
               className="xl:col-span-1 space-y-3"
               role="complementary"
-              aria-label="控制面板"
+              aria-label={t('sidebar.controlPanel')}
             >
-              {/* 标题信息 */}
+              {/* Header info */}
               <div className="card">
               <div className="flex items-center gap-2 mb-2">
                 <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
@@ -317,34 +322,37 @@ function App() {
                 <h1 className="text-lg font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-purple-500 to-indigo-600 animate-gradient-slow">
                   Log Analyzer
                 </h1>
-                <ThemeToggle className="ml-auto" />
+                <div className="ml-auto flex items-center gap-2">
+                  <Header />
+                  <ThemeToggle />
+                </div>
                 <button
                   onClick={() => setSidebarVisible(false)}
                   className="p-1 text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
-                  aria-label="隐藏工具栏"
+                  aria-label={t('hideToolbar')}
                 >
                   <PanelLeftClose size={16} aria-hidden="true" />
                 </button>
               </div>
               <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
-                📊 分析和可视化大模型训练日志中的损失函数和梯度范数数据
+                {t('intro')}
               </p>
-              
-              {/* 状态和链接按钮 */}
-              <div className="flex items-center gap-2" role="group" aria-label="工具状态和链接">
+
+              {/* Status and link buttons */}
+              <div className="flex items-center gap-2" role="group" aria-label={t('status.group')}>
                 <span
                   className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                  aria-label="当前为在线版本"
+                  aria-label={t('status.onlineAria')}
                 >
                   <span aria-hidden="true">🌐</span>
-                  <span className="ml-1">在线使用</span>
+                  <span className="ml-1">{t('status.online')}</span>
                 </span>
                 <a
                   href="https://github.com/JavaZeroo/log-parser"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                  aria-label="访问 GitHub 仓库（在新窗口中打开）"
+                  aria-label={t('github.aria')}
                 >
                   <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 0C4.477 0 0 4.484 0 10.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0110 4.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.942.359.31.678.921.678 1.856 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0020 10.017C20 4.484 15.522 0 10 0z" clipRule="evenodd" />
@@ -354,9 +362,9 @@ function App() {
                 <button
                   onClick={handleResetConfig}
                   className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-                  aria-label="重置配置"
+                  aria-label={t('resetConfig')}
                 >
-                  重置配置
+                  {t('resetConfig')}
                 </button>
               </div>
             </div>
@@ -391,23 +399,23 @@ function App() {
                 id="display-options-heading"
                 className="card-title mb-2"
               >
-                🎛️ 显示选项
+                {t('display.options')}
               </h3>
               <div className="space-y-3">
                 <div>
-                  <h4 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">📊 图表显示</h4>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">上传文件后自动展示所有已配置的指标图表</p>
+                  <h4 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">{t('display.chart')}</h4>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('display.chartDesc')}</p>
                 </div>
-                
+
                 <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
-                  <h4 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">基准线设置</h4>
+                  <h4 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">{t('display.baseline')}</h4>
                   <div className="space-y-3">
                     <div>
                       <label
                         htmlFor="relative-baseline"
                         className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1"
                       >
-                        相对误差 Baseline
+                        {t('display.relativeBaseline')}
                       </label>
                       <input
                         id="relative-baseline"
@@ -423,16 +431,16 @@ function App() {
                         id="relative-baseline-description"
                         className="sr-only"
                       >
-                        设置相对误差对比的基准线数值
+                        {t('display.relativeBaselineDesc')}
                       </span>
                     </div>
-                    
+
                     <div>
                       <label
                         htmlFor="absolute-baseline"
                         className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1"
                       >
-                        绝对误差 Baseline
+                        {t('display.absoluteBaseline')}
                       </label>
                       <input
                         id="absolute-baseline"
@@ -448,7 +456,7 @@ function App() {
                         id="absolute-baseline-description"
                         className="sr-only"
                       >
-                        设置绝对误差对比的基准线数值
+                        {t('display.absoluteBaselineDesc')}
                       </span>
                     </div>
                   </div>
@@ -461,7 +469,7 @@ function App() {
           <section
             className={sidebarVisible ? 'xl:col-span-4' : 'xl:col-span-5'}
             role="region"
-            aria-label="图表显示区域"
+            aria-label={t('chart.area')}
           >
             <ChartContainer
               files={uploadedFiles}

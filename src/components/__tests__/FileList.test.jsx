@@ -5,6 +5,7 @@ import { vi, expect, afterEach, describe, it } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 
 import { FileList } from '../FileList.jsx';
+import i18n from '../../i18n';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -13,7 +14,7 @@ afterEach(() => {
 describe('FileList', () => {
   it('shows empty state when no files', () => {
     render(<FileList files={[]} onFileRemove={vi.fn()} onFileToggle={vi.fn()} onFileConfig={vi.fn()} />);
-    expect(screen.getByText('📂 暂无文件')).toBeInTheDocument();
+    expect(screen.getByText(i18n.t('fileList.empty'))).toBeInTheDocument();
   });
 
   it('renders file and triggers actions', async () => {
@@ -28,11 +29,11 @@ describe('FileList', () => {
     await user.click(checkbox);
     expect(onFileToggle).toHaveBeenCalledWith(0, false);
 
-    const configButton = screen.getByRole('button', { name: `配置文件 ${file.name}` });
+    const configButton = screen.getByRole('button', { name: i18n.t('fileList.config', { name: file.name }) });
     await user.click(configButton);
     expect(onFileConfig).toHaveBeenCalledWith(file);
 
-    const removeButton = screen.getByRole('button', { name: `删除文件 ${file.name}` });
+    const removeButton = screen.getByRole('button', { name: i18n.t('fileList.delete', { name: file.name }) });
     await user.click(removeButton);
     expect(onFileRemove).toHaveBeenCalledWith(0);
   });
@@ -40,7 +41,7 @@ describe('FileList', () => {
   it('disables config when file disabled', () => {
     const file = { id: '2', name: 'off.log', enabled: false };
     render(<FileList files={[file]} onFileRemove={vi.fn()} onFileToggle={vi.fn()} onFileConfig={vi.fn()} />);
-    const configButton = screen.getByRole('button', { name: `配置文件 ${file.name}` });
+    const configButton = screen.getByRole('button', { name: i18n.t('fileList.config', { name: file.name }) });
     expect(configButton).toBeDisabled();
   });
 });
