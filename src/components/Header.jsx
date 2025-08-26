@@ -12,18 +12,36 @@ export function Header() {
 
   return (
     <div className="flex items-center gap-2">
-      <label htmlFor="lang-select" className="sr-only">
-        {t('header.language')}
-      </label>
-      <select
-        id="lang-select"
-        value={lang}
-        onChange={(e) => setLang(e.target.value)}
-        className="border rounded p-1 text-xs bg-white dark:bg-gray-800"
+      <div
+        role="group"
+        aria-label={t('header.language')}
+        className="flex overflow-hidden rounded border text-xs"
       >
-        <option value="zh">{t('language.zh')}</option>
-        <option value="en">{t('language.en')}</option>
-      </select>
+        <button
+          type="button"
+          onClick={() => setLang('zh')}
+          aria-pressed={lang === 'zh'}
+          className={`px-2 py-1 transition-colors focus:outline-none ${
+            lang === 'zh'
+              ? 'bg-blue-500 text-white'
+              : 'bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+          }`}
+        >
+          {t('language.zh')}
+        </button>
+        <button
+          type="button"
+          onClick={() => setLang('en')}
+          aria-pressed={lang === 'en'}
+          className={`px-2 py-1 transition-colors focus:outline-none ${
+            lang === 'en'
+              ? 'bg-blue-500 text-white'
+              : 'bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+          }`}
+        >
+          {t('language.en')}
+        </button>
+      </div>
     </div>
   );
 }
