@@ -45,6 +45,8 @@ function App() {
   });
   
   const [compareMode, setCompareMode] = useState('normal');
+  const [multiFileMode, setMultiFileMode] = useState('baseline');
+  const [baselineFile, setBaselineFile] = useState('');
   const [relativeBaseline, setRelativeBaseline] = useState(0.002);
   const [absoluteBaseline, setAbsoluteBaseline] = useState(0.005);
   const [configModalOpen, setConfigModalOpen] = useState(false);
@@ -55,6 +57,17 @@ function App() {
   const [maxStep, setMaxStep] = useState(0);
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const savingDisabledRef = useRef(false);
+  const enabledFiles = uploadedFiles.filter(file => file.enabled);
+
+  useEffect(() => {
+    if (enabledFiles.length > 0) {
+      if (!enabledFiles.find(f => f.name === baselineFile)) {
+        setBaselineFile(enabledFiles[0].name);
+      }
+    } else {
+      setBaselineFile('');
+    }
+  }, [enabledFiles, baselineFile]);
 
   // Persist configuration to localStorage
   useEffect(() => {
@@ -387,10 +400,15 @@ function App() {
               onFileConfig={handleFileConfig}
             />
 
-            {uploadedFiles.filter(file => file.enabled).length === 2 && (
+            {enabledFiles.length >= 2 && (
               <ComparisonControls
                 compareMode={compareMode}
                 onCompareModeChange={setCompareMode}
+                files={enabledFiles}
+                baseline={baselineFile}
+                onBaselineChange={setBaselineFile}
+                multiFileMode={multiFileMode}
+                onMultiFileModeChange={setMultiFileMode}
               />
             )}
 
@@ -475,6 +493,8 @@ function App() {
               files={uploadedFiles}
               metrics={globalParsingConfig.metrics}
               compareMode={compareMode}
+              multiFileMode={multiFileMode}
+              baselineFile={baselineFile}
               relativeBaseline={relativeBaseline}
               absoluteBaseline={absoluteBaseline}
               xRange={xRange}

@@ -93,6 +93,8 @@ export default function ChartContainer({
   files,
   metrics = [],
   compareMode,
+  multiFileMode = 'baseline',
+  baselineFile,
   relativeBaseline = 0.002,
   absoluteBaseline = 0.005,
   xRange = { min: undefined, max: undefined },
@@ -531,40 +533,71 @@ export default function ChartContainer({
     elements: { point: { radius: 0 } }
   }), [xRange, onXRangeChange]);
 
-  const createComparisonChartData = (item1, item2, title) => {
-    const comparisonData = getComparisonData(item1.data, item2.data, compareMode);
-    const baseline =
+  const buildComparisonChartData = (dataArray) => {
+    const baselineVal =
       compareMode === 'relative' || compareMode === 'relative-normal'
         ? relativeBaseline
         : compareMode === 'absolute'
           ? absoluteBaseline
           : 0;
-    const datasets = [
-      {
-        label: t('chart.diffLabel', { title }),
-        data: comparisonData,
-        borderColor: '#dc2626',
-        backgroundColor: '#dc2626',
+    const datasets = [];
+    const stats = [];
+    const addPair = (base, target, colorIdx) => {
+      const diffData = getComparisonData(base.data, target.data, compareMode);
+      const color = colors[colorIdx % colors.length];
+      datasets.push({
+        label: `${target.name} vs ${base.name}`,
+        data: diffData,
+        borderColor: color,
+        backgroundColor: color,
         borderWidth: 2,
         fill: false,
         tension: 0,
         pointRadius: 0,
         pointHoverRadius: 4,
-        pointBackgroundColor: '#dc2626',
-        pointBorderColor: '#dc2626',
+        pointBackgroundColor: color,
+        pointBorderColor: color,
         pointBorderWidth: 1,
-        pointHoverBackgroundColor: '#dc2626',
-        pointHoverBorderColor: '#dc2626',
+        pointHoverBackgroundColor: color,
+        pointHoverBorderColor: color,
         pointHoverBorderWidth: 1,
         animation: false,
         animations: { colors: false, x: false, y: false },
-      },
-    ];
-    if (baseline > 0 && (compareMode === 'relative' || compareMode === 'relative-normal' || compareMode === 'absolute')) {
-      const baselineData = comparisonData.map(p => ({ x: p.x, y: baseline }));
+      });
+      const normalDiff = getComparisonData(base.data, target.data, 'normal');
+      const absDiff = getComparisonData(base.data, target.data, 'absolute');
+      const relNormalDiff = getComparisonData(base.data, target.data, 'relative-normal');
+      const relDiff = getComparisonData(base.data, target.data, 'relative');
+      const mean = arr => (arr.reduce((s, p) => s + p.y, 0) / arr.length) || 0;
+      stats.push({
+        label: `${target.name} vs ${base.name}`,
+        meanNormal: mean(normalDiff),
+        meanAbsolute: mean(absDiff),
+        relativeError: mean(relNormalDiff),
+        meanRelative: mean(relDiff)
+      });
+    };
+
+    let colorIdx = 0;
+    if (multiFileMode === 'baseline') {
+      const base = dataArray.find(d => d.name === baselineFile) || dataArray[0];
+      dataArray.forEach(item => {
+        if (item.name === base.name) return;
+        addPair(base, item, colorIdx++);
+      });
+    } else {
+      for (let i = 0; i < dataArray.length; i++) {
+        for (let j = i + 1; j < dataArray.length; j++) {
+          addPair(dataArray[i], dataArray[j], colorIdx++);
+        }
+      }
+    }
+
+    if (datasets.length > 0 && baselineVal > 0 && (compareMode === 'relative' || compareMode === 'relative-normal' || compareMode === 'absolute')) {
+      const baseData = datasets[0].data.map(p => ({ x: p.x, y: baselineVal }));
       datasets.push({
         label: 'Baseline',
-        data: baselineData,
+        data: baseData,
         borderColor: '#10b981',
         backgroundColor: '#10b981',
         borderWidth: 2,
@@ -583,7 +616,8 @@ export default function ChartContainer({
         animations: { colors: false, x: false, y: false },
       });
     }
-    return { datasets };
+
+    return { datasets, stats };
   };
 
   if (parsedData.length === 0) {
@@ -626,7 +660,7 @@ export default function ChartContainer({
   const metricElements = metrics.map((metric, idx) => {
     const key = metric.name || metric.keyword || `metric${idx + 1}`;
     const dataArray = metricDataArrays[key] || [];
-    const showComparison = dataArray.length === 2;
+    const showComparison = dataArray.length >= 2;
 
     const yRange = calculateYRange(dataArray);
     const options = {
@@ -638,28 +672,11 @@ export default function ChartContainer({
     };
 
     let stats = null;
-    if (showComparison) {
-      const normalDiff = getComparisonData(dataArray[0].data, dataArray[1].data, 'normal');
-      const absDiff = getComparisonData(dataArray[0].data, dataArray[1].data, 'absolute');
-      const relNormalDiff = getComparisonData(
-        dataArray[0].data,
-        dataArray[1].data,
-        'relative-normal'
-      );
-      const relDiff = getComparisonData(dataArray[0].data, dataArray[1].data, 'relative');
-      const mean = arr => (arr.reduce((s, p) => s + p.y, 0) / arr.length) || 0;
-      stats = {
-        meanNormal: mean(normalDiff),
-        meanAbsolute: mean(absDiff),
-        relativeError: mean(relNormalDiff),
-        meanRelative: mean(relDiff)
-      };
-    }
-
     let comparisonChart = null;
     if (showComparison) {
-      const compData = createComparisonChartData(dataArray[0], dataArray[1], key);
-      const compRange = calculateYRange(compData.datasets);
+      const compResult = buildComparisonChartData(dataArray);
+      stats = compResult.stats.length > 0 ? compResult.stats : null;
+     const compRange = calculateYRange(compResult.datasets);
       const compOptions = {
         ...chartOptions,
         scales: {
@@ -705,7 +722,7 @@ export default function ChartContainer({
             onRegisterChart={registerChart}
             onSyncHover={syncHoverToAllCharts}
             syncRef={syncLockRef}
-            data={compData}
+            data={{ datasets: compResult.datasets }}
             options={compOptions}
           />
         </ResizablePanel>
@@ -762,11 +779,16 @@ export default function ChartContainer({
         {stats && (
           <div className="card">
             <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{key} {t('chart.diffStats')}</h4>
-            <div className="space-y-1 text-xs">
-              <p>{t('comparison.meanNormal', { value: stats.meanNormal.toFixed(6) })}</p>
-              <p>{t('comparison.meanAbsolute', { value: stats.meanAbsolute.toFixed(6) })}</p>
-              <p>{t('comparison.relativeError', { value: stats.relativeError.toFixed(6) })}</p>
-              <p>{t('comparison.meanRelative', { value: stats.meanRelative.toFixed(6) })}</p>
+            <div className="space-y-2 text-xs">
+              {stats.map(s => (
+                <div key={s.label} className="space-y-1">
+                  <p className="font-medium">{s.label}</p>
+                  <p>{t('comparison.meanNormal', { value: s.meanNormal.toFixed(6) })}</p>
+                  <p>{t('comparison.meanAbsolute', { value: s.meanAbsolute.toFixed(6) })}</p>
+                  <p>{t('comparison.relativeError', { value: s.relativeError.toFixed(6) })}</p>
+                  <p>{t('comparison.meanRelative', { value: s.meanRelative.toFixed(6) })}</p>
+                </div>
+              ))}
             </div>
           </div>
         )}
