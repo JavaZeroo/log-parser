@@ -15,6 +15,7 @@ import {
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { ImageDown, Copy, FileDown } from 'lucide-react';
 import { getMinSteps } from "../utils/getMinSteps.js";
+import { applySmoothing } from "../utils/smoothing.js";
 import { useTranslation } from 'react-i18next';
 
 ChartJS.register(
@@ -275,6 +276,10 @@ export default function ChartContainer({
                 }
               }
             });
+          }
+          const smoothingCfg = metric.smoothing || file.config?.smoothing;
+          if (smoothingCfg) {
+            points = applySmoothing(points, smoothingCfg);
           }
           metricsData[metric.name || metric.keyword] = points;
         });
