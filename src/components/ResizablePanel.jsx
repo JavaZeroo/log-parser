@@ -58,7 +58,7 @@ import { useTranslation } from 'react-i18next';
             📊 {title}
           </h3>
         {actions && (
-          <div className="flex gap-2" aria-label="图表操作按钮">
+          <div className="flex gap-2" aria-label={t('chart.actions')}>
             {actions}
           </div>
         )}

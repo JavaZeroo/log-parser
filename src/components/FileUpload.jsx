@@ -36,25 +36,25 @@ import { useTranslation } from 'react-i18next';
 
   const handleDragEnter = useCallback((e) => {
     e.preventDefault();
-    e.stopPropagation(); // 阻止事件冒泡到全局处理器
+    e.stopPropagation(); // prevent bubbling to global handler
     setIsDragOver(true);
   }, []);
 
   const handleDragOver = useCallback((e) => {
     e.preventDefault();
-    e.stopPropagation(); // 阻止事件冒泡到全局处理器
+    e.stopPropagation(); // prevent bubbling to global handler
     setIsDragOver(true);
   }, []);
 
   const handleDragLeave = useCallback((e) => {
     e.preventDefault();
-    e.stopPropagation(); // 阻止事件冒泡到全局处理器
+    e.stopPropagation(); // prevent bubbling to global handler
     setIsDragOver(false);
   }, []);
 
   const handleDrop = useCallback((e) => {
     e.preventDefault();
-    e.stopPropagation(); // 阻止事件冒泡到全局处理器
+    e.stopPropagation(); // prevent bubbling to global handler
     setIsDragOver(false);
     processFiles(e.dataTransfer.files);
   }, [processFiles]);

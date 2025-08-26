@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import ChartContainer from '../ChartContainer';
+import i18n from '../../i18n';
 
 // Mock chart.js and react-chartjs-2 to avoid canvas requirements
 vi.mock('chart.js', () => {
@@ -61,7 +62,7 @@ describe('ChartContainer', () => {
         onMaxStepChange={onMaxStepChange}
       />
     );
-    screen.getByText('📁 请上传日志文件开始分析');
+    screen.getByText(i18n.t('chart.uploadPrompt'));
     expect(onMaxStepChange).toHaveBeenCalledWith(0);
   });
 
@@ -78,7 +79,7 @@ describe('ChartContainer', () => {
         onMaxStepChange={onMaxStepChange}
       />
     );
-    screen.getByText('🎯 请选择要显示的图表');
+    screen.getByText(i18n.t('chart.selectPrompt'));
   });
 
   it('renders charts and statistics', async () => {
@@ -99,7 +100,7 @@ describe('ChartContainer', () => {
     );
 
     screen.getByText('📊 loss');
-    screen.getByText(/差值统计/);
+    screen.getByText(new RegExp(i18n.t('chart.diffStats')));
     expect(onMaxStepChange).toHaveBeenCalledWith(1);
 
     // interaction and tooltip should use nearest mode for precise point selection

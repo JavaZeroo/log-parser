@@ -169,7 +169,7 @@ input[type="checkbox"]:focus {
   outline-offset: 2px;
 }
 
-/* 全页面拖拽动画 */
+/* Full-page drag animation */
 @keyframes dragOverlayFadeIn {
   from { 
     opacity: 0; 
@@ -217,7 +217,7 @@ input[type="checkbox"]:focus {
   animation: dragIconBounce 1s infinite;
 }
 
-/* 在减少动画偏好设置下禁用拖拽动画 */
+/* Disable drag animation when prefers-reduced-motion is set */
 @media (prefers-reduced-motion: reduce) {
   .drag-overlay-fade-in,
   .drag-modal-scale-in,
@@ -226,7 +226,7 @@ input[type="checkbox"]:focus {
   }
 }
 
-/* 页面入场动画 */
+/* Page entrance animation */
 @keyframes pageFadeIn {
   from {
     opacity: 0;
@@ -248,7 +248,7 @@ input[type="checkbox"]:focus {
   }
 }
 
-/* 渐变文字动画 */
+/* Gradient text animation */
 @keyframes gradientShift {
   0%, 100% {
     background-position: 0% 50%;

@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ThemeToggle } from '../ThemeToggle';
+import i18n from '../../i18n';
 
 describe('ThemeToggle', () => {
   beforeEach(() => {
@@ -15,7 +16,7 @@ describe('ThemeToggle', () => {
 
   it('cycles through system, light, and dark themes', () => {
     render(<ThemeToggle />);
-    const button = screen.getByRole('button', { name: '切换主题' });
+    const button = screen.getByRole('button', { name: i18n.t('themeToggle.aria') });
 
     // system mode should follow matchMedia (dark)
     expect(document.documentElement.classList.contains('dark')).toBe(true);

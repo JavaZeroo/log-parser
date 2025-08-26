@@ -2,6 +2,7 @@ import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect } from 'vitest';
 import { ResizablePanel } from '../ResizablePanel';
+import i18n from '../../i18n';
 
 describe('ResizablePanel', () => {
   it('renders content and adjusts height with keyboard', async () => {
@@ -16,7 +17,7 @@ describe('ResizablePanel', () => {
     expect(region.style.height).toBe('300px');
     screen.getByText('content');
 
-    const handle = screen.getByRole('button', { name: '调整 Test 图表高度' });
+    const handle = screen.getByRole('button', { name: i18n.t('resize.adjust', { title: 'Test' }) });
     handle.focus();
     await user.keyboard('{ArrowUp}');
     expect(region.style.height).toBe('290px');
@@ -34,7 +35,7 @@ describe('ResizablePanel', () => {
     );
 
     const region = screen.getByRole('region', { name: /Test/ });
-    const handle = screen.getByRole('button', { name: '调整 Test 图表高度' });
+    const handle = screen.getByRole('button', { name: i18n.t('resize.adjust', { title: 'Test' }) });
 
     fireEvent.mouseDown(handle, { clientY: 0 });
     fireEvent.mouseMove(document, { clientY: 40 });

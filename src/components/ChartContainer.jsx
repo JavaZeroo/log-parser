@@ -43,11 +43,11 @@ const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover, sy
     onHover: (event, activeElements) => {
       if (syncRef?.current) return;
       if (activeElements.length > 0 && chartRef.current) {
-        // 找到距离鼠标最近的数据点
+        // Find the data point closest to the cursor
         let closestElement = activeElements[0];
         let minDistance = Infinity;
         
-        // 检查canvas是否存在（在测试环境中可能不存在）
+        // Ensure canvas exists (may not in tests)
         if (chartRef.current.canvas && chartRef.current.canvas.getBoundingClientRect) {
           const canvasRect = chartRef.current.canvas.getBoundingClientRect();
           const mouseX = event.native ? event.native.clientX - canvasRect.left : event.x;
@@ -170,14 +170,14 @@ export default function ChartContainer({
         chart.draw();
       } else if (id !== sourceId) {
         const activeElements = [];
-        const seen = new Set(); // 防止重复添加相同的数据点
+        const seen = new Set(); // avoid adding duplicate points
         chart.data.datasets.forEach((dataset, datasetIndex) => {
           if (!dataset || !dataset.data || !Array.isArray(dataset.data)) return;
           const idx = dataset.data.findIndex(p => p && typeof p.x !== 'undefined' && p.x === step);
           if (idx !== -1 && dataset.data[idx]) {
             const elementKey = `${datasetIndex}-${idx}`;
             if (!seen.has(elementKey)) {
-              // 验证元素的有效性
+              // Validate element
               if (datasetIndex >= 0 && datasetIndex < chart.data.datasets.length && 
                   idx >= 0 && idx < dataset.data.length) {
                 activeElements.push({ datasetIndex, index: idx });
@@ -187,7 +187,7 @@ export default function ChartContainer({
           }
         });
         
-        // 只有当activeElements不为空且所有元素都有效时才设置
+        // Only set when activeElements are valid
         if (activeElements.length > 0) {
           try {
             const pos = { x: chart.scales.x.getPixelForValue(step), y: 0 };
@@ -196,13 +196,13 @@ export default function ChartContainer({
             chart.draw();
           } catch (error) {
             console.warn('Error setting active elements:', error);
-            // 如果出错，清除所有activeElements
+            // On error clear activeElements
             chart.setActiveElements([]);
             chart.tooltip.setActiveElements([], { x: 0, y: 0 });
             chart.draw();
           }
         } else {
-          // 如果没有找到有效的activeElements，清除当前的
+          // Clear current if no valid activeElements
           chart.setActiveElements([]);
           chart.tooltip.setActiveElements([], { x: 0, y: 0 });
           chart.draw();
@@ -319,7 +319,7 @@ export default function ChartContainer({
 
   const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f97316'];
   const createChartData = dataArray => {
-    // 确保没有重复的 datasets
+    // Ensure no duplicate datasets
     const uniqueItems = dataArray.reduce((acc, item) => {
       const exists = acc.find(existing => existing.name === item.name);
       if (!exists) {
@@ -541,7 +541,7 @@ export default function ChartContainer({
           : 0;
     const datasets = [
       {
-        label: `${title} 差值`,
+        label: t('chart.diffLabel', { title }),
         data: comparisonData,
         borderColor: '#dc2626',
         backgroundColor: '#dc2626',
@@ -699,7 +699,7 @@ export default function ChartContainer({
         </>
       );
       comparisonChart = (
-        <ResizablePanel title={`⚖️ ${key} 对比分析 (${compareMode})`} initialHeight={440} actions={compActions}>
+        <ResizablePanel title={t('comparison.panelTitle', { key, mode: compareMode })} initialHeight={440} actions={compActions}>
           <ChartWrapper
             chartId={`metric-comp-${idx}`}
             onRegisterChart={registerChart}
@@ -763,10 +763,10 @@ export default function ChartContainer({
           <div className="card">
             <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{key} {t('chart.diffStats')}</h4>
             <div className="space-y-1 text-xs">
-              <p>平均误差 (normal): {stats.meanNormal.toFixed(6)}</p>
-              <p>平均误差 (absolute): {stats.meanAbsolute.toFixed(6)}</p>
-              <p>相对误差 (normal): {stats.relativeError.toFixed(6)}</p>
-              <p>平均相对误差 (absolute): {stats.meanRelative.toFixed(6)}</p>
+              <p>{t('comparison.meanNormal', { value: stats.meanNormal.toFixed(6) })}</p>
+              <p>{t('comparison.meanAbsolute', { value: stats.meanAbsolute.toFixed(6) })}</p>
+              <p>{t('comparison.relativeError', { value: stats.relativeError.toFixed(6) })}</p>
+              <p>{t('comparison.meanRelative', { value: stats.meanRelative.toFixed(6) })}</p>
             </div>
           </div>
         )}

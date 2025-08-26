@@ -21,8 +21,8 @@ export function Header() {
         onChange={(e) => setLang(e.target.value)}
         className="border rounded p-1 text-xs bg-white dark:bg-gray-800"
       >
-        <option value="zh">中文</option>
-        <option value="en">English</option>
+        <option value="zh">{t('language.zh')}</option>
+        <option value="en">{t('language.en')}</option>
       </select>
     </div>
   );
