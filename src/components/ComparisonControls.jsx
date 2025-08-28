@@ -37,41 +37,64 @@ export function ComparisonControls({
 
       <div className="space-y-4">
         <div>
-          <label
-            htmlFor="multi-file-mode"
-            className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1"
-          >
+          <span className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
             {t('comparison.multiFileMode')}
-          </label>
-          <select
-            id="multi-file-mode"
-            value={multiFileMode}
-            onChange={(e) => onMultiFileModeChange?.(e.target.value)}
-            className="select"
+          </span>
+          <div
+            role="group"
+            aria-label={t('comparison.multiFileMode')}
+            className="inline-flex rounded-md border overflow-hidden"
           >
-            <option value="baseline">{t('comparison.modeBaseline')}</option>
-            <option value="pairwise">{t('comparison.modePairwise')}</option>
-          </select>
+            <button
+              type="button"
+              onClick={() => onMultiFileModeChange?.('baseline')}
+              aria-pressed={multiFileMode === 'baseline'}
+              className={`px-2 py-1 text-xs font-medium focus:outline-none ${
+                multiFileMode === 'baseline'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+              }`}
+            >
+              {t('comparison.modeBaseline')}
+            </button>
+            <button
+              type="button"
+              onClick={() => onMultiFileModeChange?.('pairwise')}
+              aria-pressed={multiFileMode === 'pairwise'}
+              className={`px-2 py-1 text-xs font-medium border-l focus:outline-none ${
+                multiFileMode === 'pairwise'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+              }`}
+            >
+              {t('comparison.modePairwise')}
+            </button>
+          </div>
         </div>
 
         {multiFileMode === 'baseline' && files.length > 1 && (
           <div>
-            <label
-              htmlFor="baseline-file"
-              className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
+            <span className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               {t('comparison.baselineFile')}
-            </label>
-            <select
-              id="baseline-file"
-              value={baseline || (files[0]?.name ?? '')}
-              onChange={(e) => onBaselineChange?.(e.target.value)}
-              className="select"
-            >
+            </span>
+            <div className="space-y-1">
               {files.map(f => (
-                <option key={f.name} value={f.name}>{f.name}</option>
+                <label
+                  key={f.name}
+                  className="flex items-center gap-2 cursor-pointer text-xs"
+                >
+                  <input
+                    type="radio"
+                    name="baseline-file"
+                    value={f.name}
+                    checked={(baseline || files[0]?.name) === f.name}
+                    onChange={(e) => onBaselineChange?.(e.target.value)}
+                    className="radio"
+                  />
+                  <span className="text-gray-700 dark:text-gray-300">{f.name}</span>
+                </label>
               ))}
-            </select>
+            </div>
           </div>
         )}
 
@@ -80,7 +103,11 @@ export function ComparisonControls({
           {modes.map(mode => (
             <label
               key={mode.value}
-              className="flex items-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-1 rounded"
+              className={`flex items-start gap-2 rounded border p-2 cursor-pointer text-xs ${
+                compareMode === mode.value
+                  ? 'border-blue-500 bg-blue-50 dark:bg-gray-700'
+                  : 'border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+              }`}
             >
               <input
                 type="radio"
@@ -88,16 +115,16 @@ export function ComparisonControls({
                 value={mode.value}
                 checked={compareMode === mode.value}
                 onChange={(e) => onCompareModeChange(e.target.value)}
-                className="radio"
+                className="radio mt-0.5"
                 aria-describedby={`mode-${mode.value}-description`}
               />
-              <div className="ml-2">
-                <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
+              <div>
+                <div className="font-medium text-gray-700 dark:text-gray-300">
                   {mode.label}
                 </div>
                 <div
                   id={`mode-${mode.value}-description`}
-                  className="text-xs text-gray-500 dark:text-gray-400"
+                  className="text-gray-500 dark:text-gray-400"
                 >
                   {mode.description}
                 </div>

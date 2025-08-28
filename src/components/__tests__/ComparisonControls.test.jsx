@@ -28,12 +28,12 @@ describe('ComparisonControls', () => {
     await user.click(absoluteOption);
     expect(handleMode).toHaveBeenCalledWith('absolute');
 
-    const strategySelect = screen.getByLabelText(i18n.t('comparison.multiFileMode'));
-    await user.selectOptions(strategySelect, 'pairwise');
+    const pairwiseButton = screen.getByRole('button', { name: i18n.t('comparison.modePairwise') });
+    await user.click(pairwiseButton);
     expect(handleStrategy).toHaveBeenCalledWith('pairwise');
 
-    const baselineSelect = screen.getByLabelText(i18n.t('comparison.baselineFile'));
-    await user.selectOptions(baselineSelect, 'b.log');
+    const baselineRadio = screen.getByLabelText('b.log');
+    await user.click(baselineRadio);
     expect(handleBaseline).toHaveBeenCalledWith('b.log');
   });
 });

@@ -569,12 +569,15 @@ export default function ChartContainer({
       const relNormalDiff = getComparisonData(base.data, target.data, 'relative-normal');
       const relDiff = getComparisonData(base.data, target.data, 'relative');
       const mean = arr => (arr.reduce((s, p) => s + p.y, 0) / arr.length) || 0;
+      const max = arr => arr.reduce((m, p) => (p.y > m ? p.y : m), 0);
       stats.push({
         label: `${target.name} vs ${base.name}`,
         meanNormal: mean(normalDiff),
         meanAbsolute: mean(absDiff),
         relativeError: mean(relNormalDiff),
-        meanRelative: mean(relDiff)
+        meanRelative: mean(relDiff),
+        maxAbsolute: max(absDiff),
+        maxRelative: max(relDiff)
       });
     };
 
@@ -777,19 +780,32 @@ export default function ChartContainer({
         </ResizablePanel>
         {comparisonChart}
         {stats && (
-          <div className="card">
-            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{key} {t('chart.diffStats')}</h4>
-            <div className="space-y-2 text-xs">
-              {stats.map(s => (
-                <div key={s.label} className="space-y-1">
-                  <p className="font-medium">{s.label}</p>
-                  <p>{t('comparison.meanNormal', { value: s.meanNormal.toFixed(6) })}</p>
-                  <p>{t('comparison.meanAbsolute', { value: s.meanAbsolute.toFixed(6) })}</p>
-                  <p>{t('comparison.relativeError', { value: s.relativeError.toFixed(6) })}</p>
-                  <p>{t('comparison.meanRelative', { value: s.meanRelative.toFixed(6) })}</p>
-                </div>
-              ))}
-            </div>
+          <div className="card overflow-x-auto">
+            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{key} {t('chart.diffStats')}</h4>
+            <table className="min-w-full text-xs">
+              <thead>
+                <tr className="text-left">
+                  <th className="pr-2">{t('comparison.pair')}</th>
+                  <th className="text-right">{t('comparison.meanNormalLabel')}</th>
+                  <th className="text-right">{t('comparison.meanAbsoluteLabel')}</th>
+                  <th className="text-right">{t('comparison.maxAbsoluteLabel')}</th>
+                  <th className="text-right">{t('comparison.meanRelativeLabel')}</th>
+                  <th className="text-right">{t('comparison.maxRelativeLabel')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.map(s => (
+                  <tr key={s.label} className="border-t border-gray-200 dark:border-gray-700">
+                    <td className="pr-2 py-1">{s.label}</td>
+                    <td className="text-right py-1">{s.meanNormal.toFixed(6)}</td>
+                    <td className="text-right py-1">{s.meanAbsolute.toFixed(6)}</td>
+                    <td className="text-right py-1">{s.maxAbsolute.toFixed(6)}</td>
+                    <td className="text-right py-1">{s.meanRelative.toFixed(6)}</td>
+                    <td className="text-right py-1">{s.maxRelative.toFixed(6)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
