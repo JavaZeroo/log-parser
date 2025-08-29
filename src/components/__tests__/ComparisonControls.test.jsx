@@ -5,15 +5,35 @@ import { ComparisonControls } from '../ComparisonControls';
 import i18n from '../../i18n';
 
 describe('ComparisonControls', () => {
-  it('calls handler when mode changes', async () => {
+  it('triggers callbacks for mode, strategy, and baseline changes', async () => {
     const user = userEvent.setup();
-    const handleChange = vi.fn();
+    const handleMode = vi.fn();
+    const handleBaseline = vi.fn();
+    const handleStrategy = vi.fn();
+    const files = [{ name: 'a.log' }, { name: 'b.log' }];
+
     render(
-      <ComparisonControls compareMode="normal" onCompareModeChange={handleChange} />
+      <ComparisonControls
+        compareMode="normal"
+        onCompareModeChange={handleMode}
+        files={files}
+        baseline="a.log"
+        onBaselineChange={handleBaseline}
+        multiFileMode="baseline"
+        onMultiFileModeChange={handleStrategy}
+      />
     );
 
     const absoluteOption = screen.getByLabelText(i18n.t('comparison.absolute'), { exact: false });
     await user.click(absoluteOption);
-    expect(handleChange).toHaveBeenCalledWith('absolute');
+    expect(handleMode).toHaveBeenCalledWith('absolute');
+
+    const pairwiseButton = screen.getByRole('button', { name: i18n.t('comparison.modePairwise') });
+    await user.click(pairwiseButton);
+    expect(handleStrategy).toHaveBeenCalledWith('pairwise');
+
+    const baselineRadio = screen.getByLabelText('b.log');
+    await user.click(baselineRadio);
+    expect(handleBaseline).toHaveBeenCalledWith('b.log');
   });
 });
