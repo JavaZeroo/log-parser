@@ -190,6 +190,67 @@ export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingCo
             </p>
           </div>
         )}
+
+        {/* Smoothing options */}
+        <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            {t('regex.smoothing')}
+          </label>
+          <select
+            value={configItem.smoothing?.type || 'none'}
+            onChange={(e) => {
+              const type = e.target.value;
+              if (type === 'none') {
+                handleMetricChange(index, 'smoothing', undefined);
+              } else if (type === 'movingAverage') {
+                handleMetricChange(index, 'smoothing', { type: 'movingAverage', windowSize: configItem.smoothing?.windowSize || 5 });
+              } else {
+                handleMetricChange(index, 'smoothing', { type: 'exponential', alpha: configItem.smoothing?.alpha ?? 0.5 });
+              }
+            }}
+            className="input-field"
+          >
+            <option value="none">{t('regex.smoothing.none')}</option>
+            <option value="movingAverage">{t('regex.smoothing.movingAverage')}</option>
+            <option value="exponential">{t('regex.smoothing.exponential')}</option>
+          </select>
+
+          {configItem.smoothing?.type === 'movingAverage' && (
+            <div className="mt-1">
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('regex.smoothing.windowSize')}
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={configItem.smoothing.windowSize || 5}
+                onChange={(e) =>
+                  handleMetricChange(index, 'smoothing', { type: 'movingAverage', windowSize: parseInt(e.target.value) || 1 })
+                }
+                className="input-field text-sm"
+              />
+            </div>
+          )}
+
+          {configItem.smoothing?.type === 'exponential' && (
+            <div className="mt-1">
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('regex.smoothing.alpha')}
+              </label>
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                max="1"
+                value={configItem.smoothing.alpha ?? 0.5}
+                onChange={(e) =>
+                  handleMetricChange(index, 'smoothing', { type: 'exponential', alpha: parseFloat(e.target.value) || 0 })
+                }
+                className="input-field text-sm"
+              />
+            </div>
+          )}
+        </div>
       </div>
     );
   };

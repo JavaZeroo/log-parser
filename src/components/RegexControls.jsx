@@ -423,6 +423,67 @@ export function RegexControls({
             </p>
           </div>
         )}
+
+        {/* Smoothing options */}
+        <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            {t('regex.smoothing')}
+          </label>
+          <select
+            value={config.smoothing?.type || 'none'}
+            onChange={(e) => {
+              const type = e.target.value;
+              if (type === 'none') {
+                onConfigChange('smoothing', undefined);
+              } else if (type === 'movingAverage') {
+                onConfigChange('smoothing', { type: 'movingAverage', windowSize: config.smoothing?.windowSize || 5 });
+              } else {
+                onConfigChange('smoothing', { type: 'exponential', alpha: config.smoothing?.alpha ?? 0.5 });
+              }
+            }}
+            className="input-field"
+          >
+            <option value="none">{t('regex.smoothing.none')}</option>
+            <option value="movingAverage">{t('regex.smoothing.movingAverage')}</option>
+            <option value="exponential">{t('regex.smoothing.exponential')}</option>
+          </select>
+
+          {config.smoothing?.type === 'movingAverage' && (
+            <div className="mt-1">
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('regex.smoothing.windowSize')}
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={config.smoothing.windowSize || 5}
+                onChange={(e) =>
+                  onConfigChange('smoothing', { type: 'movingAverage', windowSize: parseInt(e.target.value) || 1 })
+                }
+                className="input-field text-sm"
+              />
+            </div>
+          )}
+
+          {config.smoothing?.type === 'exponential' && (
+            <div className="mt-1">
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('regex.smoothing.alpha')}
+              </label>
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                max="1"
+                value={config.smoothing.alpha ?? 0.5}
+                onChange={(e) =>
+                  onConfigChange('smoothing', { type: 'exponential', alpha: parseFloat(e.target.value) || 0 })
+                }
+                className="input-field text-sm"
+              />
+            </div>
+          )}
+        </div>
       </div>
     );
   };
