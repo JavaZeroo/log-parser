@@ -171,17 +171,25 @@ function App() {
   const handleGlobalParsingConfigChange = useCallback((newConfig) => {
     setGlobalParsingConfig(newConfig);
 
-    // Sync parsing config to all files
-    setUploadedFiles(prev => prev.map(file => ({
-      ...file,
-      config: {
-        ...file.config,
-        metrics: newConfig.metrics.map(m => ({ ...m })),
-        useStepKeyword: newConfig.useStepKeyword,
-        stepKeyword: newConfig.stepKeyword
-      }
-    }))); 
-  }, []);
+    // Sync parsing config to files that still use the global metrics
+    setUploadedFiles(prev => prev.map(file => {
+      const fileConfig = file.config || {};
+      const usesGlobalMetrics = !fileConfig.metrics ||
+        JSON.stringify(fileConfig.metrics) === JSON.stringify(globalParsingConfig.metrics);
+
+      return {
+        ...file,
+        config: {
+          ...fileConfig,
+          ...(usesGlobalMetrics && {
+            metrics: newConfig.metrics.map(m => ({ ...m }))
+          }),
+          useStepKeyword: newConfig.useStepKeyword,
+          stepKeyword: newConfig.stepKeyword
+        }
+      };
+    }));
+  }, [globalParsingConfig]);
 
   // Reset configuration
   const handleResetConfig = useCallback(() => {
