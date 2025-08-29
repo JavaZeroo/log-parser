@@ -260,12 +260,13 @@ export default function ChartContainer({
           return results;
         };
 
-        metrics.forEach(metric => {
+        metrics.forEach((metric, idx) => {
+          const fileMetric = file.config?.metrics?.[idx] || metric;
           let points = [];
-          if (metric.mode === 'keyword') {
-            points = extractByKeyword(lines, metric.keyword);
-          } else if (metric.regex) {
-            const reg = new RegExp(metric.regex);
+          if (fileMetric.mode === 'keyword') {
+            points = extractByKeyword(lines, fileMetric.keyword);
+          } else if (fileMetric.regex) {
+            const reg = new RegExp(fileMetric.regex);
             lines.forEach(line => {
               reg.lastIndex = 0;
               const m = reg.exec(line);
@@ -278,7 +279,20 @@ export default function ChartContainer({
               }
             });
           }
-          metricsData[metric.name || metric.keyword] = points;
+
+          let key = '';
+          if (metric.name && metric.name.trim()) {
+            key = metric.name.trim();
+          } else if (metric.keyword) {
+            key = metric.keyword.replace(/[:：]/g, '').trim();
+          } else if (metric.regex) {
+            const sanitized = metric.regex.replace(/[^a-zA-Z0-9_]/g, '').trim();
+            key = sanitized || `metric${idx + 1}`;
+          } else {
+            key = `metric${idx + 1}`;
+          }
+
+          metricsData[key] = points;
         });
 
       const range = file.config?.dataRange;

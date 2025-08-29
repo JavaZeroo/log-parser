@@ -175,4 +175,38 @@ describe('ChartContainer', () => {
     opts.plugins.zoom.pan.onPanComplete({ chart: { scales: { x: { min: 0, max: 10 } } } });
     opts.plugins.zoom.zoom.onZoomComplete({ chart: { scales: { x: { min: 2, max: 4 } } } });
   });
+
+  it('uses per-file metric configuration when provided', () => {
+    const onXRangeChange = vi.fn();
+    const onMaxStepChange = vi.fn();
+    const files = [
+      { name: 'a.log', enabled: true, content: 'loss: 1\nloss: 2' },
+      {
+        name: 'b.log',
+        enabled: true,
+        content: 'train_loss: 3\ntrain_loss: 4',
+        config: { metrics: [{ mode: 'keyword', keyword: 'train_loss:' }] }
+      }
+    ];
+    const metrics = [{ name: 'loss', mode: 'keyword', keyword: 'loss:' }];
+
+    render(
+      <ChartContainer
+        files={files}
+        metrics={metrics}
+        compareMode="normal"
+        onXRangeChange={onXRangeChange}
+        onMaxStepChange={onMaxStepChange}
+      />
+    );
+
+    const mainChart = [...__lineProps].reverse().find(p =>
+      p.data.datasets && p.data.datasets.some(d => d.label === 'b')
+    );
+    const ds = mainChart.data.datasets.find(d => d.label === 'b');
+    expect(ds.data).toEqual([
+      { x: 0, y: 3 },
+      { x: 1, y: 4 }
+    ]);
+  });
 });
