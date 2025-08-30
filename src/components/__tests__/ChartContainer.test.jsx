@@ -48,6 +48,13 @@ vi.mock('react-chartjs-2', async () => {
 import { __charts, __lineProps } from 'react-chartjs-2';
 
 vi.mock('chartjs-plugin-zoom', () => ({ default: {} }));
+vi.mock('jspdf', () => ({
+  default: class {
+    constructor() { this.internal = { pageSize: { getWidth: () => 100 } }; }
+    addImage() {}
+    save() {}
+  }
+}));
 
 describe('ChartContainer', () => {
   it('prompts to upload files when none provided', () => {
