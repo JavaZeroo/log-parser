@@ -414,13 +414,20 @@ export default function ChartContainer({
       });
     });
     if (min === Infinity || max === -Infinity) {
-      return { min: 0, max: 1 };
+      return { min: 0, max: 1, step: 1 };
     }
     if (min === max) {
-      return { min: min - 1, max: max + 1 };
+      return { min: min - 1, max: max + 1, step: 1 };
     }
     const pad = (max - min) * 0.05;
-    return { min: min - pad, max: max + pad };
+    const paddedMin = min - pad;
+    const paddedMax = max + pad;
+    const range = paddedMax - paddedMin;
+    let step = Math.pow(10, Math.floor(Math.log10(range)));
+    if (range / step < 3) {
+      step /= 10;
+    }
+    return { min: paddedMin, max: paddedMax, step };
   }, [xRange]);
 
   const chartOptions = useMemo(() => ({
@@ -680,11 +687,20 @@ export default function ChartContainer({
     const showComparison = dataArray.length >= 2;
 
     const yRange = calculateYRange(dataArray);
+    const yDecimals = Math.max(0, -Math.floor(Math.log10(yRange.step)));
     const options = {
       ...chartOptions,
       scales: {
         ...chartOptions.scales,
-        y: { ...chartOptions.scales.y, min: yRange.min, max: yRange.max }
+        y: {
+          ...chartOptions.scales.y,
+          min: yRange.min,
+          max: yRange.max,
+          ticks: {
+            stepSize: yRange.step,
+            callback: (value) => Number(value.toFixed(yDecimals))
+          }
+        }
       }
     };
 
@@ -694,11 +710,20 @@ export default function ChartContainer({
       const compResult = buildComparisonChartData(dataArray);
       stats = compResult.stats.length > 0 ? compResult.stats : null;
      const compRange = calculateYRange(compResult.datasets);
+      const compDecimals = Math.max(0, -Math.floor(Math.log10(compRange.step)));
       const compOptions = {
         ...chartOptions,
         scales: {
           ...chartOptions.scales,
-          y: { ...chartOptions.scales.y, min: compRange.min, max: compRange.max }
+          y: {
+            ...chartOptions.scales.y,
+            min: compRange.min,
+            max: compRange.max,
+            ticks: {
+              stepSize: compRange.step,
+              callback: (value) => Number(value.toFixed(compDecimals))
+            }
+          }
         }
       };
       const compActions = (
