@@ -416,12 +416,38 @@ export default function ChartContainer({
     if (min === Infinity || max === -Infinity) {
       return { min: 0, max: 1 };
     }
+
+    // Always include zero on the axis for better readability
+    min = Math.min(min, 0);
+    max = Math.max(max, 0);
+
     if (min === max) {
       return { min: min - 1, max: max + 1 };
     }
     const pad = (max - min) * 0.05;
     return { min: min - pad, max: max + pad };
   }, [xRange]);
+
+  const yDecimalPlaces = useMemo(() => {
+    let maxDecimals = 0;
+    parsedData.forEach(file => {
+      Object.values(file.metricsData).forEach(points => {
+        points.forEach(p => {
+          const str = p.y.toString();
+          const decimalPart = str.split('.')[1];
+          if (decimalPart) {
+            const decimals = decimalPart.replace(/e.+/i, '').length;
+            if (decimals > maxDecimals) {
+              maxDecimals = decimals;
+            }
+          }
+        });
+      });
+    });
+    return maxDecimals;
+  }, [parsedData]);
+
+  const tickStep = useMemo(() => Math.pow(10, -yDecimalPlaces), [yDecimalPlaces]);
 
   const chartOptions = useMemo(() => ({
     responsive: true,
@@ -503,7 +529,7 @@ export default function ChartContainer({
             return `Step ${context[0].parsed.x}`;
           },
           label: function (context) {
-            const value = Number(context.parsed.y.toPrecision(4));
+            const value = Number(context.parsed.y.toFixed(yDecimalPlaces));
             const label = context.dataset?.label || 'Dataset';
             return ` ${label}: ${value}`;
           },
@@ -538,14 +564,15 @@ export default function ChartContainer({
         title: { display: true, text: 'Value' },
         bounds: 'data',
         ticks: {
+          stepSize: tickStep,
           callback: function (value) {
-            return Number(value.toPrecision(2));
+            return Number(value.toFixed(yDecimalPlaces));
           }
         }
       }
     },
     elements: { point: { radius: 0 } }
-  }), [xRange, onXRangeChange]);
+  }), [xRange, onXRangeChange, yDecimalPlaces, tickStep]);
 
   const buildComparisonChartData = (dataArray) => {
     const baselineVal =
@@ -680,11 +707,13 @@ export default function ChartContainer({
     const showComparison = dataArray.length >= 2;
 
     const yRange = calculateYRange(dataArray);
+    const yMin = Math.floor(yRange.min / tickStep) * tickStep;
+    const yMax = Math.ceil(yRange.max / tickStep) * tickStep;
     const options = {
       ...chartOptions,
       scales: {
         ...chartOptions.scales,
-        y: { ...chartOptions.scales.y, min: yRange.min, max: yRange.max }
+        y: { ...chartOptions.scales.y, min: yMin, max: yMax }
       }
     };
 
@@ -693,12 +722,14 @@ export default function ChartContainer({
     if (showComparison) {
       const compResult = buildComparisonChartData(dataArray);
       stats = compResult.stats.length > 0 ? compResult.stats : null;
-     const compRange = calculateYRange(compResult.datasets);
+      const compRange = calculateYRange(compResult.datasets);
+      const compMin = Math.floor(compRange.min / tickStep) * tickStep;
+      const compMax = Math.ceil(compRange.max / tickStep) * tickStep;
       const compOptions = {
         ...chartOptions,
         scales: {
           ...chartOptions.scales,
-          y: { ...chartOptions.scales.y, min: compRange.min, max: compRange.max }
+          y: { ...chartOptions.scales.y, min: compMin, max: compMax }
         }
       };
       const compActions = (

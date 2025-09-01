@@ -109,6 +109,7 @@ describe('ChartContainer', () => {
     expect(opts.interaction.axis).toBe('x');
     expect(opts.plugins.tooltip.mode).toBe('nearest');
     expect(opts.plugins.tooltip.axis).toBe('x');
+    expect(opts.scales.y.ticks.stepSize).toBe(0.1);
 
     // simulate hover to trigger sync
     const hover = __lineProps[0].options.onHover;
@@ -140,6 +141,7 @@ describe('ChartContainer', () => {
       {}
     ];
 
+    const startIndex = __lineProps.length;
     render(
       <ChartContainer
         files={files}
@@ -156,8 +158,9 @@ describe('ChartContainer', () => {
     screen.getByText(/metric3/);
 
     // data range applied (start 1 end 3 => 2 points for loss)
-    const currentProps = __lineProps.slice(-5);
+    const currentProps = __lineProps.slice(startIndex);
     expect(currentProps[0].data.datasets[0].data).toHaveLength(2);
+    expect(currentProps[0].options.scales.y.ticks.stepSize).toBe(1);
 
     // trigger container mouse leave
     const container = screen.getAllByTestId('line-chart')[0].parentElement;
