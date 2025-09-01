@@ -447,6 +447,8 @@ export default function ChartContainer({
     return maxDecimals;
   }, [parsedData]);
 
+  const tickStep = useMemo(() => Math.pow(10, -yDecimalPlaces), [yDecimalPlaces]);
+
   const chartOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
@@ -562,6 +564,7 @@ export default function ChartContainer({
         title: { display: true, text: 'Value' },
         bounds: 'data',
         ticks: {
+          stepSize: tickStep,
           callback: function (value) {
             return Number(value.toFixed(yDecimalPlaces));
           }
@@ -569,7 +572,7 @@ export default function ChartContainer({
       }
     },
     elements: { point: { radius: 0 } }
-  }), [xRange, onXRangeChange, yDecimalPlaces]);
+  }), [xRange, onXRangeChange, yDecimalPlaces, tickStep]);
 
   const buildComparisonChartData = (dataArray) => {
     const baselineVal =
@@ -704,11 +707,13 @@ export default function ChartContainer({
     const showComparison = dataArray.length >= 2;
 
     const yRange = calculateYRange(dataArray);
+    const yMin = Math.floor(yRange.min / tickStep) * tickStep;
+    const yMax = Math.ceil(yRange.max / tickStep) * tickStep;
     const options = {
       ...chartOptions,
       scales: {
         ...chartOptions.scales,
-        y: { ...chartOptions.scales.y, min: yRange.min, max: yRange.max }
+        y: { ...chartOptions.scales.y, min: yMin, max: yMax }
       }
     };
 
@@ -717,12 +722,14 @@ export default function ChartContainer({
     if (showComparison) {
       const compResult = buildComparisonChartData(dataArray);
       stats = compResult.stats.length > 0 ? compResult.stats : null;
-     const compRange = calculateYRange(compResult.datasets);
+      const compRange = calculateYRange(compResult.datasets);
+      const compMin = Math.floor(compRange.min / tickStep) * tickStep;
+      const compMax = Math.ceil(compRange.max / tickStep) * tickStep;
       const compOptions = {
         ...chartOptions,
         scales: {
           ...chartOptions.scales,
-          y: { ...chartOptions.scales.y, min: compRange.min, max: compRange.max }
+          y: { ...chartOptions.scales.y, min: compMin, max: compMax }
         }
       };
       const compActions = (
