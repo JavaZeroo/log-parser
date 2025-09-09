@@ -77,17 +77,34 @@ function App() {
 
   useEffect(() => {
     if (savingDisabledRef.current) return;
-    const serialized = uploadedFiles.map(({ id, name, enabled, content, config }) => ({
-      id,
-      name,
-      enabled,
-      content,
-      config
-    }));
-    if (serialized.length > 0) {
-      localStorage.setItem('uploadedFiles', JSON.stringify(serialized));
-    } else {
-      localStorage.removeItem('uploadedFiles');
+    try {
+      const serialized = uploadedFiles.map(({ id, name, enabled, content, config }) => ({
+        id,
+        name,
+        enabled,
+        content,
+        config
+      }));
+      if (serialized.length > 0) {
+        const json = JSON.stringify(serialized);
+        // Avoid filling localStorage with very large files
+        if (json.length > 5 * 1024 * 1024) {
+          savingDisabledRef.current = true;
+          console.warn('Uploaded files exceed storage limit; persistence disabled.');
+          return;
+        }
+        localStorage.setItem('uploadedFiles', json);
+      } else {
+        localStorage.removeItem('uploadedFiles');
+      }
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'QuotaExceededError') {
+        savingDisabledRef.current = true;
+        console.warn('LocalStorage quota exceeded; uploaded files will not be persisted.');
+        localStorage.removeItem('uploadedFiles');
+      } else {
+        throw err;
+      }
     }
   }, [uploadedFiles]);
 
