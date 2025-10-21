@@ -10,6 +10,7 @@ import { ThemeToggle } from './components/ThemeToggle';
 import { Header } from './components/Header';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { mergeFilesWithReplacement } from './utils/mergeFiles.js';
+import { useDeviceScale } from './utils/useDeviceScale.js';
 
 // Default global parsing configuration
 export const DEFAULT_GLOBAL_PARSING_CONFIG = {
@@ -33,6 +34,7 @@ export const DEFAULT_GLOBAL_PARSING_CONFIG = {
 
 function App() {
     const { t } = useTranslation();
+    useDeviceScale();
     const [uploadedFiles, setUploadedFiles] = useState(() => {
     const stored = localStorage.getItem('uploadedFiles');
     return stored ? JSON.parse(stored) : [];

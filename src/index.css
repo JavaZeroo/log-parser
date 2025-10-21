@@ -2,6 +2,65 @@
 @tailwind components;
 @tailwind utilities;
 
+/* High DPI scaling ------------------------------------------------------ */
+:root {
+  --ui-scale: 1;
+}
+
+html {
+  font-size: calc(16px * var(--ui-scale));
+}
+
+:root.dpr-125 {
+  --ui-scale: 0.95;
+}
+
+:root.dpr-150 {
+  --ui-scale: 0.925;
+}
+
+:root.dpr-175 {
+  --ui-scale: 0.9;
+}
+
+:root.dpr-200 {
+  --ui-scale: 0.85;
+}
+
+:root.dpr-250 {
+  --ui-scale: 0.8;
+}
+
+@media (min-resolution: 1.25dppx) {
+  :root {
+    --ui-scale: 0.95;
+  }
+}
+
+@media (min-resolution: 1.5dppx) {
+  :root {
+    --ui-scale: 0.925;
+  }
+}
+
+@media (min-resolution: 1.75dppx) {
+  :root {
+    --ui-scale: 0.9;
+  }
+}
+
+@media (min-resolution: 2dppx) {
+  :root {
+    --ui-scale: 0.85;
+  }
+}
+
+@media (min-resolution: 2.5dppx) {
+  :root {
+    --ui-scale: 0.8;
+  }
+}
+
 /* Accessibility improvements */
 @layer base {
   body {
@@ -106,7 +165,7 @@
 /* Custom styles */
 .chart-container {
   position: relative;
-  height: 440px;
+  height: 27.5rem;
   width: 100%;
 }
 
@@ -114,8 +173,8 @@
   position: absolute;
   bottom: 0;
   right: 0;
-  width: 24px;
-  height: 24px;
+  width: 1.5rem;
+  height: 1.5rem;
   cursor: nw-resize;
   background: linear-gradient(-45deg, transparent 35%, #9ca3af 35%, #9ca3af 45%, transparent 45%, transparent 55%, #9ca3af 55%, #9ca3af 65%, transparent 65%);
   opacity: 0.6;
