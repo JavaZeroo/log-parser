@@ -1,8 +1,15 @@
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect } from 'vitest';
 import { ResizablePanel } from '../ResizablePanel';
 import i18n from '../../i18n';
+
+const getRootFontSize = () => parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+const pxToRem = (px) => `${px / getRootFontSize()}rem`;
+
+afterEach(() => {
+  cleanup();
+});
 
 describe('ResizablePanel', () => {
   it('renders content and adjusts height with keyboard', async () => {
@@ -14,17 +21,15 @@ describe('ResizablePanel', () => {
     );
 
     const region = screen.getByRole('region', { name: /Test/ });
-    expect(region.style.height).toBe('300px');
+    expect(region.style.height).toBe(pxToRem(300));
     screen.getByText('content');
 
     const handle = screen.getByRole('button', { name: i18n.t('resize.adjust', { title: 'Test' }) });
     handle.focus();
     await user.keyboard('{ArrowUp}');
-    expect(region.style.height).toBe('290px');
+    expect(region.style.height).toBe(pxToRem(290));
     await user.keyboard('{ArrowDown}{ArrowDown}');
-    expect(region.style.height).toBe('310px');
-
-    cleanup();
+    expect(region.style.height).toBe(pxToRem(310));
   });
 
   it('resizes using mouse drag', () => {
@@ -41,8 +46,6 @@ describe('ResizablePanel', () => {
     fireEvent.mouseMove(document, { clientY: 40 });
     fireEvent.mouseUp(document);
 
-    expect(region.style.height).toBe('340px');
-
-    cleanup();
+    expect(region.style.height).toBe(pxToRem(340));
   });
 });

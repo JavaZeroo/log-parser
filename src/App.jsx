@@ -10,6 +10,7 @@ import { ThemeToggle } from './components/ThemeToggle';
 import { Header } from './components/Header';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { mergeFilesWithReplacement } from './utils/mergeFiles.js';
+import { useDeviceScale } from './utils/useDeviceScale.js';
 
 // Default global parsing configuration
 export const DEFAULT_GLOBAL_PARSING_CONFIG = {
@@ -33,6 +34,7 @@ export const DEFAULT_GLOBAL_PARSING_CONFIG = {
 
 function App() {
     const { t } = useTranslation();
+    useDeviceScale();
     const [uploadedFiles, setUploadedFiles] = useState(() => {
     const stored = localStorage.getItem('uploadedFiles');
     return stored ? JSON.parse(stored) : [];
@@ -357,7 +359,7 @@ function App() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                 </div>
-                <h1 className="text-lg font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-purple-500 to-indigo-600 animate-gradient-slow">
+                <h1 className="text-lg font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-purple-500 to-indigo-600 animate-gradient-slow whitespace-nowrap">
                   Log Analyzer
                 </h1>
                 <div className="ml-auto flex items-center gap-2">

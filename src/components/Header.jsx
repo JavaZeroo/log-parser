@@ -11,17 +11,17 @@ export function Header() {
   }, [lang, i18n]);
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 whitespace-nowrap">
       <div
         role="group"
         aria-label={t('header.language')}
-        className="flex overflow-hidden rounded border text-xs"
+        className="flex overflow-hidden rounded border text-xs whitespace-nowrap"
       >
         <button
           type="button"
           onClick={() => setLang('zh')}
           aria-pressed={lang === 'zh'}
-          className={`px-2 py-1 transition-colors focus:outline-none ${
+          className={`px-2 py-1 transition-colors focus:outline-none whitespace-nowrap ${
             lang === 'zh'
               ? 'bg-blue-500 text-white'
               : 'bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-300'
@@ -33,7 +33,7 @@ export function Header() {
           type="button"
           onClick={() => setLang('en')}
           aria-pressed={lang === 'en'}
-          className={`px-2 py-1 transition-colors focus:outline-none ${
+          className={`px-2 py-1 transition-colors focus:outline-none whitespace-nowrap ${
             lang === 'en'
               ? 'bg-blue-500 text-white'
               : 'bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-300'
