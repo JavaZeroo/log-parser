@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Settings, Zap, Eye, ChevronDown, ChevronUp, Target, Code, ZoomIn } from 'lucide-react';
 import { METRIC_PRESETS } from '../metricPresets.js';
 import { useTranslation, Trans } from 'react-i18next';
+import { ValueExtractor } from '../utils/ValueExtractor';
 
 // Match mode enum
 const MATCH_MODES = {
@@ -36,166 +37,7 @@ function getMetricTitle(metric, index) {
   return `Metric ${index + 1}`;
 }
 
-// Value extractor class
-export class ValueExtractor {
-  // Keyword match
-  static extractByKeyword(content, keyword) {
-    const results = [];
-    const lines = content.split('\n');
-    
-    // Number regex supporting scientific notation
-    const numberRegex = /[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/;
-    
-    lines.forEach((line, lineIndex) => {
-      // Find keyword (case-insensitive)
-      const keywordIndex = line.toLowerCase().indexOf(keyword.toLowerCase());
-      if (keywordIndex !== -1) {
-        // Find first number after the keyword
-        const afterKeyword = line.substring(keywordIndex + keyword.length);
-        const numberMatch = afterKeyword.match(numberRegex);
-        
-        if (numberMatch) {
-          const value = parseFloat(numberMatch[0]);
-          if (!isNaN(value)) {
-            results.push({
-              value,
-              line: lineIndex + 1,
-              text: line.trim(),
-              format: 'Keyword Match'
-            });
-          }
-        }
-      }
-    });
-    
-    return results;
-  }
 
-  // Column position match
-  static extractByColumn(content, columnIndex, separator = ' ') {
-    const results = [];
-    const lines = content.split('\n');
-    
-    lines.forEach((line, lineIndex) => {
-      if (line.trim()) {
-        const columns = separator === ' ' 
-          ? line.trim().split(/\s+/) 
-          : line.split(separator);
-          
-        if (columns.length > columnIndex) {
-          const value = parseFloat(columns[columnIndex]);
-          if (!isNaN(value)) {
-            results.push({
-              value,
-              line: lineIndex + 1,
-              text: line.trim()
-            });
-          }
-        }
-      }
-    });
-    
-    return results;
-  }
-
-  // Smart parsing
-  static extractBySmart(content, type = 'loss') {
-    const results = [];
-    const lines = content.split('\n');
-    
-    // Smart keyword list
-    const keywords = type === 'loss'
-      ? ['loss', 'training_loss', 'train_loss', 'val_loss', 'validation_loss']
-      : ['grad_norm', 'gradient_norm', 'gnorm', 'grad norm', 'gradient norm', 'global_norm'];
-
-    lines.forEach((line, lineIndex) => {
-      // Try JSON parsing
-      try {
-        const jsonMatch = line.match(/\{.*\}/);
-        if (jsonMatch) {
-          const obj = JSON.parse(jsonMatch[0]);
-          for (const keyword of keywords) {
-            if (obj[keyword] !== undefined) {
-              const value = parseFloat(obj[keyword]);
-              if (!isNaN(value)) {
-                results.push({
-                  value,
-                  line: lineIndex + 1,
-                  text: line.trim(),
-                  format: 'JSON'
-                });
-                return;
-              }
-            }
-          }
-        }
-      } catch {
-        // Not JSON, continue other formats
-      }
-
-      // Try key-value and special formats
-      for (const keyword of keywords) {
-        const patterns = [
-          // Standard key-value format
-          new RegExp(`${keyword}\\s*[:=]\\s*([\\d.eE+-]+)`, 'i'),
-          new RegExp(`"${keyword}"\\s*:\\s*([\\d.eE+-]+)`, 'i'),
-          new RegExp(`${keyword}\\s+([\\d.eE+-]+)`, 'i'),
-          // MindFormers format: global_norm: [1.6887678]
-          new RegExp(`${keyword}\\s*:\\s*\\[([\\d.eE+-]+)\\]`, 'i'),
-          // Other possible array formats
-          new RegExp(`${keyword}\\s*:\\s*\\[\\s*([\\d.eE+-]+)\\s*\\]`, 'i')
-        ];
-
-        for (const pattern of patterns) {
-          const match = line.match(pattern);
-          if (match) {
-            const value = parseFloat(match[1]);
-            if (!isNaN(value)) {
-              results.push({
-                value,
-                line: lineIndex + 1,
-                text: line.trim(),
-                format: keyword.includes('global_norm') ? 'MindFormers' : 'Key-Value'
-              });
-              return;
-            }
-          }
-        }
-      }
-    });
-
-    return results;
-  }
-
-  // Regex match (original functionality)
-  static extractByRegex(content, regex) {
-    const results = [];
-    const lines = content.split('\n');
-    
-    try {
-      const regexObj = new RegExp(regex, 'gi');
-      lines.forEach((line, lineIndex) => {
-        const matches = [...line.matchAll(regexObj)];
-        matches.forEach(match => {
-          if (match[1]) {
-            const value = parseFloat(match[1]);
-            if (!isNaN(value)) {
-              results.push({
-                value,
-                line: lineIndex + 1,
-                text: line.trim()
-              });
-            }
-          }
-        });
-      });
-    } catch {
-      // Invalid regex
-    }
-
-    return results;
-  }
-}
 
 export function RegexControls({
   globalParsingConfig,
@@ -223,7 +65,7 @@ export function RegexControls({
     });
   }, [globalParsingConfig, onGlobalParsingConfigChange]);
 
-// Generic function to extract numbers
+  // Generic function to extract numbers
   const extractValues = useCallback((content, mode, config) => {
     switch (mode) {
       case MATCH_MODES.KEYWORD:
@@ -235,7 +77,7 @@ export function RegexControls({
     }
   }, []);
 
-// Preview match results
+  // Preview match results
   const previewMatches = useCallback(() => {
     const results = {};
 
@@ -262,7 +104,7 @@ export function RegexControls({
     setPreviewResults(results);
   }, [uploadedFiles, globalParsingConfig, extractValues]);
 
-// Smartly recommend best config
+  // Smartly recommend best config
   const smartRecommend = useCallback(() => {
     if (uploadedFiles.length === 0) return;
 
@@ -295,14 +137,14 @@ export function RegexControls({
     onGlobalParsingConfigChange({ metrics: newMetrics });
   }, [uploadedFiles, globalParsingConfig, onGlobalParsingConfigChange]);
 
-// Update preview when config changes
+  // Update preview when config changes
   useEffect(() => {
     if (showPreview) {
       previewMatches();
     }
   }, [showPreview, previewMatches]);
 
-// Handle config change
+  // Handle config change
   const handleMetricChange = (index, field, value) => {
     const newMetrics = [...globalParsingConfig.metrics];
     newMetrics[index] = { ...newMetrics[index], [field]: value };
@@ -340,7 +182,7 @@ export function RegexControls({
     onXRangeChange(newRange);
   };
 
-// Function to render config panel
+  // Function to render config panel
   const renderConfigPanel = (type, config, onConfigChange, index) => {
     const ModeIcon = MODE_CONFIG[config.mode].icon;
 
@@ -463,93 +305,93 @@ export function RegexControls({
           </button>
         </div>
       </div>
-      
-      <div className="space-y-4">
-          {globalParsingConfig.metrics.map((cfg, idx) => (
-            <div key={idx} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 relative">
-              <button
-                onClick={() => removeMetric(idx)}
-                className="absolute top-1 right-1 text-red-500"
-                title={t('regex.deleteConfig')}
-              >
-                ×
-              </button>
-              <h4 className="text-sm font-medium text-gray-800 dark:text-gray-100 mb-2 flex items-center gap-1">
-                <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
-                {t('regex.metricConfig', { title: getMetricTitle(cfg, idx) })}
-              </h4>
-              {renderConfigPanel(`metric-${idx}`, cfg, (field, value) => handleMetricChange(idx, field, value), idx)}
-            </div>
-          ))}
-          <button
-            onClick={addMetric}
-            className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
-          >
-            {t('regex.addMetric')}
-          </button>
 
-          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-            <div className="flex items-center gap-2">
-              <label className="flex items-center text-xs text-gray-700 dark:text-gray-300">
-                <input
-                  type="checkbox"
-                  className="mr-2 checkbox"
-                  checked={globalParsingConfig.useStepKeyword || false}
-                  onChange={(e) => handleStepToggle(e.target.checked)}
-                />
-                {t('useStepKeyword')}
-              </label>
-              {globalParsingConfig.useStepKeyword && (
-                <input
-                  type="text"
-                  className="flex-1 input-field"
-                  value={globalParsingConfig.stepKeyword || t('placeholder.step')}
-                  onChange={(e) => handleStepKeywordChange(e.target.value)}
-                  placeholder={t('placeholder.step')}
-                />
-              )}
-            </div>
+      <div className="space-y-4">
+        {globalParsingConfig.metrics.map((cfg, idx) => (
+          <div key={idx} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 relative">
+            <button
+              onClick={() => removeMetric(idx)}
+              className="absolute top-1 right-1 text-red-500"
+              title={t('regex.deleteConfig')}
+            >
+              ×
+            </button>
+            <h4 className="text-sm font-medium text-gray-800 dark:text-gray-100 mb-2 flex items-center gap-1">
+              <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
+              {t('regex.metricConfig', { title: getMetricTitle(cfg, idx) })}
+            </h4>
+            {renderConfigPanel(`metric-${idx}`, cfg, (field, value) => handleMetricChange(idx, field, value), idx)}
           </div>
+        ))}
+        <button
+          onClick={addMetric}
+          className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
+        >
+          {t('regex.addMetric')}
+        </button>
 
         <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-            <div className="flex items-center gap-2 mb-2">
-                <ZoomIn
-                    size={16}
-                    className="text-gray-600 dark:text-gray-300"
-                    aria-hidden="true"
-                />
-                <h4 className="text-base font-semibold text-gray-800 dark:text-gray-100">
-                    {t('regex.xRange')}
-                </h4>
-            </div>
-            <div className="flex items-center gap-2">
-                <input
-                    type="number"
-                    placeholder="Min"
-                    value={xRange.min === undefined ? 0 : xRange.min}
-                    onChange={(e) => handleXRangeChange('min', e.target.value)}
-                    className="input-field"
-                />
-                <span className="text-gray-500 dark:text-gray-400">-</span>
-                <input
-                    type="number"
-                    placeholder={xRange.max === undefined && maxStep !== undefined ? `${maxStep}` : 'Max'}
-                    value={xRange.max === undefined ? maxStep : xRange.max}
-                    onChange={(e) => handleXRangeChange('max', e.target.value)}
-                    className="input-field"
-                />
-                <button
-                    onClick={() => onXRangeChange({ min: undefined, max: undefined })}
-                    className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 whitespace-nowrap"
-                >
-                    {t('regex.reset')}
-                </button>
-            </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                <Trans i18nKey="regex.xRangeHint">
-                  Hold <kbd>Shift</kbd> and drag on the chart to select range, or input values directly.
-                </Trans>
-            </p>
+          <div className="flex items-center gap-2">
+            <label className="flex items-center text-xs text-gray-700 dark:text-gray-300">
+              <input
+                type="checkbox"
+                className="mr-2 checkbox"
+                checked={globalParsingConfig.useStepKeyword || false}
+                onChange={(e) => handleStepToggle(e.target.checked)}
+              />
+              {t('useStepKeyword')}
+            </label>
+            {globalParsingConfig.useStepKeyword && (
+              <input
+                type="text"
+                className="flex-1 input-field"
+                value={globalParsingConfig.stepKeyword || t('placeholder.step')}
+                onChange={(e) => handleStepKeywordChange(e.target.value)}
+                placeholder={t('placeholder.step')}
+              />
+            )}
+          </div>
+        </div>
+
+        <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <ZoomIn
+              size={16}
+              className="text-gray-600 dark:text-gray-300"
+              aria-hidden="true"
+            />
+            <h4 className="text-base font-semibold text-gray-800 dark:text-gray-100">
+              {t('regex.xRange')}
+            </h4>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              placeholder="Min"
+              value={xRange.min === undefined ? 0 : xRange.min}
+              onChange={(e) => handleXRangeChange('min', e.target.value)}
+              className="input-field"
+            />
+            <span className="text-gray-500 dark:text-gray-400">-</span>
+            <input
+              type="number"
+              placeholder={xRange.max === undefined && maxStep !== undefined ? `${maxStep}` : 'Max'}
+              value={xRange.max === undefined ? maxStep : xRange.max}
+              onChange={(e) => handleXRangeChange('max', e.target.value)}
+              className="input-field"
+            />
+            <button
+              onClick={() => onXRangeChange({ min: undefined, max: undefined })}
+              className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 whitespace-nowrap"
+            >
+              {t('regex.reset')}
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <Trans i18nKey="regex.xRangeHint">
+              Hold <kbd>Shift</kbd> and drag on the chart to select range, or input values directly.
+            </Trans>
+          </p>
         </div>
 
         {/* Preview results */}

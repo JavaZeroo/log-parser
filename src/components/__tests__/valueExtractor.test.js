@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ValueExtractor } from '../RegexControls.jsx';
+import { ValueExtractor } from '../../utils/ValueExtractor';
 
 const sampleContent = `loss: 0.123\nstep2 loss 0.234\n{"loss": 0.345, "global_norm": 1.23}`;
 
