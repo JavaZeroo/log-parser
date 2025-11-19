@@ -86,8 +86,18 @@ describe('ChartContainer', () => {
     const onXRangeChange = vi.fn();
     const onMaxStepChange = vi.fn();
     const files = [
-      { name: 'a.log', enabled: true, content: 'loss: 1\nloss: 2' },
-      { name: 'b.log', enabled: true, content: 'loss: 1.5\nloss: 2.5' },
+      {
+        name: 'a.log',
+        enabled: true,
+        content: 'loss: 1\nloss: 2',
+        metricsData: { 'loss': [{ x: 0, y: 1 }, { x: 1, y: 2 }] }
+      },
+      {
+        name: 'b.log',
+        enabled: true,
+        content: 'loss: 1.5\nloss: 2.5',
+        metricsData: { 'loss': [{ x: 0, y: 1.5 }, { x: 1, y: 2.5 }] }
+      },
     ];
     render(
       <ChartContainer
@@ -125,13 +135,21 @@ describe('ChartContainer', () => {
         name: 'a.log',
         enabled: true,
         content: 'loss: 1\nloss: 2\nloss: 3\nacc: 4\nacc: 5',
-        config: { dataRange: { start: 1, end: 3 } }
+        config: { dataRange: { start: 1, end: 3 } },
+        metricsData: {
+          'loss': [{ x: 0, y: 1 }, { x: 1, y: 2 }, { x: 2, y: 3 }],
+          'metric2': [{ x: 3, y: 4 }, { x: 4, y: 5 }]
+        }
       },
       {
         name: 'b.log',
         enabled: true,
         content: 'loss: 2\nloss: 4\nacc: 6\nacc: 8',
-        config: { dataRange: { start: 1, end: 3 } }
+        config: { dataRange: { start: 1, end: 3 } },
+        metricsData: {
+          'loss': [{ x: 0, y: 2 }, { x: 1, y: 4 }],
+          'metric2': [{ x: 2, y: 6 }, { x: 3, y: 8 }]
+        }
       }
     ];
     const metrics = [
@@ -165,7 +183,7 @@ describe('ChartContainer', () => {
 
     // invoke legend and tooltip callbacks
     const opts = currentProps[0].options;
-    opts.plugins.legend.labels.generateLabels({ data: { datasets: [{}, { borderDash: [5,5] }] } });
+    opts.plugins.legend.labels.generateLabels({ data: { datasets: [{}, { borderDash: [5, 5] }] } });
     const tt = opts.plugins.tooltip.callbacks;
     tt.title([{ parsed: { x: 1 } }]);
     tt.label({ parsed: { y: 1.2345 } });
@@ -180,12 +198,13 @@ describe('ChartContainer', () => {
     const onXRangeChange = vi.fn();
     const onMaxStepChange = vi.fn();
     const files = [
-      { name: 'a.log', enabled: true, content: 'loss: 1\nloss: 2' },
+      { name: 'a.log', enabled: true, content: 'loss: 1\nloss: 2', metricsData: { 'loss': [{ x: 0, y: 1 }, { x: 1, y: 2 }] } },
       {
         name: 'b.log',
         enabled: true,
         content: 'train_loss: 3\ntrain_loss: 4',
-        config: { metrics: [{ mode: 'keyword', keyword: 'train_loss:' }] }
+        config: { metrics: [{ mode: 'keyword', keyword: 'train_loss:' }] },
+        metricsData: { 'loss': [{ x: 0, y: 3 }, { x: 1, y: 4 }] } // Note: key is 'loss' because metric name is 'loss'
       }
     ];
     const metrics = [{ name: 'loss', mode: 'keyword', keyword: 'loss:' }];

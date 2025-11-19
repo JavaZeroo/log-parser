@@ -46,26 +46,26 @@ const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover, sy
         // Find the data point closest to the cursor
         let closestElement = activeElements[0];
         let minDistance = Infinity;
-        
+
         // Ensure canvas exists (may not in tests)
         if (chartRef.current.canvas && chartRef.current.canvas.getBoundingClientRect) {
           const canvasRect = chartRef.current.canvas.getBoundingClientRect();
           const mouseX = event.native ? event.native.clientX - canvasRect.left : event.x;
-          
+
           activeElements.forEach(element => {
             const { datasetIndex, index } = element;
             const dataset = chartRef.current.data.datasets[datasetIndex];
             const point = dataset.data[index];
             const pixelX = chartRef.current.scales.x.getPixelForValue(point.x);
             const distance = Math.abs(mouseX - pixelX);
-            
+
             if (distance < minDistance) {
               minDistance = distance;
               closestElement = element;
             }
           });
         }
-        
+
         const { datasetIndex, index } = closestElement;
         const dataset = chartRef.current.data.datasets[datasetIndex];
         const point = dataset.data[index];
@@ -180,15 +180,15 @@ export default function ChartContainer({
             const elementKey = `${datasetIndex}-${idx}`;
             if (!seen.has(elementKey)) {
               // Validate element
-              if (datasetIndex >= 0 && datasetIndex < chart.data.datasets.length && 
-                  idx >= 0 && idx < dataset.data.length) {
+              if (datasetIndex >= 0 && datasetIndex < chart.data.datasets.length &&
+                idx >= 0 && idx < dataset.data.length) {
                 activeElements.push({ datasetIndex, index: idx });
                 seen.add(elementKey);
               }
             }
           }
         });
-        
+
         // Only set when activeElements are valid
         if (activeElements.length > 0) {
           try {
@@ -214,105 +214,44 @@ export default function ChartContainer({
     syncLockRef.current = false;
   }, []);
 
-    const parsedData = useMemo(() => {
-      const enabled = files.filter(f => f.enabled !== false);
-      return enabled.map(file => {
-        if (!file.content) return { ...file, metricsData: {} };
-        const lines = file.content.split('\n');
-        const metricsData = {};
+  const parsedData = useMemo(() => {
+    const enabled = files.filter(f => f.enabled !== false);
+    return enabled.map(file => {
+      // Use pre-parsed data from worker
+      let metricsData = file.metricsData || {};
 
-        const stepCfg = {
-          enabled: file.config?.useStepKeyword,
-          keyword: file.config?.stepKeyword || 'step:'
-        };
+      // Clone to avoid mutation during range application
+      metricsData = { ...metricsData };
 
-        const extractStep = (line) => {
-          if (!stepCfg.enabled) return null;
-          const idx = line.toLowerCase().indexOf(stepCfg.keyword.toLowerCase());
-          if (idx !== -1) {
-            const after = line.substring(idx + stepCfg.keyword.length);
-            const match = after.match(/[+-]?\d+/);
-            if (match) {
-              const s = parseInt(match[0], 10);
-              if (!isNaN(s)) return s;
-            }
-          }
-          return null;
-        };
-
-        const extractByKeyword = (linesArr, keyword) => {
-          const results = [];
-          const numberRegex = /[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/;
-          linesArr.forEach(line => {
-            const idx = line.toLowerCase().indexOf(keyword.toLowerCase());
-            if (idx !== -1) {
-              const after = line.substring(idx + keyword.length);
-              const match = after.match(numberRegex);
-              if (match) {
-                const v = parseFloat(match[0]);
-                if (!isNaN(v)) {
-                  const step = extractStep(line);
-                  results.push({ x: step !== null ? step : results.length, y: v });
-                }
-              }
-            }
-          });
-          return results;
-        };
-
-        metrics.forEach((metric, idx) => {
-          const fileMetric = file.config?.metrics?.[idx] || metric;
-          let points = [];
-          if (fileMetric.mode === 'keyword') {
-            points = extractByKeyword(lines, fileMetric.keyword);
-          } else if (fileMetric.regex) {
-            const reg = new RegExp(fileMetric.regex);
-            lines.forEach(line => {
-              reg.lastIndex = 0;
-              const m = reg.exec(line);
-              if (m && m[1]) {
-                const v = parseFloat(m[1]);
-                if (!isNaN(v)) {
-                  const step = extractStep(line);
-                  points.push({ x: step !== null ? step : points.length, y: v });
-                }
-              }
-            });
-          }
-
-          let key = '';
-          if (metric.name && metric.name.trim()) {
-            key = metric.name.trim();
-          } else if (metric.keyword) {
-            key = metric.keyword.replace(/[:：]/g, '').trim();
-          } else if (metric.regex) {
-            const sanitized = metric.regex.replace(/[^a-zA-Z0-9_]/g, '').trim();
-            key = sanitized || `metric${idx + 1}`;
-          } else {
-            key = `metric${idx + 1}`;
-          }
-
-          metricsData[key] = points;
-        });
+      const stepCfg = {
+        enabled: file.config?.useStepKeyword,
+        keyword: file.config?.stepKeyword || 'step:'
+      };
 
       const range = file.config?.dataRange;
       if (range && (range.start > 0 || range.end !== undefined)) {
         const applyRange = data => {
-          if (data.length === 0) return data;
+          if (!data || data.length === 0) return data;
           const start = Math.max(0, parseInt(range.start) || 0);
           const end = range.end !== undefined ? parseInt(range.end) : data.length;
           const endIndex = Math.min(data.length, end);
           return data.slice(start, endIndex);
         };
+
+        // If not using step keyword, reindex x to 0, 1, 2... after slicing
+        // This matches original behavior where x-axis resets if we just treat lines as steps
         const reindex = data => stepCfg.enabled ? data : data.map((p, idx) => ({ x: idx, y: p.y }));
+
         Object.keys(metricsData).forEach(k => {
-          metricsData[k] = reindex(applyRange(metricsData[k]));
+          if (metricsData[k]) {
+            metricsData[k] = reindex(applyRange(metricsData[k]));
+          }
         });
       }
 
       return { ...file, metricsData };
     });
-  }, [files, metrics]);
+  }, [files]);
 
   useEffect(() => {
     const maxStep = parsedData.reduce((m, f) => {
@@ -343,7 +282,7 @@ export default function ChartContainer({
       }
       return acc;
     }, []);
-    
+
     return {
       datasets: uniqueItems.map((item, index) => {
         const color = colors[index % colors.length];
@@ -399,36 +338,46 @@ export default function ChartContainer({
     return result;
   };
 
-  const calculateYRange = useCallback((dataArray) => {
-    let min = Infinity;
-    let max = -Infinity;
+  const getMaxDecimals = useCallback((dataArray) => {
+    let maxDecimals = 0;
     dataArray.forEach(item => {
       item.data.forEach(point => {
-        const inRange =
-          (xRange.min === undefined || point.x >= xRange.min) &&
-          (xRange.max === undefined || point.x <= xRange.max);
-        if (inRange) {
-          if (point.y < min) min = point.y;
-          if (point.y > max) max = point.y;
+        const valStr = point.y.toString();
+        if (valStr.includes('.')) {
+          const decimals = valStr.split('.')[1].length;
+          if (decimals > maxDecimals) maxDecimals = decimals;
         }
       });
     });
-    if (min === Infinity || max === -Infinity) {
-      return { min: 0, max: 1, step: 1 };
-    }
-    if (min === max) {
-      return { min: min - 1, max: max + 1, step: 1 };
-    }
-    const pad = (max - min) * 0.05;
-    const paddedMin = min - pad;
-    const paddedMax = max + pad;
-    const range = paddedMax - paddedMin;
-    let step = Math.pow(10, Math.floor(Math.log10(range)));
-    if (range / step < 3) {
-      step /= 10;
-    }
-    return { min: paddedMin, max: paddedMax, step };
-  }, [xRange]);
+    return Math.min(maxDecimals, 10); // Cap at 10 to avoid extreme cases
+  }, []);
+
+  const calculateNiceScale = useCallback((min, max) => {
+    if (min === Infinity || max === -Infinity) return { min: 0, max: 1, step: 0.1 };
+    if (min === max) return { min: min - 0.5, max: max + 0.5, step: 0.1 };
+
+    // Calculate raw range
+    let range = max - min;
+
+    // Calculate "nice" interval
+    const roughStep = range / 5; // Aim for approx 5-6 ticks
+    const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep)));
+    const normalizedStep = roughStep / magnitude;
+
+    let niceStep;
+    if (normalizedStep < 1.5) niceStep = 1;
+    else if (normalizedStep < 3) niceStep = 2;
+    else if (normalizedStep < 7) niceStep = 5;
+    else niceStep = 10;
+
+    const step = niceStep * magnitude;
+
+    // Calculate nice min and max
+    const niceMin = Math.floor(min / step) * step;
+    const niceMax = Math.ceil(max / step) * step;
+
+    return { min: niceMin, max: niceMax, step };
+  }, []);
 
   const chartOptions = useMemo(() => ({
     responsive: true,
@@ -510,8 +459,14 @@ export default function ChartContainer({
             return `Step ${context[0].parsed.x}`;
           },
           label: function (context) {
-            const value = Number(context.parsed.y.toPrecision(4));
+            // Dynamic precision handled in render loop via options update, 
+            // but here we need to access the chart options or dataset context
+            // We'll use a default safe fallback or try to read from chart config if possible.
+            // Actually, we can bind the precision in the render loop.
+            // For now, let's use the raw value which is most accurate.
+            const value = context.parsed.y;
             const label = context.dataset?.label || 'Dataset';
+            // We will format this in the parent component's options generation
             return ` ${label}: ${value}`;
           },
           labelColor: function (context) {
@@ -544,11 +499,7 @@ export default function ChartContainer({
         display: true,
         title: { display: true, text: 'Value' },
         bounds: 'data',
-        ticks: {
-          callback: function (value) {
-            return Number(value.toPrecision(2));
-          }
-        }
+        // Ticks callback will be overridden in the render loop
       }
     },
     elements: { point: { radius: 0 } }
@@ -686,10 +637,41 @@ export default function ChartContainer({
     const dataArray = metricDataArrays[key] || [];
     const showComparison = dataArray.length >= 2;
 
-    const yRange = calculateYRange(dataArray);
-    const yDecimals = Math.max(0, -Math.floor(Math.log10(yRange.step)));
+    const yDecimals = getMaxDecimals(dataArray);
+
+    // Calculate min/max for scaling
+    let min = Infinity;
+    let max = -Infinity;
+    dataArray.forEach(item => {
+      item.data.forEach(point => {
+        const inRange =
+          (xRange.min === undefined || point.x >= xRange.min) &&
+          (xRange.max === undefined || point.x <= xRange.max);
+        if (inRange) {
+          if (point.y < min) min = point.y;
+          if (point.y > max) max = point.y;
+        }
+      });
+    });
+
+    const yRange = calculateNiceScale(min, max);
+
     const options = {
       ...chartOptions,
+      plugins: {
+        ...chartOptions.plugins,
+        tooltip: {
+          ...chartOptions.plugins.tooltip,
+          callbacks: {
+            ...chartOptions.plugins.tooltip.callbacks,
+            label: function (context) {
+              const value = Number(context.parsed.y).toFixed(yDecimals);
+              const label = context.dataset?.label || 'Dataset';
+              return ` ${label}: ${value}`;
+            }
+          }
+        }
+      },
       scales: {
         ...chartOptions.scales,
         y: {
@@ -709,10 +691,41 @@ export default function ChartContainer({
     if (showComparison) {
       const compResult = buildComparisonChartData(dataArray);
       stats = compResult.stats.length > 0 ? compResult.stats : null;
-     const compRange = calculateYRange(compResult.datasets);
-      const compDecimals = Math.max(0, -Math.floor(Math.log10(compRange.step)));
+
+      // Calculate comparison range
+      let cMin = Infinity;
+      let cMax = -Infinity;
+      compResult.datasets.forEach(ds => {
+        ds.data.forEach(point => {
+          const inRange =
+            (xRange.min === undefined || point.x >= xRange.min) &&
+            (xRange.max === undefined || point.x <= xRange.max);
+          if (inRange) {
+            if (point.y < cMin) cMin = point.y;
+            if (point.y > cMax) cMax = point.y;
+          }
+        });
+      });
+
+      const compRange = calculateNiceScale(cMin, cMax);
+      const compDecimals = Math.max(4, getMaxDecimals(compResult.datasets)); // Ensure at least 4 for diffs
+
       const compOptions = {
         ...chartOptions,
+        plugins: {
+          ...chartOptions.plugins,
+          tooltip: {
+            ...chartOptions.plugins.tooltip,
+            callbacks: {
+              ...chartOptions.plugins.tooltip.callbacks,
+              label: function (context) {
+                const value = Number(context.parsed.y).toFixed(compDecimals);
+                const label = context.dataset?.label || 'Dataset';
+                return ` ${label}: ${value}`;
+              }
+            }
+          }
+        },
         scales: {
           ...chartOptions.scales,
           y: {
