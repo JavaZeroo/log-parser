@@ -6,6 +6,7 @@ import { FileList } from './components/FileList';
 import ChartContainer from './components/ChartContainer';
 import { ComparisonControls } from './components/ComparisonControls';
 import { FileConfigModal } from './components/FileConfigModal';
+import { GuideModal } from './components/GuideModal';
 import { ThemeToggle } from './components/ThemeToggle';
 import { Header } from './components/Header';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
@@ -51,6 +52,7 @@ function App() {
   const [absoluteBaseline, setAbsoluteBaseline] = useState(0.005);
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [configFile, setConfigFile] = useState(null);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [globalDragOver, setGlobalDragOver] = useState(false);
   const [, setDragCounter] = useState(0);
   const [xRange, setXRange] = useState({ min: undefined, max: undefined });
@@ -496,6 +498,14 @@ function App() {
                   >
                     {t('resetConfig')}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setGuideOpen(true)}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:bg-blue-900 dark:text-blue-100"
+                    aria-label={t('guide.button')}
+                  >
+                    📖 {t('guide.button')}
+                  </button>
                 </div>
               </div>
 
@@ -621,6 +631,8 @@ function App() {
           </section>
         </main>
       </div>
+
+      <GuideModal isOpen={guideOpen} onClose={() => setGuideOpen(false)} />
 
       <FileConfigModal
         file={configFile}
