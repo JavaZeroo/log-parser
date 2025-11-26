@@ -28,6 +28,31 @@ ChartJS.register(
   zoomPlugin
 );
 
+export const computeActiveElementsForStep = (chart, step) => {
+  if (!chart || !chart.data || !chart.data.datasets) return [];
+
+  const activeElements = [];
+  const seen = new Set();
+
+  chart.data.datasets.forEach((dataset, datasetIndex) => {
+    if (!dataset || !dataset.data || !Array.isArray(dataset.data)) return;
+    const idx = dataset.data.findIndex(p => p && typeof p.x !== 'undefined' && p.x === step);
+
+    if (idx !== -1 && dataset.data[idx]) {
+      const elementKey = `${datasetIndex}-${idx}`;
+      const indexInRange = idx >= 0 && idx < dataset.data.length;
+      const datasetInRange = datasetIndex >= 0 && datasetIndex < chart.data.datasets.length;
+
+      if (!seen.has(elementKey) && datasetInRange && indexInRange) {
+        activeElements.push({ datasetIndex, index: idx });
+        seen.add(elementKey);
+      }
+    }
+  });
+
+  return activeElements;
+};
+
 const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover, syncRef }) => {
   const chartRef = useRef(null);
 
@@ -171,23 +196,7 @@ export default function ChartContainer({
         chart.tooltip.setActiveElements([], { x: 0, y: 0 });
         chart.draw();
       } else if (id !== sourceId) {
-        const activeElements = [];
-        const seen = new Set(); // avoid adding duplicate points
-        chart.data.datasets.forEach((dataset, datasetIndex) => {
-          if (!dataset || !dataset.data || !Array.isArray(dataset.data)) return;
-          const idx = dataset.data.findIndex(p => p && typeof p.x !== 'undefined' && p.x === step);
-          if (idx !== -1 && dataset.data[idx]) {
-            const elementKey = `${datasetIndex}-${idx}`;
-            if (!seen.has(elementKey)) {
-              // Validate element
-              if (datasetIndex >= 0 && datasetIndex < chart.data.datasets.length &&
-                idx >= 0 && idx < dataset.data.length) {
-                activeElements.push({ datasetIndex, index: idx });
-                seen.add(elementKey);
-              }
-            }
-          }
-        });
+        const activeElements = computeActiveElementsForStep(chart, step);
 
         // Only set when activeElements are valid
         if (activeElements.length > 0) {
