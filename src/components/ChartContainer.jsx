@@ -11,6 +11,7 @@ import {
   Title,
   Tooltip,
   Legend,
+  Decimation,
 } from 'chart.js';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { ImageDown, Copy, FileDown } from 'lucide-react';
@@ -25,6 +26,7 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
+  Decimation,
   zoomPlugin
 );
 
@@ -388,6 +390,12 @@ export default function ChartContainer({
     responsiveAnimationDuration: 0,
     interaction: { mode: 'nearest', intersect: false, axis: 'x' },
     plugins: {
+      decimation: {
+        enabled: true,
+        algorithm: 'lttb',
+        samples: 2000,
+        threshold: 4000
+      },
       zoom: {
         pan: {
           enabled: true,
