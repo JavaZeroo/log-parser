@@ -11,6 +11,9 @@ import { Header } from './components/Header';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { mergeFilesWithReplacement } from './utils/mergeFiles.js';
 
+// Threshold for "large file" - files above this won't have content persisted
+const LARGE_FILE_THRESHOLD = 500 * 1024; // 500KB of content
+
 // Default global parsing configuration
 export const DEFAULT_GLOBAL_PARSING_CONFIG = {
   metrics: [
@@ -35,7 +38,22 @@ function App() {
   const { t } = useTranslation();
   const [uploadedFiles, setUploadedFiles] = useState(() => {
     const stored = localStorage.getItem('uploadedFiles');
-    return stored ? JSON.parse(stored) : [];
+    if (!stored) return [];
+    try {
+      const parsed = JSON.parse(stored);
+      // Restore files with proper defaults for large files that have metricsData
+      return parsed.map(file => ({
+        ...file,
+        enabled: file.enabled ?? true,
+        isParsing: false,
+        // For large files, metricsData is already stored; for small files it will be re-parsed
+        metricsData: file.metricsData || {},
+        // Mark large files that need re-upload for re-parsing
+        needsReupload: file.isLargeFile && !file.content
+      }));
+    } catch {
+      return [];
+    }
   });
 
   // Global parsing configuration state
@@ -118,16 +136,26 @@ function App() {
   useEffect(() => {
     if (savingDisabledRef.current) return;
     try {
-      const serialized = uploadedFiles.map(({ id, name, enabled, content, config }) => ({
-        id,
-        name,
-        enabled,
-        content,
-        config
-      }));
+      // Smart serialization: for large files, only store metricsData (not raw content)
+      // This allows the app to still display charts after refresh, but re-parsing will need re-upload
+      const serialized = uploadedFiles.map(({ id, name, enabled, content, config, metricsData }) => {
+        const isLargeFile = content && content.length > LARGE_FILE_THRESHOLD;
+        return {
+          id,
+          name,
+          enabled,
+          // For large files, don't store content to save memory/storage
+          content: isLargeFile ? null : content,
+          config,
+          // Store metricsData for large files so charts still work after refresh
+          metricsData: isLargeFile ? metricsData : undefined,
+          // Flag to indicate this file needs re-upload for re-parsing
+          isLargeFile
+        };
+      });
       if (serialized.length > 0) {
         const json = JSON.stringify(serialized);
-        // Avoid filling localStorage with very large files
+        // Avoid filling localStorage with very large data
         if (json.length > 5 * 1024 * 1024) {
           savingDisabledRef.current = true;
           console.warn('Uploaded files exceed storage limit; persistence disabled.');

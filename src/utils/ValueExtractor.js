@@ -7,20 +7,26 @@ export const MATCH_MODES = {
 
 // Value extractor class
 export class ValueExtractor {
-  // Keyword match
-  static extractByKeyword(content, keyword) {
+  // Helper to get lines array - accepts either content string or pre-split lines array
+  static getLines(contentOrLines) {
+    if (!contentOrLines) return [];
+    if (Array.isArray(contentOrLines)) return contentOrLines;
+    return contentOrLines.split('\n');
+  }
+
+  // Keyword match - now accepts either content string or pre-split lines array
+  static extractByKeyword(contentOrLines, keyword) {
     const results = [];
-    // Handle empty content
-    if (!content) return results;
-    
-    const lines = content.split('\n');
-    
+    const lines = this.getLines(contentOrLines);
+    if (lines.length === 0) return results;
+
     // Number regex supporting scientific notation
     const numberRegex = /[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/;
-    
+    const keywordLower = keyword.toLowerCase();
+
     lines.forEach((line, lineIndex) => {
       // Find keyword (case-insensitive)
-      const keywordIndex = line.toLowerCase().indexOf(keyword.toLowerCase());
+      const keywordIndex = line.toLowerCase().indexOf(keywordLower);
       if (keywordIndex !== -1) {
         // Find first number after the keyword
         const afterKeyword = line.substring(keywordIndex + keyword.length);
@@ -43,13 +49,12 @@ export class ValueExtractor {
     return results;
   }
 
-  // Column position match
-  static extractByColumn(content, columnIndex, separator = ' ') {
+  // Column position match - now accepts either content string or pre-split lines array
+  static extractByColumn(contentOrLines, columnIndex, separator = ' ') {
     const results = [];
-    if (!content) return results;
+    const lines = this.getLines(contentOrLines);
+    if (lines.length === 0) return results;
 
-    const lines = content.split('\n');
-    
     lines.forEach((line, lineIndex) => {
       if (line.trim()) {
         const columns = separator === ' ' 
@@ -72,13 +77,12 @@ export class ValueExtractor {
     return results;
   }
 
-  // Smart parsing
-  static extractBySmart(content, type = 'loss') {
+  // Smart parsing - now accepts either content string or pre-split lines array
+  static extractBySmart(contentOrLines, type = 'loss') {
     const results = [];
-    if (!content) return results;
+    const lines = this.getLines(contentOrLines);
+    if (lines.length === 0) return results;
 
-    const lines = content.split('\n');
-    
     // Smart keyword list
     const keywords = type === 'loss'
       ? ['loss', 'training_loss', 'train_loss', 'val_loss', 'validation_loss']
@@ -143,13 +147,12 @@ export class ValueExtractor {
     return results;
   }
 
-  // Regex match (original functionality)
-  static extractByRegex(content, regex) {
+  // Regex match (original functionality) - now accepts either content string or pre-split lines array
+  static extractByRegex(contentOrLines, regex) {
     const results = [];
-    if (!content) return results;
+    const lines = this.getLines(contentOrLines);
+    if (lines.length === 0) return results;
 
-    const lines = content.split('\n');
-    
     try {
       const regexObj = new RegExp(regex, 'gi');
       lines.forEach((line, lineIndex) => {

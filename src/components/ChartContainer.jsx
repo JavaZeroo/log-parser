@@ -16,6 +16,7 @@ import zoomPlugin from 'chartjs-plugin-zoom';
 import { ImageDown, Copy, FileDown } from 'lucide-react';
 import { getMinSteps } from "../utils/getMinSteps.js";
 import { useTranslation } from 'react-i18next';
+import { adaptiveDownsample } from "../utils/downsample.js";
 
 ChartJS.register(
   CategoryScale,
@@ -272,8 +273,11 @@ export default function ChartContainer({
     }
   }, [parsedData, onXRangeChange]);
 
-  const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f97316'];
-  const createChartData = dataArray => {
+  // Maximum points to render per dataset - prevents browser crashes on large files
+  const MAX_DISPLAY_POINTS = 3000;
+
+  const colors = useMemo(() => ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f97316'], []);
+  const createChartData = useCallback((dataArray) => {
     // Ensure no duplicate datasets
     const uniqueItems = dataArray.reduce((acc, item) => {
       const exists = acc.find(existing => existing.name === item.name);
@@ -286,9 +290,13 @@ export default function ChartContainer({
     return {
       datasets: uniqueItems.map((item, index) => {
         const color = colors[index % colors.length];
+        // Apply LTTB downsampling for display - preserves trends while reducing memory
+        const displayData = adaptiveDownsample(item.data, MAX_DISPLAY_POINTS);
         return {
           label: item.name?.replace(/\.(log|txt)$/i, '') || `File ${index + 1}`,
-          data: item.data,
+          data: displayData,
+          // Store original data length for reference
+          _originalLength: item.data.length,
           borderColor: color,
           backgroundColor: `${color}33`,
           borderWidth: 2,
@@ -307,7 +315,7 @@ export default function ChartContainer({
         };
       })
     };
-  };
+  }, [colors]);
 
   const getComparisonData = (data1, data2, mode) => {
     const map2 = new Map(data2.map(p => [p.x, p.y]));
