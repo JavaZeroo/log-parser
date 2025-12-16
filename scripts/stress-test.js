@@ -108,9 +108,9 @@ async function runStressTest() {
     const { content, sizeBytes } = generateTestLog(testCase.lines);
 
     // Check if this would be considered a "large file"
-    const LARGE_FILE_THRESHOLD = 500 * 1024; // 500KB
+    const LARGE_FILE_THRESHOLD = 5 * 1024 * 1024; // 5MB
     const isLargeFile = sizeBytes > LARGE_FILE_THRESHOLD;
-    console.log(`\n   Large file threshold: ${isLargeFile ? '⚠️  EXCEEDS' : '✓ Within'} (${(LARGE_FILE_THRESHOLD / 1024).toFixed(0)}KB)`);
+    console.log(`\n   Large file threshold: ${isLargeFile ? '⚠️  EXCEEDS' : '✓ Within'} (${(LARGE_FILE_THRESHOLD / 1024 / 1024).toFixed(0)}MB)`);
 
     // Test ValueExtractor
     const { lossResults, gradResults } = testValueExtractor(content);
