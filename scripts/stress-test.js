@@ -93,6 +93,8 @@ async function runStressTest() {
     { lines: 10000, name: '10K lines' },
     { lines: 50000, name: '50K lines' },
     { lines: 100000, name: '100K lines' },
+    { lines: 500000, name: '500K lines' },
+    { lines: 1000000, name: '1M lines' },
   ];
 
   testMemoryUsage('Initial');
@@ -143,4 +145,11 @@ async function runStressTest() {
 }
 
 // Run the test
-runStressTest().catch(console.error);
+runStressTest()
+  .then(() => {
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error('❌ Stress test failed:', error);
+    process.exit(1);
+  });
