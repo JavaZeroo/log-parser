@@ -10,9 +10,7 @@ import { ThemeToggle } from './components/ThemeToggle';
 import { Header } from './components/Header';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { mergeFilesWithReplacement } from './utils/mergeFiles.js';
-
-// Threshold for "large file" - files above this won't have content persisted
-const LARGE_FILE_THRESHOLD = 5 * 1024 * 1024; // 5MB of content
+import { saveFiles, saveConfig, clearAll, loadFiles, loadConfig } from './utils/storage.js';
 
 // Default global parsing configuration
 export const DEFAULT_GLOBAL_PARSING_CONFIG = {
@@ -36,31 +34,11 @@ export const DEFAULT_GLOBAL_PARSING_CONFIG = {
 
 function App() {
   const { t } = useTranslation();
-  const [uploadedFiles, setUploadedFiles] = useState(() => {
-    const stored = localStorage.getItem('uploadedFiles');
-    if (!stored) return [];
-    try {
-      const parsed = JSON.parse(stored);
-      // Restore files with proper defaults for large files that have metricsData
-      return parsed.map(file => ({
-        ...file,
-        enabled: file.enabled ?? true,
-        isParsing: false,
-        // For large files, metricsData is already stored; for small files it will be re-parsed
-        metricsData: file.metricsData || {},
-        // Mark large files that need re-upload for re-parsing
-        needsReupload: file.isLargeFile && !file.content
-      }));
-    } catch {
-      return [];
-    }
-  });
-
-  // Global parsing configuration state
-  const [globalParsingConfig, setGlobalParsingConfig] = useState(() => {
-    const stored = localStorage.getItem('globalParsingConfig');
-    return stored ? JSON.parse(stored) : JSON.parse(JSON.stringify(DEFAULT_GLOBAL_PARSING_CONFIG));
-  });
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [globalParsingConfig, setGlobalParsingConfig] = useState(
+    () => JSON.parse(JSON.stringify(DEFAULT_GLOBAL_PARSING_CONFIG))
+  );
+  const [isLoading, setIsLoading] = useState(true);
 
   const [compareMode, setCompareMode] = useState('normal');
   const [multiFileMode, setMultiFileMode] = useState('baseline');
@@ -74,7 +52,6 @@ function App() {
   const [xRange, setXRange] = useState({ min: undefined, max: undefined });
   const [maxStep, setMaxStep] = useState(0);
   const [sidebarVisible, setSidebarVisible] = useState(true);
-  const savingDisabledRef = useRef(false);
   const enabledFiles = uploadedFiles.filter(file => file.enabled);
   const workerRef = useRef(null);
 
@@ -117,6 +94,22 @@ function App() {
     };
   }, []);
 
+  // Load data from IndexedDB on mount
+  useEffect(() => {
+    Promise.all([loadFiles(), loadConfig()])
+      .then(([files, config]) => {
+        setUploadedFiles(files);
+        if (config) {
+          setGlobalParsingConfig(config);
+        }
+        setIsLoading(false);
+      })
+      .catch((err) => {
+        console.error('Failed to load data from IndexedDB:', err);
+        setIsLoading(false);
+      });
+  }, []);
+
   useEffect(() => {
     if (enabledFiles.length > 0) {
       if (!enabledFiles.find(f => f.name === baselineFile)) {
@@ -127,54 +120,21 @@ function App() {
     }
   }, [enabledFiles, baselineFile]);
 
-  // Persist configuration to localStorage
+  // Persist configuration to IndexedDB
   useEffect(() => {
-    if (savingDisabledRef.current) return;
-    localStorage.setItem('globalParsingConfig', JSON.stringify(globalParsingConfig));
-  }, [globalParsingConfig]);
+    if (isLoading) return;
+    saveConfig(globalParsingConfig).catch(err => {
+      console.error('Failed to save config:', err);
+    });
+  }, [globalParsingConfig, isLoading]);
 
+  // Persist uploaded files to IndexedDB
   useEffect(() => {
-    if (savingDisabledRef.current) return;
-    try {
-      // Smart serialization: for large files, only store metricsData (not raw content)
-      // This allows the app to still display charts after refresh, but re-parsing will need re-upload
-      const serialized = uploadedFiles.map(({ id, name, enabled, content, config, metricsData }) => {
-        const isLargeFile = content && content.length > LARGE_FILE_THRESHOLD;
-        return {
-          id,
-          name,
-          enabled,
-          // For large files, don't store content to save memory/storage
-          content: isLargeFile ? null : content,
-          config,
-          // Store metricsData for large files so charts still work after refresh
-          metricsData: isLargeFile ? metricsData : undefined,
-          // Flag to indicate this file needs re-upload for re-parsing
-          isLargeFile
-        };
-      });
-      if (serialized.length > 0) {
-        const json = JSON.stringify(serialized);
-        // Avoid filling localStorage with very large data
-        if (json.length > 5 * 1024 * 1024) {
-          savingDisabledRef.current = true;
-          console.warn('Uploaded files exceed storage limit; persistence disabled.');
-          return;
-        }
-        localStorage.setItem('uploadedFiles', json);
-      } else {
-        localStorage.removeItem('uploadedFiles');
-      }
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'QuotaExceededError') {
-        savingDisabledRef.current = true;
-        console.warn('LocalStorage quota exceeded; uploaded files will not be persisted.');
-        localStorage.removeItem('uploadedFiles');
-      } else {
-        throw err;
-      }
-    }
-  }, [uploadedFiles]);
+    if (isLoading) return;
+    saveFiles(uploadedFiles).catch(err => {
+      console.error('Failed to save files:', err);
+    });
+  }, [uploadedFiles, isLoading]);
 
   const handleFilesUploaded = useCallback((files) => {
     const filesWithDefaults = files.map(file => ({
@@ -330,14 +290,11 @@ function App() {
 
   // Reset configuration
   const handleResetConfig = useCallback(() => {
-    savingDisabledRef.current = true;
-    localStorage.removeItem('globalParsingConfig');
-    localStorage.removeItem('uploadedFiles');
     setGlobalParsingConfig(JSON.parse(JSON.stringify(DEFAULT_GLOBAL_PARSING_CONFIG)));
     setUploadedFiles([]);
-    setTimeout(() => {
-      savingDisabledRef.current = false;
-    }, 0);
+    clearAll().catch(err => {
+      console.error('Failed to clear storage:', err);
+    });
   }, []);
 
   // Global drag event handlers
@@ -397,6 +354,14 @@ function App() {
       document.removeEventListener('drop', handleDrop);
     };
   }, [handleGlobalDragEnter, handleGlobalDragOver, handleGlobalDragLeave, handleGlobalDrop]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-700 flex items-center justify-center">
+        <div className="text-gray-600 dark:text-gray-300">{t('loading') || 'Loading...'}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-700 relative page-fade-in">
