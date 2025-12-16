@@ -12,7 +12,7 @@ import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { mergeFilesWithReplacement } from './utils/mergeFiles.js';
 
 // Threshold for "large file" - files above this won't have content persisted
-const LARGE_FILE_THRESHOLD = 500 * 1024; // 500KB of content
+const LARGE_FILE_THRESHOLD = 5 * 1024 * 1024; // 5MB of content
 
 // Default global parsing configuration
 export const DEFAULT_GLOBAL_PARSING_CONFIG = {
