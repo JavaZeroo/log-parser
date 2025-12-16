@@ -277,6 +277,9 @@ export default function ChartContainer({
   const MAX_DISPLAY_POINTS = 3000;
 
   const colors = useMemo(() => ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f97316'], []);
+
+  // Create chart data with range-aware downsampling
+  // When zoomed in, we show more detail within the visible range
   const createChartData = useCallback((dataArray) => {
     // Ensure no duplicate datasets
     const uniqueItems = dataArray.reduce((acc, item) => {
@@ -290,13 +293,27 @@ export default function ChartContainer({
     return {
       datasets: uniqueItems.map((item, index) => {
         const color = colors[index % colors.length];
-        // Apply LTTB downsampling for display - preserves trends while reducing memory
-        const displayData = adaptiveDownsample(item.data, MAX_DISPLAY_POINTS);
+
+        // Filter data to visible range first, then downsample
+        let visibleData = item.data;
+        if (xRange.min !== undefined || xRange.max !== undefined) {
+          visibleData = item.data.filter(p => {
+            const inMin = xRange.min === undefined || p.x >= xRange.min;
+            const inMax = xRange.max === undefined || p.x <= xRange.max;
+            return inMin && inMax;
+          });
+        }
+
+        // Apply LTTB downsampling only to visible data
+        // This means when zoomed in, you see more detail
+        const displayData = adaptiveDownsample(visibleData, MAX_DISPLAY_POINTS);
+
         return {
           label: item.name?.replace(/\.(log|txt)$/i, '') || `File ${index + 1}`,
           data: displayData,
           // Store original data length for reference
           _originalLength: item.data.length,
+          _visibleLength: visibleData.length,
           borderColor: color,
           backgroundColor: `${color}33`,
           borderWidth: 2,
@@ -315,7 +332,7 @@ export default function ChartContainer({
         };
       })
     };
-  }, [colors]);
+  }, [colors, xRange]);
 
   const getComparisonData = (data1, data2, mode) => {
     const map2 = new Map(data2.map(p => [p.x, p.y]));
