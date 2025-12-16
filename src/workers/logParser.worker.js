@@ -23,6 +23,7 @@ self.onmessage = (e) => {
         const metricsData = {};
 
         try {
+            // Split lines only once and reuse for all metrics
             const lines = content.split('\n');
 
             const stepCfg = {
@@ -34,11 +35,11 @@ self.onmessage = (e) => {
                 let points = [];
                 let rawMatches = [];
 
-                // Use ValueExtractor for the heavy lifting
+                // Use ValueExtractor with pre-split lines array to avoid repeated split()
                 if (metric.mode === 'keyword') {
-                    rawMatches = ValueExtractor.extractByKeyword(content, metric.keyword);
+                    rawMatches = ValueExtractor.extractByKeyword(lines, metric.keyword);
                 } else if (metric.regex) {
-                    rawMatches = ValueExtractor.extractByRegex(content, metric.regex);
+                    rawMatches = ValueExtractor.extractByRegex(lines, metric.regex);
                 }
 
                 // Map matches to {x, y} points, extracting steps if needed

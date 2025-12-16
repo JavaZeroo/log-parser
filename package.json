@@ -10,7 +10,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run --coverage"
+    "test": "vitest run --coverage",
+    "test:stress": "node scripts/stress-test.js"
   },
   "dependencies": {
     "@tailwindcss/forms": "^0.5.10",

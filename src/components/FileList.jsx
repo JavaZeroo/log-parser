@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, X, Settings } from 'lucide-react';
+import { FileText, X, Settings, Loader2, AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
   export function FileList({ files, onFileRemove, onFileToggle, onFileConfig }) {
@@ -45,17 +45,34 @@ import { useTranslation } from 'react-i18next';
                     className="checkbox"
                     aria-describedby={`file-status-${file.id}`}
                   />
-                  <FileText
-                    size={14}
-                    className={`${file.enabled !== false ? 'text-blue-600' : 'text-gray-400 dark:text-gray-500'}`}
-                    aria-hidden="true"
-                  />
+                  {file.isParsing ? (
+                    <Loader2
+                      size={14}
+                      className="text-blue-600 animate-spin"
+                      aria-hidden="true"
+                    />
+                  ) : file.needsReupload ? (
+                    <AlertCircle
+                      size={14}
+                      className="text-amber-500"
+                      aria-hidden="true"
+                      title={t('fileList.needsReupload')}
+                    />
+                  ) : (
+                    <FileText
+                      size={14}
+                      className={`${file.enabled !== false ? 'text-blue-600' : 'text-gray-400 dark:text-gray-500'}`}
+                      aria-hidden="true"
+                    />
+                  )}
                   <span
                     className={`text-xs font-medium truncate ${
                       file.enabled !== false ? 'text-gray-700 dark:text-gray-200' : 'text-gray-400 dark:text-gray-500'
                     }`}
+                    title={file.needsReupload ? t('fileList.needsReuploadTip') : file.name}
                   >
                     {file.name}
+                    {file.isParsing && <span className="text-blue-500 ml-1">({t('fileList.parsing')})</span>}
                   </span>
                     <span
                       id={`file-status-${file.id}`}

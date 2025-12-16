@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock the global self object for Web Worker environment
-let messageHandler = null;
 global.self = {
   onmessage: null,
   postMessage: vi.fn()
@@ -18,7 +17,7 @@ describe('logParser.worker', () => {
   });
 
   afterEach(() => {
-    messageHandler = null;
+    // Clean up
   });
 
   // Helper to simulate worker message
