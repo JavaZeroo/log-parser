@@ -161,6 +161,9 @@ export default function ChartContainer({
     URL.revokeObjectURL(url);
   }, []);
 
+  // Cache for x-value to index mapping (for fast sync lookup)
+  const indexCacheRef = useRef(new WeakMap());
+
   const syncHoverToAllCharts = useCallback((step, sourceId) => {
     if (syncLockRef.current) return;
     syncLockRef.current = true;
@@ -172,14 +175,27 @@ export default function ChartContainer({
         chart.draw();
       } else if (id !== sourceId) {
         const activeElements = [];
-        const seen = new Set(); // avoid adding duplicate points
+        const seen = new Set();
         chart.data.datasets.forEach((dataset, datasetIndex) => {
           if (!dataset || !dataset.data || !Array.isArray(dataset.data)) return;
-          const idx = dataset.data.findIndex(p => p && typeof p.x !== 'undefined' && p.x === step);
-          if (idx !== -1 && dataset.data[idx]) {
+
+          // Build or get cached index map for this dataset
+          let indexMap = indexCacheRef.current.get(dataset.data);
+          if (!indexMap) {
+            indexMap = new Map();
+            dataset.data.forEach((p, i) => {
+              if (p && typeof p.x !== 'undefined') {
+                indexMap.set(p.x, i);
+              }
+            });
+            indexCacheRef.current.set(dataset.data, indexMap);
+          }
+
+          // O(1) lookup instead of O(n) findIndex
+          const idx = indexMap.get(step);
+          if (idx !== undefined && dataset.data[idx]) {
             const elementKey = `${datasetIndex}-${idx}`;
             if (!seen.has(elementKey)) {
-              // Validate element
               if (datasetIndex >= 0 && datasetIndex < chart.data.datasets.length &&
                 idx >= 0 && idx < dataset.data.length) {
                 activeElements.push({ datasetIndex, index: idx });
@@ -189,7 +205,6 @@ export default function ChartContainer({
           }
         });
 
-        // Only set when activeElements are valid
         if (activeElements.length > 0) {
           try {
             const pos = { x: chart.scales.x.getPixelForValue(step), y: 0 };
@@ -198,13 +213,11 @@ export default function ChartContainer({
             chart.draw();
           } catch (error) {
             console.warn('Error setting active elements:', error);
-            // On error clear activeElements
             chart.setActiveElements([]);
             chart.tooltip.setActiveElements([], { x: 0, y: 0 });
             chart.draw();
           }
         } else {
-          // Clear current if no valid activeElements
           chart.setActiveElements([]);
           chart.tooltip.setActiveElements([], { x: 0, y: 0 });
           chart.draw();
