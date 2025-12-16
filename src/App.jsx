@@ -10,7 +10,7 @@ import { ThemeToggle } from './components/ThemeToggle';
 import { Header } from './components/Header';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { mergeFilesWithReplacement } from './utils/mergeFiles.js';
-import { saveFiles, saveConfig, clearAll, migrateFromLocalStorage } from './utils/storage.js';
+import { saveFiles, saveConfig, clearAll, loadFiles, loadConfig } from './utils/storage.js';
 
 // Default global parsing configuration
 export const DEFAULT_GLOBAL_PARSING_CONFIG = {
@@ -94,12 +94,14 @@ function App() {
     };
   }, []);
 
-  // Load data from IndexedDB on mount (with localStorage migration)
+  // Load data from IndexedDB on mount
   useEffect(() => {
-    migrateFromLocalStorage(DEFAULT_GLOBAL_PARSING_CONFIG)
-      .then(({ files, config }) => {
+    Promise.all([loadFiles(), loadConfig()])
+      .then(([files, config]) => {
         setUploadedFiles(files);
-        setGlobalParsingConfig(config);
+        if (config) {
+          setGlobalParsingConfig(config);
+        }
         setIsLoading(false);
       })
       .catch((err) => {
