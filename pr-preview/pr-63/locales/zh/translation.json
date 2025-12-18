@@ -43,6 +43,7 @@
   "exportPNG": "导出 PNG",
   "exportSmallImage": "导出小图 (<50KB)",
   "copyImage": "复制图片",
+  "copySmallImage": "复制小图 (<50KB)",
   "exportCSV": "导出 CSV",
   "copyImageError": "复制图片失败",
   "language.en": "English",
