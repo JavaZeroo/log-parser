@@ -205,11 +205,11 @@ export default function ChartContainer({
     const ctx = tempCanvas.getContext('2d');
 
     let scale = 1;
-    let quality = 0.8;
-    let dataUrl;
+    let blob;
     let attempts = 0;
-    const maxAttempts = 20;
+    const maxAttempts = 10;
 
+    // Clipboard API only supports PNG, so we reduce size by scaling down
     while (attempts < maxAttempts) {
       const width = Math.floor(canvas.width * scale);
       const height = Math.floor(canvas.height * scale);
@@ -221,21 +221,16 @@ export default function ChartContainer({
       ctx.fillRect(0, 0, width, height);
       ctx.drawImage(canvas, 0, 0, width, height);
 
-      dataUrl = tempCanvas.toDataURL('image/jpeg', quality);
+      // Convert to blob for size check
+      blob = await new Promise(resolve => tempCanvas.toBlob(resolve, 'image/png'));
 
-      const base64Length = dataUrl.length - 'data:image/jpeg;base64,'.length;
-      const fileSize = Math.ceil(base64Length * 0.75);
-
-      if (fileSize <= maxSize) {
+      if (blob.size <= maxSize) {
         break;
       }
 
-      if (quality > 0.3) {
-        quality -= 0.1;
-      } else if (scale > 0.3) {
-        scale -= 0.1;
-        quality = 0.7;
-      } else {
+      // Reduce scale to make image smaller
+      scale -= 0.1;
+      if (scale < 0.2) {
         break;
       }
 
@@ -243,10 +238,8 @@ export default function ChartContainer({
     }
 
     try {
-      const res = await fetch(dataUrl);
-      const blob = await res.blob();
       await navigator.clipboard.write([
-        new ClipboardItem({ 'image/jpeg': blob })
+        new ClipboardItem({ 'image/png': blob })
       ]);
     } catch (e) {
       console.error(t('copyImageError'), e);
