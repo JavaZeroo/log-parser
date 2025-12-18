@@ -41,6 +41,7 @@
   "resize.drag": "Drag to resize chart height",
   "resize.adjust": "Adjust {{title}} chart height",
   "exportPNG": "Export PNG",
+  "exportSmallImage": "Export small image (<50KB)",
   "copyImage": "Copy image",
   "exportCSV": "Export CSV",
   "copyImageError": "Failed to copy image",

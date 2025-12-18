@@ -13,7 +13,7 @@ import {
   Legend,
 } from 'chart.js';
 import zoomPlugin from 'chartjs-plugin-zoom';
-import { ImageDown, Copy, FileDown } from 'lucide-react';
+import { ImageDown, Copy, FileDown, Minimize2 } from 'lucide-react';
 import { getMinSteps } from "../utils/getMinSteps.js";
 import { useTranslation } from 'react-i18next';
 
@@ -115,6 +115,67 @@ export default function ChartContainer({
     const link = document.createElement('a');
     link.href = url;
     link.download = `${id}.png`;
+    link.click();
+  }, []);
+
+  const exportChartSmallImage = useCallback((id) => {
+    const chart = chartRefs.current.get(id);
+    if (!chart) return;
+
+    const maxSize = 50 * 1024; // 50KB
+    const canvas = chart.canvas;
+
+    // Create a temporary canvas for resizing
+    const tempCanvas = document.createElement('canvas');
+    const ctx = tempCanvas.getContext('2d');
+
+    // Start with original size and reduce if needed
+    let scale = 1;
+    let quality = 0.8;
+    let dataUrl;
+    let attempts = 0;
+    const maxAttempts = 20;
+
+    // Try to get image under 50KB by adjusting quality and scale
+    while (attempts < maxAttempts) {
+      const width = Math.floor(canvas.width * scale);
+      const height = Math.floor(canvas.height * scale);
+
+      tempCanvas.width = width;
+      tempCanvas.height = height;
+
+      // Draw with white background (for JPEG)
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(canvas, 0, 0, width, height);
+
+      dataUrl = tempCanvas.toDataURL('image/jpeg', quality);
+
+      // Calculate approximate file size (base64 is ~33% larger than binary)
+      const base64Length = dataUrl.length - 'data:image/jpeg;base64,'.length;
+      const fileSize = Math.ceil(base64Length * 0.75);
+
+      if (fileSize <= maxSize) {
+        break;
+      }
+
+      // Reduce quality first, then scale
+      if (quality > 0.3) {
+        quality -= 0.1;
+      } else if (scale > 0.3) {
+        scale -= 0.1;
+        quality = 0.7; // Reset quality for new scale
+      } else {
+        // Can't reduce further, use what we have
+        break;
+      }
+
+      attempts++;
+    }
+
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = `${id}-small.jpg`;
     link.click();
   }, []);
 
@@ -766,6 +827,15 @@ export default function ChartContainer({
           </button>
           <button
             type="button"
+            className="p-1 rounded-md text-gray-600 hover:text-green-600 hover:bg-gray-100"
+            onClick={() => exportChartSmallImage(`metric-comp-${idx}`)}
+            aria-label={t('exportSmallImage')}
+            title={t('exportSmallImage')}
+          >
+            <Minimize2 size={16} />
+          </button>
+          <button
+            type="button"
             className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
             onClick={() => copyChartImage(`metric-comp-${idx}`)}
             aria-label={t('copyImage')}
@@ -813,6 +883,15 @@ export default function ChartContainer({
                 title={t('exportPNG')}
               >
                 <ImageDown size={16} />
+              </button>
+              <button
+                type="button"
+                className="p-1 rounded-md text-gray-600 hover:text-green-600 hover:bg-gray-100"
+                onClick={() => exportChartSmallImage(`metric-${idx}`)}
+                aria-label={t('exportSmallImage')}
+                title={t('exportSmallImage')}
+              >
+                <Minimize2 size={16} />
               </button>
               <button
                 type="button"
