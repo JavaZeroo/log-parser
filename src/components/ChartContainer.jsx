@@ -13,7 +13,7 @@ import {
   Legend,
 } from 'chart.js';
 import zoomPlugin from 'chartjs-plugin-zoom';
-import { ImageDown, Copy, FileDown, Minimize2 } from 'lucide-react';
+import { ImageDown, Copy, FileDown, ImageMinus } from 'lucide-react';
 import { getMinSteps } from "../utils/getMinSteps.js";
 import { useTranslation } from 'react-i18next';
 
@@ -188,6 +188,65 @@ export default function ChartContainer({
     try {
       await navigator.clipboard.write([
         new ClipboardItem({ 'image/png': blob })
+      ]);
+    } catch (e) {
+      console.error(t('copyImageError'), e);
+    }
+  }, [t]);
+
+  const copyChartSmallImage = useCallback(async (id) => {
+    const chart = chartRefs.current.get(id);
+    if (!chart || !navigator?.clipboard) return;
+
+    const maxSize = 50 * 1024; // 50KB
+    const canvas = chart.canvas;
+
+    const tempCanvas = document.createElement('canvas');
+    const ctx = tempCanvas.getContext('2d');
+
+    let scale = 1;
+    let quality = 0.8;
+    let dataUrl;
+    let attempts = 0;
+    const maxAttempts = 20;
+
+    while (attempts < maxAttempts) {
+      const width = Math.floor(canvas.width * scale);
+      const height = Math.floor(canvas.height * scale);
+
+      tempCanvas.width = width;
+      tempCanvas.height = height;
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(canvas, 0, 0, width, height);
+
+      dataUrl = tempCanvas.toDataURL('image/jpeg', quality);
+
+      const base64Length = dataUrl.length - 'data:image/jpeg;base64,'.length;
+      const fileSize = Math.ceil(base64Length * 0.75);
+
+      if (fileSize <= maxSize) {
+        break;
+      }
+
+      if (quality > 0.3) {
+        quality -= 0.1;
+      } else if (scale > 0.3) {
+        scale -= 0.1;
+        quality = 0.7;
+      } else {
+        break;
+      }
+
+      attempts++;
+    }
+
+    try {
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/jpeg': blob })
       ]);
     } catch (e) {
       console.error(t('copyImageError'), e);
@@ -832,7 +891,7 @@ export default function ChartContainer({
             aria-label={t('exportSmallImage')}
             title={t('exportSmallImage')}
           >
-            <Minimize2 size={16} />
+            <ImageMinus size={16} />
           </button>
           <button
             type="button"
@@ -842,6 +901,15 @@ export default function ChartContainer({
             title={t('copyImage')}
           >
             <Copy size={16} />
+          </button>
+          <button
+            type="button"
+            className="p-1 rounded-md text-gray-600 hover:text-green-600 hover:bg-gray-100"
+            onClick={() => copyChartSmallImage(`metric-comp-${idx}`)}
+            aria-label={t('copySmallImage')}
+            title={t('copySmallImage')}
+          >
+            <ImageMinus size={16} />
           </button>
           <button
             type="button"
@@ -891,7 +959,7 @@ export default function ChartContainer({
                 aria-label={t('exportSmallImage')}
                 title={t('exportSmallImage')}
               >
-                <Minimize2 size={16} />
+                <ImageMinus size={16} />
               </button>
               <button
                 type="button"
@@ -901,6 +969,15 @@ export default function ChartContainer({
                 title={t('copyImage')}
               >
                 <Copy size={16} />
+              </button>
+              <button
+                type="button"
+                className="p-1 rounded-md text-gray-600 hover:text-green-600 hover:bg-gray-100"
+                onClick={() => copyChartSmallImage(`metric-${idx}`)}
+                aria-label={t('copySmallImage')}
+                title={t('copySmallImage')}
+              >
+                <ImageMinus size={16} />
               </button>
               <button
                 type="button"

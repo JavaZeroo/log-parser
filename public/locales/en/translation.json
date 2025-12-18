@@ -43,6 +43,7 @@
   "exportPNG": "Export PNG",
   "exportSmallImage": "Export small image (<50KB)",
   "copyImage": "Copy image",
+  "copySmallImage": "Copy small image (<50KB)",
   "exportCSV": "Export CSV",
   "copyImageError": "Failed to copy image",
   "language.en": "English",
