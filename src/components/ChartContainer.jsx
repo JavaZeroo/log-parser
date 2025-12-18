@@ -13,7 +13,7 @@ import {
   Legend,
 } from 'chart.js';
 import zoomPlugin from 'chartjs-plugin-zoom';
-import { ImageDown, Copy, FileDown } from 'lucide-react';
+import { ImageDown, Copy, FileDown, ImageMinus } from 'lucide-react';
 import { getMinSteps } from "../utils/getMinSteps.js";
 import { useTranslation } from 'react-i18next';
 
@@ -118,12 +118,105 @@ export default function ChartContainer({
     link.click();
   }, []);
 
+  const exportChartSmallImage = useCallback(async (id) => {
+    const chart = chartRefs.current.get(id);
+    if (!chart) return;
+
+    const maxSize = 50 * 1024; // 50KB
+    const canvas = chart.canvas;
+
+    const tempCanvas = document.createElement('canvas');
+    const ctx = tempCanvas.getContext('2d');
+
+    let scale = 1;
+    let blob;
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    // Use PNG format with scaling to reduce size while keeping transparency
+    while (attempts < maxAttempts) {
+      const width = Math.floor(canvas.width * scale);
+      const height = Math.floor(canvas.height * scale);
+
+      tempCanvas.width = width;
+      tempCanvas.height = height;
+      ctx.drawImage(canvas, 0, 0, width, height);
+
+      blob = await new Promise(resolve => tempCanvas.toBlob(resolve, 'image/png'));
+
+      if (blob.size <= maxSize) {
+        break;
+      }
+
+      scale -= 0.1;
+      if (scale < 0.2) {
+        break;
+      }
+
+      attempts++;
+    }
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${id}-small.png`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }, []);
+
   const copyChartImage = useCallback(async (id) => {
     const chart = chartRefs.current.get(id);
     if (!chart || !navigator?.clipboard) return;
     const url = chart.toBase64Image();
     const res = await fetch(url);
     const blob = await res.blob();
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': blob })
+      ]);
+    } catch (e) {
+      console.error(t('copyImageError'), e);
+    }
+  }, [t]);
+
+  const copyChartSmallImage = useCallback(async (id) => {
+    const chart = chartRefs.current.get(id);
+    if (!chart || !navigator?.clipboard) return;
+
+    const maxSize = 50 * 1024; // 50KB
+    const canvas = chart.canvas;
+
+    const tempCanvas = document.createElement('canvas');
+    const ctx = tempCanvas.getContext('2d');
+
+    let scale = 1;
+    let blob;
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    // Use PNG with scaling to reduce size while keeping transparency
+    while (attempts < maxAttempts) {
+      const width = Math.floor(canvas.width * scale);
+      const height = Math.floor(canvas.height * scale);
+
+      tempCanvas.width = width;
+      tempCanvas.height = height;
+      ctx.drawImage(canvas, 0, 0, width, height);
+
+      blob = await new Promise(resolve => tempCanvas.toBlob(resolve, 'image/png'));
+
+      if (blob.size <= maxSize) {
+        break;
+      }
+
+      scale -= 0.1;
+      if (scale < 0.2) {
+        break;
+      }
+
+      attempts++;
+    }
+
     try {
       await navigator.clipboard.write([
         new ClipboardItem({ 'image/png': blob })
@@ -766,12 +859,30 @@ export default function ChartContainer({
           </button>
           <button
             type="button"
+            className="p-1 rounded-md text-gray-600 hover:text-green-600 hover:bg-gray-100"
+            onClick={() => exportChartSmallImage(`metric-comp-${idx}`)}
+            aria-label={t('exportSmallImage')}
+            title={t('exportSmallImage')}
+          >
+            <ImageMinus size={16} />
+          </button>
+          <button
+            type="button"
             className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
             onClick={() => copyChartImage(`metric-comp-${idx}`)}
             aria-label={t('copyImage')}
             title={t('copyImage')}
           >
             <Copy size={16} />
+          </button>
+          <button
+            type="button"
+            className="p-1 rounded-md text-gray-600 hover:text-green-600 hover:bg-gray-100"
+            onClick={() => copyChartSmallImage(`metric-comp-${idx}`)}
+            aria-label={t('copySmallImage')}
+            title={t('copySmallImage')}
+          >
+            <ImageMinus size={16} />
           </button>
           <button
             type="button"
@@ -816,12 +927,30 @@ export default function ChartContainer({
               </button>
               <button
                 type="button"
+                className="p-1 rounded-md text-gray-600 hover:text-green-600 hover:bg-gray-100"
+                onClick={() => exportChartSmallImage(`metric-${idx}`)}
+                aria-label={t('exportSmallImage')}
+                title={t('exportSmallImage')}
+              >
+                <ImageMinus size={16} />
+              </button>
+              <button
+                type="button"
                 className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
                 onClick={() => copyChartImage(`metric-${idx}`)}
                 aria-label={t('copyImage')}
                 title={t('copyImage')}
               >
                 <Copy size={16} />
+              </button>
+              <button
+                type="button"
+                className="p-1 rounded-md text-gray-600 hover:text-green-600 hover:bg-gray-100"
+                onClick={() => copyChartSmallImage(`metric-${idx}`)}
+                aria-label={t('copySmallImage')}
+                title={t('copySmallImage')}
+              >
+                <ImageMinus size={16} />
               </button>
               <button
                 type="button"
