@@ -98,6 +98,7 @@ export default function ChartContainer({
   relativeBaseline = 0.002,
   absoluteBaseline = 0.005,
   xRange = { min: undefined, max: undefined },
+  yRange = { min: undefined, max: undefined },
   onXRangeChange,
   onMaxStepChange
 }) {
@@ -393,6 +394,24 @@ export default function ChartContainer({
     return { min: niceMin, max: niceMax, step };
   }, []);
 
+  const getFinalYScale = useCallback((autoScale) => {
+    const hasManualMin = Number.isFinite(yRange?.min);
+    const hasManualMax = Number.isFinite(yRange?.max);
+
+    const min = hasManualMin ? yRange.min : autoScale.min;
+    const max = hasManualMax ? yRange.max : autoScale.max;
+
+    if (!Number.isFinite(min) || !Number.isFinite(max) || min >= max) {
+      return autoScale;
+    }
+
+    return {
+      ...autoScale,
+      min,
+      max
+    };
+  }, [yRange]);
+
   const chartOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
@@ -668,7 +687,8 @@ export default function ChartContainer({
       });
     });
 
-    const yRange = calculateNiceScale(min, max);
+    const autoYRange = calculateNiceScale(min, max);
+    const finalYRange = getFinalYScale(autoYRange);
 
     const options = {
       ...chartOptions,
@@ -690,10 +710,10 @@ export default function ChartContainer({
         ...chartOptions.scales,
         y: {
           ...chartOptions.scales.y,
-          min: yRange.min,
-          max: yRange.max,
+          min: finalYRange.min,
+          max: finalYRange.max,
           ticks: {
-            stepSize: yRange.step,
+            stepSize: finalYRange.step,
             callback: (value) => Number(value.toFixed(yDecimals))
           }
         }
@@ -721,7 +741,8 @@ export default function ChartContainer({
         });
       });
 
-      const compRange = calculateNiceScale(cMin, cMax);
+      const autoCompRange = calculateNiceScale(cMin, cMax);
+      const compRange = getFinalYScale(autoCompRange);
       const compDecimals = Math.max(4, getMaxDecimals(compResult.datasets)); // Ensure at least 4 for diffs
 
       const compOptions = {

@@ -45,6 +45,8 @@ export function RegexControls({
   uploadedFiles = [],
   xRange,
   onXRangeChange,
+  yRange,
+  onYRangeChange,
   maxStep
 }) {
   const [showPreview, setShowPreview] = useState(false);
@@ -180,6 +182,11 @@ export function RegexControls({
   const handleXRangeChange = (field, value) => {
     const newRange = { ...xRange, [field]: value === '' ? undefined : Number(value) };
     onXRangeChange(newRange);
+  };
+
+  const handleYRangeChange = (field, value) => {
+    const newRange = { ...yRange, [field]: value === '' ? undefined : Number(value) };
+    onYRangeChange(newRange);
   };
 
   // Function to render config panel
@@ -351,6 +358,45 @@ export function RegexControls({
               />
             )}
           </div>
+        </div>
+
+        <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <ZoomIn
+              size={16}
+              className="text-gray-600 dark:text-gray-300"
+              aria-hidden="true"
+            />
+            <h4 className="text-base font-semibold text-gray-800 dark:text-gray-100">
+              {t('regex.yRange')}
+            </h4>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              placeholder={t('regex.min')}
+              value={yRange?.min ?? ''}
+              onChange={(e) => handleYRangeChange('min', e.target.value)}
+              className="input-field"
+            />
+            <span className="text-gray-500 dark:text-gray-400">-</span>
+            <input
+              type="number"
+              placeholder={t('regex.max')}
+              value={yRange?.max ?? ''}
+              onChange={(e) => handleYRangeChange('max', e.target.value)}
+              className="input-field"
+            />
+            <button
+              onClick={() => onYRangeChange({ min: undefined, max: undefined })}
+              className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 whitespace-nowrap"
+            >
+              {t('regex.auto')}
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            {t('regex.yRangeHint')}
+          </p>
         </div>
 
         <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3">

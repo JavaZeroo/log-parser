@@ -72,6 +72,7 @@ function App() {
   const [globalDragOver, setGlobalDragOver] = useState(false);
   const [, setDragCounter] = useState(0);
   const [xRange, setXRange] = useState({ min: undefined, max: undefined });
+  const [yRange, setYRange] = useState({ min: undefined, max: undefined });
   const [maxStep, setMaxStep] = useState(0);
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const savingDisabledRef = useRef(false);
@@ -535,6 +536,8 @@ function App() {
                 uploadedFiles={uploadedFiles}
                 xRange={xRange}
                 onXRangeChange={setXRange}
+                yRange={yRange}
+                onYRangeChange={setYRange}
                 maxStep={maxStep}
               />
 
@@ -644,6 +647,7 @@ function App() {
               absoluteBaseline={absoluteBaseline}
               xRange={xRange}
               onXRangeChange={setXRange}
+              yRange={yRange}
               onMaxStepChange={setMaxStep}
             />
           </section>
