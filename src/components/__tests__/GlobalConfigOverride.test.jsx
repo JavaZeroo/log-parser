@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import App from '../../App.jsx';
 import i18n from '../../i18n';
+import { clearAll } from '../../utils/storage.js';
 
 // Mock chart.js and react-chartjs-2 to avoid canvas requirements
 vi.mock('chart.js', () => {
@@ -47,8 +48,9 @@ function stubFileReader(result) {
 }
 
 describe('Global config override', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     localStorage.clear();
+    await clearAll();
   });
 
   it('retains file metric config after global change', async () => {
@@ -56,6 +58,11 @@ describe('Global config override', () => {
     const user = userEvent.setup();
 
     render(<App />);
+
+    // Wait for loading to complete
+    await waitFor(() => {
+      expect(screen.queryByText('loading')).not.toBeInTheDocument();
+    });
 
     const input = screen.getByLabelText(i18n.t('fileUpload.aria'));
     const file = new File(['train_loss: 1'], 'a.log', { type: 'text/plain' });

@@ -30,3 +30,6 @@ class Worker {
 }
 
 global.Worker = Worker;
+
+// Mock IndexedDB using fake-indexeddb
+import 'fake-indexeddb/auto';
