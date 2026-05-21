@@ -1,0 +1,1 @@
+{"name":"ML Log Analyzer","short_name":"Log Analyzer","description":"Analyze and visualize loss and gradient norm data from ML training logs","start_url":".","display":"standalone","background_color":"#ffffff","theme_color":"#3b82f6","lang":"en","scope":".","icons":[{"src":"vite.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}
