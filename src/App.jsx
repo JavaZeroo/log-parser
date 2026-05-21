@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation, Trans } from 'react-i18next';
 import { FileUpload } from './components/FileUpload';
 import { RegexControls } from './components/RegexControls';
@@ -9,6 +9,7 @@ import { FileConfigModal } from './components/FileConfigModal';
 import { ThemeToggle } from './components/ThemeToggle';
 import { Header } from './components/Header';
 import { AnnotationsPanel } from './components/AnnotationsPanel.jsx';
+import { AnomaliesPanel } from './components/AnomaliesPanel.jsx';
 import { CollapsibleCardHeader } from './components/CollapsibleCardHeader.jsx';
 import { ShortcutHelp } from './components/ShortcutHelp.jsx';
 import { useCollapsedSection } from './utils/useCollapsedSection.js';
@@ -17,6 +18,7 @@ import { PanelLeftClose, PanelLeftOpen, HelpCircle } from 'lucide-react';
 import { mergeFilesWithReplacement } from './utils/mergeFiles.js';
 import { useToast } from './components/ToastContext.jsx';
 import { loadFiles as loadFilesFromStorage, saveFiles as saveFilesToStorage, clearFiles as clearFilesInStorage } from './utils/fileStorage.js';
+import { detectAnomalies } from './utils/anomalyDetection.js';
 
 // Threshold for "large file" - files above this won't have content persisted
 const LARGE_FILE_THRESHOLD = 5 * 1024 * 1024; // 5MB of content
@@ -50,7 +52,8 @@ export const DEFAULT_CHART_CONFIG = {
   showStats: false,
   chartType: 'line',   // 'line' | 'scatter' | 'bar'
   combinedView: false,
-  annotations: []
+  annotations: [],
+  showAnomalies: true
 };
 
 function restoreFile(file) {
@@ -128,6 +131,26 @@ function App() {
   const savingDisabledRef = useRef(false);
   const enabledFiles = uploadedFiles.filter(file => file.enabled);
   const workerRef = useRef(null);
+
+  // Pre-compute anomalies for every enabled file × metric. Memoized so this
+  // only re-runs when metricsData changes (after worker completes a parse).
+  const anomaliesByFile = useMemo(() => {
+    const out = {};
+    uploadedFiles.forEach(file => {
+      if (!file.enabled || !file.metricsData) return;
+      const entry = {};
+      let hasAny = false;
+      Object.keys(file.metricsData).forEach(metricName => {
+        const events = detectAnomalies(file.metricsData[metricName]);
+        if (events.length > 0) {
+          entry[metricName] = events;
+          hasAny = true;
+        }
+      });
+      if (hasAny) out[file.id] = entry;
+    });
+    return out;
+  }, [uploadedFiles]);
 
   // Initialize Web Worker
   useEffect(() => {
@@ -662,6 +685,12 @@ function App() {
                 collapseId="annotations"
               />
 
+              <AnomaliesPanel
+                anomaliesByFile={anomaliesByFile}
+                files={uploadedFiles}
+                collapseId="anomalies"
+              />
+
               {enabledFiles.length >= 2 && (
                 <ComparisonControls
                   compareMode={compareMode}
@@ -754,6 +783,15 @@ function App() {
                             onChange={(e) => setChartConfig(prev => ({ ...prev, combinedView: e.target.checked }))}
                           />
                           {t('display.combinedView')}
+                        </label>
+                        <label className="flex items-center text-xs text-gray-700 dark:text-gray-300">
+                          <input
+                            type="checkbox"
+                            className="mr-2 checkbox"
+                            checked={chartConfig.showAnomalies !== false}
+                            onChange={(e) => setChartConfig(prev => ({ ...prev, showAnomalies: e.target.checked }))}
+                          />
+                          {t('display.showAnomalies')}
                         </label>
                       </div>
                     )}
@@ -920,6 +958,8 @@ function App() {
               chartType={chartConfig.chartType}
               combinedView={chartConfig.combinedView}
               annotations={chartConfig.annotations}
+              anomaliesByFile={anomaliesByFile}
+              showAnomalies={chartConfig.showAnomalies !== false}
             />
           </section>
         </main>

@@ -126,7 +126,9 @@ export default function ChartContainer({
   showStats = false,
   chartType = 'line',
   combinedView = false,
-  annotations = []
+  annotations = [],
+  anomaliesByFile = {},
+  showAnomalies = true
 }) {
   const downsamplePoints = useCallback(
     (points) => (downsampleEnabled ? maybeDownsample(points, downsampleThreshold) : points),
@@ -715,8 +717,16 @@ export default function ChartContainer({
   metricNames.forEach(name => {
     metricDataArrays[name] = parsedData
       .filter(file => file.metricsData[name] && file.metricsData[name].length > 0)
-      .map(file => ({ name: file.name, data: file.metricsData[name] }));
+      .map(file => ({ id: file.id, name: file.name, data: file.metricsData[name] }));
   });
+
+  // Color anomaly markers by severity so high-severity events scream and
+  // low-severity (plateau) recede into the background.
+  const anomalyColor = (severity) => {
+    if (severity === 'high') return '#dc2626';   // red-600
+    if (severity === 'medium') return '#f59e0b'; // amber-500
+    return '#71717a';                            // zinc-500
+  };
 
   if (metrics.length === 0) {
     return (
@@ -816,6 +826,34 @@ export default function ChartContainer({
           stats: computeStats(item.data)
         })).filter(entry => entry.stats)
       : [];
+
+    // Build base chart data, then overlay anomaly markers as scatter datasets.
+    const mainChartData = createChartData(processedArray);
+    if (showAnomalies && anomaliesByFile) {
+      const metricKey = key;
+      processedArray.forEach((item, fIdx) => {
+        const events = anomaliesByFile[item.id]?.[metricKey] || [];
+        // NaN events can't be drawn at a y-coordinate; the sidebar panel still lists them.
+        const visible = events.filter(e => Number.isFinite(e.y));
+        if (visible.length === 0) return;
+        const baseColor = colors[fIdx % colors.length];
+        mainChartData.datasets.push({
+          type: 'scatter',
+          label: `${(item.name || '').replace(/\.(log|txt)$/i, '')} · ⚠`,
+          data: visible.map(e => ({ x: e.x, y: e.y, _anomaly: e })),
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          pointBackgroundColor: visible.map(e => anomalyColor(e.severity)),
+          pointBorderColor: baseColor,
+          pointBorderWidth: 1.5,
+          showLine: false,
+          parsing: false,
+          order: -1, // draw on top
+          animation: false,
+          animations: { colors: false, x: false, y: false }
+        });
+      });
+    }
 
     let stats = null;
     let comparisonChart = null;
@@ -950,7 +988,7 @@ export default function ChartContainer({
             onRegisterChart={registerChart}
             onSyncHover={syncHoverToAllCharts}
             syncRef={syncLockRef}
-            data={createChartData(processedArray)}
+            data={mainChartData}
             options={options}
             chartType={chartType}
           />
