@@ -10,8 +10,10 @@ import { ThemeToggle } from './components/ThemeToggle';
 import { Header } from './components/Header';
 import { AnnotationsPanel } from './components/AnnotationsPanel.jsx';
 import { CollapsibleCardHeader } from './components/CollapsibleCardHeader.jsx';
+import { ShortcutHelp } from './components/ShortcutHelp.jsx';
 import { useCollapsedSection } from './utils/useCollapsedSection.js';
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { useKeyboardShortcuts } from './utils/useKeyboardShortcuts.js';
+import { PanelLeftClose, PanelLeftOpen, HelpCircle } from 'lucide-react';
 import { mergeFilesWithReplacement } from './utils/mergeFiles.js';
 import { useToast } from './components/ToastContext.jsx';
 import { loadFiles as loadFilesFromStorage, saveFiles as saveFilesToStorage, clearFiles as clearFilesInStorage } from './utils/fileStorage.js';
@@ -122,6 +124,7 @@ function App() {
     try { localStorage.setItem('ui.displayTab', displayTab); } catch { /* noop */ }
   }, [displayTab]);
   const [displayOpen, setDisplayOpen] = useCollapsedSection('display', true);
+  const [helpOpen, setHelpOpen] = useState(false);
   const savingDisabledRef = useRef(false);
   const enabledFiles = uploadedFiles.filter(file => file.enabled);
   const workerRef = useRef(null);
@@ -404,6 +407,23 @@ function App() {
     });
   }, [globalParsingConfig]);
 
+  // Global keyboard shortcuts. Memoized handlers via inline functions —
+  // the hook reads latest bindings via ref, so closures stay fresh.
+  useKeyboardShortcuts({
+    '?': () => setHelpOpen(true),
+    'Escape': () => {
+      setHelpOpen(false);
+      setConfigModalOpen(false);
+    },
+    's': () => setSidebarVisible(v => !v),
+    'c': () => setChartConfig(prev => ({ ...prev, combinedView: !prev.combinedView })),
+    '1': () => setDisplayTab('chart'),
+    '2': () => setDisplayTab('smoothing'),
+    '3': () => setDisplayTab('stats'),
+    '4': () => setDisplayTab('performance'),
+    '5': () => setDisplayTab('baseline')
+  });
+
   // Reset configuration
   const handleResetConfig = useCallback(() => {
     savingDisabledRef.current = true;
@@ -561,6 +581,14 @@ function App() {
                   <div className="ml-auto flex items-center gap-2">
                     <Header />
                     <ThemeToggle />
+                    <button
+                      onClick={() => setHelpOpen(true)}
+                      className="p-1 text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                      aria-label={t('shortcuts.aria')}
+                      title={t('shortcuts.aria') + ' (?)'}
+                    >
+                      <HelpCircle size={16} aria-hidden="true" />
+                    </button>
                   </div>
                   <button
                     onClick={() => setSidebarVisible(false)}
@@ -903,6 +931,37 @@ function App() {
         onClose={handleConfigClose}
         onSave={handleConfigSave}
         globalParsingConfig={globalParsingConfig}
+      />
+
+      <ShortcutHelp
+        isOpen={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        groups={[
+          {
+            title: t('shortcuts.groupGeneral'),
+            items: [
+              { label: t('shortcuts.help'), key: '?' },
+              { label: t('shortcuts.escape'), key: 'Escape' }
+            ]
+          },
+          {
+            title: t('shortcuts.groupView'),
+            items: [
+              { label: t('shortcuts.toggleSidebar'), key: 's' },
+              { label: t('shortcuts.toggleCombined'), key: 'c' }
+            ]
+          },
+          {
+            title: t('shortcuts.groupDisplay'),
+            items: [
+              { label: t('display.tabChart'), key: '1' },
+              { label: t('display.tabSmoothing'), key: '2' },
+              { label: t('display.tabStats'), key: '3' },
+              { label: t('display.tabPerformance'), key: '4' },
+              { label: t('display.tabBaseline'), key: '5' }
+            ]
+          }
+        ]}
       />
     </div>
   );
