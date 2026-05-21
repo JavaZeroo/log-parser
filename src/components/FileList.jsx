@@ -1,6 +1,8 @@
 import React from 'react';
 import { FileText, X, Settings, Loader2, AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { CollapsibleCardHeader } from './CollapsibleCardHeader.jsx';
+import { useCollapsedSection } from '../utils/useCollapsedSection.js';
 
 function ProgressBar({ value }) {
   const pct = Math.max(0, Math.min(1, value)) * 100;
@@ -20,33 +22,42 @@ function ProgressBar({ value }) {
   );
 }
 
-  export function FileList({ files, onFileRemove, onFileToggle, onFileConfig }) {
+  export function FileList({ files, onFileRemove, onFileToggle, onFileConfig, collapseId }) {
     const { t } = useTranslation();
+    const [open, setOpen] = useCollapsedSection(collapseId, true);
+    const collapsible = Boolean(collapseId);
+    const title = files.length > 0
+      ? `${t('fileList.title')} (${files.length})`
+      : t('fileList.title');
+
+    const header = (
+      <CollapsibleCardHeader
+        title={title}
+        titleId="file-list-heading"
+        collapsible={collapsible}
+        open={open}
+        onToggle={() => setOpen(o => !o)}
+      />
+    );
+
     if (files.length === 0) {
       return (
         <section className="card" aria-labelledby="file-list-heading">
-          <h3
-            id="file-list-heading"
-            className="card-title mb-2"
-          >
-            {t('fileList.title')}
-          </h3>
-          <p className="text-gray-500 dark:text-gray-400 text-center py-4 text-sm" role="status">
-            {t('fileList.empty')}
-          </p>
+          {header}
+          {(!collapsible || open) && (
+            <p className="text-gray-500 dark:text-gray-400 text-center py-4 text-sm mt-2" role="status">
+              {t('fileList.empty')}
+            </p>
+          )}
         </section>
       );
     }
 
     return (
       <section className="card" aria-labelledby="file-list-heading">
-        <h3
-          id="file-list-heading"
-          className="card-title mb-2"
-        >
-          {t('fileList.title')} ({files.length})
-        </h3>
-        <ul className="space-y-2" role="list" aria-label={t('fileList.loaded', { count: files.length })}>
+        {header}
+        {(!collapsible || open) && (
+        <ul className="space-y-2 mt-2" role="list" aria-label={t('fileList.loaded', { count: files.length })}>
           {files.map((file, index) => (
             <li
               key={file.id}
@@ -129,6 +140,7 @@ function ProgressBar({ value }) {
           </li>
         ))}
       </ul>
+        )}
     </section>
   );
 }

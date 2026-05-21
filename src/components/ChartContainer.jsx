@@ -1,37 +1,51 @@
 import React, { useMemo, useRef, useCallback, useEffect } from 'react';
-import { Line } from 'react-chartjs-2';
+import { Chart as ReactChart } from 'react-chartjs-2';
 import { ResizablePanel } from './ResizablePanel';
 import {
   Chart as ChartJS,
   Chart,
   CategoryScale,
   LinearScale,
+  LogarithmicScale,
   PointElement,
   LineElement,
+  BarElement,
+  BarController,
+  LineController,
+  ScatterController,
   Title,
   Tooltip,
   Legend,
 } from 'chart.js';
 import zoomPlugin from 'chartjs-plugin-zoom';
+import annotationPlugin from 'chartjs-plugin-annotation';
 import { ImageDown, Copy, FileDown } from 'lucide-react';
 import { getMinSteps } from "../utils/getMinSteps.js";
 import { getMetricTitle } from '../utils/metricHelpers';
 import { maybeDownsample, DEFAULT_DOWNSAMPLE_THRESHOLD } from '../utils/downsample.js';
+import { smooth } from '../utils/smoothing.js';
+import { computeStats } from '../utils/stats.js';
 import { useTranslation } from 'react-i18next';
 import { useToast } from './ToastContext.jsx';
 
 ChartJS.register(
   CategoryScale,
   LinearScale,
+  LogarithmicScale,
   PointElement,
   LineElement,
+  BarElement,
+  BarController,
+  LineController,
+  ScatterController,
   Title,
   Tooltip,
   Legend,
-  zoomPlugin
+  zoomPlugin,
+  annotationPlugin
 );
 
-const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover, syncRef }) => {
+const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover, syncRef, chartType = 'line' }) => {
   const chartRef = useRef(null);
 
   const handleChartRef = useCallback((ref) => {
@@ -87,7 +101,7 @@ const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover, sy
 
   return (
     <div onMouseLeave={handleContainerMouseLeave} style={{ width: '100%', height: '100%' }}>
-      <Line ref={handleChartRef} data={data} options={enhancedOptions} />
+      <ReactChart type={chartType} ref={handleChartRef} data={data} options={enhancedOptions} />
     </div>
   );
 };
@@ -105,11 +119,24 @@ export default function ChartContainer({
   onXRangeChange,
   onMaxStepChange,
   downsampleEnabled = true,
-  downsampleThreshold = DEFAULT_DOWNSAMPLE_THRESHOLD
+  downsampleThreshold = DEFAULT_DOWNSAMPLE_THRESHOLD,
+  yAxisType = 'linear',
+  smoothing = 'none',
+  smoothingWindow = 10,
+  showStats = false,
+  chartType = 'line',
+  combinedView = false,
+  annotations = []
 }) {
   const downsamplePoints = useCallback(
     (points) => (downsampleEnabled ? maybeDownsample(points, downsampleThreshold) : points),
     [downsampleEnabled, downsampleThreshold]
+  );
+  // Smoothing is applied on the full series (preserves accuracy / stats)
+  // before downsampling reduces the point count for rendering.
+  const smoothPoints = useCallback(
+    (points) => (smoothing === 'none' ? points : smooth(points, smoothing, smoothingWindow)),
+    [smoothing, smoothingWindow]
   );
   const chartRefs = useRef(new Map());
   const { t } = useTranslation();
@@ -313,15 +340,19 @@ export default function ChartContainer({
     return {
       datasets: uniqueItems.map((item, index) => {
         const color = colors[index % colors.length];
+        const isScatter = chartType === 'scatter';
+        const isBar = chartType === 'bar';
         return {
+          type: chartType,
           label: item.name?.replace(/\.(log|txt)$/i, '') || `File ${index + 1}`,
           data: downsamplePoints(item.data),
           borderColor: color,
-          backgroundColor: `${color}33`,
-          borderWidth: 2,
+          backgroundColor: isBar ? `${color}99` : `${color}33`,
+          borderWidth: isBar ? 1 : 2,
           fill: false,
           tension: 0,
-          pointRadius: 0,
+          showLine: !isScatter,
+          pointRadius: isScatter ? 3 : 0,
           pointHoverRadius: 4,
           pointBackgroundColor: color,
           pointBorderColor: color,
@@ -334,7 +365,7 @@ export default function ChartContainer({
         };
       })
     };
-  }, [colors, downsamplePoints]);
+  }, [colors, downsamplePoints, chartType]);
 
   const getComparisonData = (data1, data2, mode) => {
     const map2 = new Map(data2.map(p => [p.x, p.y]));
@@ -424,6 +455,33 @@ export default function ChartContainer({
     };
   }, [yRange]);
 
+  const annotationConfig = useMemo(() => {
+    if (!Array.isArray(annotations) || annotations.length === 0) return undefined;
+    const out = {};
+    annotations.forEach(a => {
+      if (a && typeof a.x === 'number') {
+        out[`ann-${a.id}`] = {
+          type: 'line',
+          xMin: a.x,
+          xMax: a.x,
+          borderColor: a.color || '#10b981',
+          borderWidth: 1.5,
+          borderDash: [4, 4],
+          label: a.label ? {
+            content: a.label,
+            display: true,
+            position: 'start',
+            backgroundColor: 'rgba(15, 23, 42, 0.85)',
+            color: '#f1f5f9',
+            font: { size: 10 },
+            padding: 4
+          } : undefined
+        };
+      }
+    });
+    return Object.keys(out).length > 0 ? { annotations: out } : undefined;
+  }, [annotations]);
+
   const chartOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
@@ -433,6 +491,7 @@ export default function ChartContainer({
     responsiveAnimationDuration: 0,
     interaction: { mode: 'nearest', intersect: false, axis: 'x' },
     plugins: {
+      annotation: annotationConfig,
       zoom: {
         pan: {
           enabled: true,
@@ -540,7 +599,7 @@ export default function ChartContainer({
         }
       },
       y: {
-        type: 'linear',
+        type: yAxisType === 'log' ? 'logarithmic' : 'linear',
         display: true,
         title: { display: true, text: 'Value' },
         bounds: 'data',
@@ -548,7 +607,7 @@ export default function ChartContainer({
       }
     },
     elements: { point: { radius: 0 } }
-  }), [xRange, onXRangeChange]);
+  }), [xRange, onXRangeChange, yAxisType, annotationConfig]);
 
   const buildComparisonChartData = (dataArray) => {
     const baselineVal =
@@ -564,7 +623,7 @@ export default function ChartContainer({
       const color = colors[colorIdx % colors.length];
       datasets.push({
         label: `${target.name} vs ${base.name}`,
-        data: downsamplePoints(diffData),
+        data: downsamplePoints(smoothPoints(diffData)),
         borderColor: color,
         backgroundColor: color,
         borderWidth: 2,
@@ -669,6 +728,36 @@ export default function ChartContainer({
     );
   }
 
+  const buildYScale = (autoRange, decimals) => {
+    if (yAxisType === 'log') {
+      const hasMin = Number.isFinite(yRange?.min) && yRange.min > 0;
+      const hasMax = Number.isFinite(yRange?.max) && yRange.max > 0;
+      return {
+        type: 'logarithmic',
+        display: true,
+        title: { display: true, text: 'Value' },
+        min: hasMin ? yRange.min : undefined,
+        max: hasMax ? yRange.max : undefined,
+        ticks: {
+          callback: (value) => Number(value.toFixed(decimals))
+        }
+      };
+    }
+    const finalRange = getFinalYScale(autoRange);
+    return {
+      type: 'linear',
+      display: true,
+      title: { display: true, text: 'Value' },
+      min: finalRange.min,
+      max: finalRange.max,
+      bounds: 'data',
+      ticks: {
+        stepSize: finalRange.step,
+        callback: (value) => Number(value.toFixed(decimals))
+      }
+    };
+  };
+
   const metricElements = metrics.map((metric, idx) => {
     const key = metric.name || metric.keyword || `metric${idx + 1}`;
     const dataArray = metricDataArrays[key] || [];
@@ -676,10 +765,16 @@ export default function ChartContainer({
 
     const yDecimals = getMaxDecimals(dataArray);
 
+    // Apply smoothing on full data for accurate stats and visuals before downsampling
+    const processedArray = dataArray.map(item => ({
+      ...item,
+      data: smoothPoints(item.data)
+    }));
+
     // Calculate min/max for scaling
     let min = Infinity;
     let max = -Infinity;
-    dataArray.forEach(item => {
+    processedArray.forEach(item => {
       item.data.forEach(point => {
         const inRange =
           (xRange.min === undefined || point.x >= xRange.min) &&
@@ -692,7 +787,6 @@ export default function ChartContainer({
     });
 
     const autoYRange = calculateNiceScale(min, max);
-    const finalYRange = getFinalYScale(autoYRange);
 
     const options = {
       ...chartOptions,
@@ -712,17 +806,16 @@ export default function ChartContainer({
       },
       scales: {
         ...chartOptions.scales,
-        y: {
-          ...chartOptions.scales.y,
-          min: finalYRange.min,
-          max: finalYRange.max,
-          ticks: {
-            stepSize: finalYRange.step,
-            callback: (value) => Number(value.toFixed(yDecimals))
-          }
-        }
+        y: buildYScale(autoYRange, yDecimals)
       }
     };
+
+    const perFileStats = showStats
+      ? processedArray.map(item => ({
+          name: item.name,
+          stats: computeStats(item.data)
+        })).filter(entry => entry.stats)
+      : [];
 
     let stats = null;
     let comparisonChart = null;
@@ -746,7 +839,6 @@ export default function ChartContainer({
       });
 
       const autoCompRange = calculateNiceScale(cMin, cMax);
-      const compRange = getFinalYScale(autoCompRange);
       const compDecimals = Math.max(4, getMaxDecimals(compResult.datasets)); // Ensure at least 4 for diffs
 
       const compOptions = {
@@ -767,15 +859,7 @@ export default function ChartContainer({
         },
         scales: {
           ...chartOptions.scales,
-          y: {
-            ...chartOptions.scales.y,
-            min: compRange.min,
-            max: compRange.max,
-            ticks: {
-              stepSize: compRange.step,
-              callback: (value) => Number(value.toFixed(compDecimals))
-            }
-          }
+          y: buildYScale(autoCompRange, compDecimals)
         }
       };
       const compActions = (
@@ -818,6 +902,7 @@ export default function ChartContainer({
             syncRef={syncLockRef}
             data={{ datasets: compResult.datasets }}
             options={compOptions}
+            chartType={chartType}
           />
         </ResizablePanel>
       );
@@ -865,11 +950,43 @@ export default function ChartContainer({
             onRegisterChart={registerChart}
             onSyncHover={syncHoverToAllCharts}
             syncRef={syncLockRef}
-            data={createChartData(dataArray)}
+            data={createChartData(processedArray)}
             options={options}
+            chartType={chartType}
           />
         </ResizablePanel>
         {comparisonChart}
+        {perFileStats.length > 0 && (
+          <div className="card overflow-x-auto">
+            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{key} {t('chart.summaryStats')}</h4>
+            <table className="min-w-full text-xs">
+              <thead>
+                <tr className="text-left">
+                  <th className="pr-2">{t('chart.stats.file')}</th>
+                  <th className="text-right">{t('chart.stats.min')}</th>
+                  <th className="text-right">{t('chart.stats.max')}</th>
+                  <th className="text-right">{t('chart.stats.mean')}</th>
+                  <th className="text-right">{t('chart.stats.std')}</th>
+                  <th className="text-right">{t('chart.stats.last')}</th>
+                  <th className="text-right">{t('chart.stats.count')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {perFileStats.map(({ name, stats: s }) => (
+                  <tr key={name} className="border-t border-gray-200 dark:border-gray-700">
+                    <td className="pr-2 py-1 truncate max-w-[200px]" title={name}>{name}</td>
+                    <td className="text-right py-1 font-mono">{s.min.toFixed(Math.min(yDecimals, 6))}</td>
+                    <td className="text-right py-1 font-mono">{s.max.toFixed(Math.min(yDecimals, 6))}</td>
+                    <td className="text-right py-1 font-mono">{s.mean.toFixed(Math.min(yDecimals, 6))}</td>
+                    <td className="text-right py-1 font-mono">{s.std.toFixed(Math.min(yDecimals, 6))}</td>
+                    <td className="text-right py-1 font-mono">{s.last.toFixed(Math.min(yDecimals, 6))}</td>
+                    <td className="text-right py-1 font-mono">{s.count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
         {stats && (
           <div className="card overflow-x-auto">
             <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{key} {t('chart.diffStats')}</h4>
@@ -902,6 +1019,128 @@ export default function ChartContainer({
       </div>
     );
   });
+
+  if (combinedView && metrics.length >= 1) {
+    // Build a single chart with all metric×file datasets.
+    // First metric anchors the left Y axis; remaining metrics share the right Y axis.
+    const combinedDatasets = [];
+    let combinedYDecimals = 0;
+    let y1YDecimals = 0;
+    metrics.forEach((metric, mIdx) => {
+      const name = metricNames[mIdx];
+      const files = (metricDataArrays[name] || []);
+      files.forEach((file, fIdx) => {
+        const color = colors[(mIdx * 3 + fIdx) % colors.length];
+        const smoothed = smoothPoints(file.data);
+        const decimals = getMaxDecimals([{ data: smoothed }]);
+        if (mIdx === 0) combinedYDecimals = Math.max(combinedYDecimals, decimals);
+        else y1YDecimals = Math.max(y1YDecimals, decimals);
+        const isScatter = chartType === 'scatter';
+        const isBar = chartType === 'bar';
+        combinedDatasets.push({
+          type: chartType,
+          label: `${name} · ${file.name.replace(/\.(log|txt)$/i, '')}`,
+          data: downsamplePoints(smoothed),
+          borderColor: color,
+          backgroundColor: isBar ? `${color}99` : `${color}33`,
+          borderWidth: isBar ? 1 : 2,
+          borderDash: mIdx === 0 ? undefined : [5, 3],
+          fill: false,
+          tension: 0,
+          showLine: !isScatter,
+          pointRadius: isScatter ? 3 : 0,
+          pointHoverRadius: 4,
+          pointBackgroundColor: color,
+          yAxisID: mIdx === 0 ? 'y' : 'y1',
+          animation: false,
+          animations: { colors: false, x: false, y: false },
+        });
+      });
+    });
+
+    const hasSecondaryAxis = metrics.length >= 2 && combinedDatasets.some(d => d.yAxisID === 'y1');
+    const yScaleBase = (decimals, position) => {
+      if (yAxisType === 'log') {
+        return {
+          type: 'logarithmic',
+          display: true,
+          position,
+          title: { display: true, text: 'Value' },
+          ticks: { callback: (v) => Number(v.toFixed(Math.min(decimals, 6))) }
+        };
+      }
+      return {
+        type: 'linear',
+        display: true,
+        position,
+        title: { display: true, text: 'Value' },
+        bounds: 'data',
+        ticks: { callback: (v) => Number(v.toFixed(Math.min(decimals, 6))) }
+      };
+    };
+
+    const combinedOptions = {
+      ...chartOptions,
+      scales: {
+        ...chartOptions.scales,
+        y: yScaleBase(combinedYDecimals, 'left'),
+        ...(hasSecondaryAxis ? {
+          y1: { ...yScaleBase(y1YDecimals, 'right'), grid: { drawOnChartArea: false } }
+        } : {})
+      }
+    };
+
+    return (
+      <div className="flex flex-col gap-3">
+        <ResizablePanel
+          title={t('chart.combinedTitle')}
+          initialHeight={720}
+          maxHeight={1200}
+          actions={(
+            <>
+              <button
+                type="button"
+                className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
+                onClick={() => exportChartPNG('combined')}
+                aria-label={t('exportPNG')}
+                title={t('exportPNG')}
+              >
+                <ImageDown size={16} />
+              </button>
+              <button
+                type="button"
+                className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
+                onClick={() => copyChartImage('combined')}
+                aria-label={t('copyImage')}
+                title={t('copyImage')}
+              >
+                <Copy size={16} />
+              </button>
+              <button
+                type="button"
+                className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
+                onClick={() => exportChartCSV('combined')}
+                aria-label={t('exportCSV')}
+                title={t('exportCSV')}
+              >
+                <FileDown size={16} />
+              </button>
+            </>
+          )}
+        >
+          <ChartWrapper
+            chartId="combined"
+            onRegisterChart={registerChart}
+            onSyncHover={syncHoverToAllCharts}
+            syncRef={syncLockRef}
+            data={{ datasets: combinedDatasets }}
+            options={combinedOptions}
+            chartType={chartType}
+          />
+        </ResizablePanel>
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-2 gap-3">

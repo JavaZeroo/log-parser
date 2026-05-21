@@ -8,6 +8,9 @@ import { ComparisonControls } from './components/ComparisonControls';
 import { FileConfigModal } from './components/FileConfigModal';
 import { ThemeToggle } from './components/ThemeToggle';
 import { Header } from './components/Header';
+import { AnnotationsPanel } from './components/AnnotationsPanel.jsx';
+import { CollapsibleCardHeader } from './components/CollapsibleCardHeader.jsx';
+import { useCollapsedSection } from './utils/useCollapsedSection.js';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { mergeFilesWithReplacement } from './utils/mergeFiles.js';
 import { useToast } from './components/ToastContext.jsx';
@@ -38,7 +41,14 @@ export const DEFAULT_GLOBAL_PARSING_CONFIG = {
 
 export const DEFAULT_CHART_CONFIG = {
   downsampleEnabled: true,
-  downsampleThreshold: 2000
+  downsampleThreshold: 2000,
+  yAxisType: 'linear', // 'linear' | 'log'
+  smoothing: 'none',   // 'none' | 'ma' | 'ema'
+  smoothingWindow: 10,
+  showStats: false,
+  chartType: 'line',   // 'line' | 'scatter' | 'bar'
+  combinedView: false,
+  annotations: []
 };
 
 function restoreFile(file) {
@@ -101,6 +111,17 @@ function App() {
   const [yRange, setYRange] = useState({ min: undefined, max: undefined });
   const [maxStep, setMaxStep] = useState(0);
   const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [displayTab, setDisplayTab] = useState(() => {
+    try {
+      return localStorage.getItem('ui.displayTab') || 'chart';
+    } catch {
+      return 'chart';
+    }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('ui.displayTab', displayTab); } catch { /* noop */ }
+  }, [displayTab]);
+  const [displayOpen, setDisplayOpen] = useCollapsedSection('display', true);
   const savingDisabledRef = useRef(false);
   const enabledFiles = uploadedFiles.filter(file => file.enabled);
   const workerRef = useRef(null);
@@ -595,6 +616,7 @@ function App() {
                 yRange={yRange}
                 onYRangeChange={setYRange}
                 maxStep={maxStep}
+                collapseId="regex"
               />
 
               <FileList
@@ -602,6 +624,14 @@ function App() {
                 onFileRemove={handleFileRemove}
                 onFileToggle={handleFileToggle}
                 onFileConfig={handleFileConfig}
+                collapseId="files"
+              />
+
+              <AnnotationsPanel
+                annotations={chartConfig.annotations || []}
+                onAdd={(a) => setChartConfig(prev => ({ ...prev, annotations: [...(prev.annotations || []), a] }))}
+                onRemove={(id) => setChartConfig(prev => ({ ...prev, annotations: (prev.annotations || []).filter(x => x.id !== id) }))}
+                collapseId="annotations"
               />
 
               {enabledFiles.length >= 2 && (
@@ -613,115 +643,225 @@ function App() {
                   onBaselineChange={setBaselineFile}
                   multiFileMode={multiFileMode}
                   onMultiFileModeChange={setMultiFileMode}
+                  collapseId="comparison"
                 />
               )}
 
               <section className="card" aria-labelledby="display-options-heading">
-                <h3
-                  id="display-options-heading"
-                  className="card-title mb-2"
-                >
-                  {t('display.options')}
-                </h3>
-                <div className="space-y-3">
-                  <div>
-                    <h4 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">{t('display.chart')}</h4>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('display.chartDesc')}</p>
-                  </div>
+                <CollapsibleCardHeader
+                  title={t('display.options')}
+                  titleId="display-options-heading"
+                  collapsible
+                  open={displayOpen}
+                  onToggle={() => setDisplayOpen(o => !o)}
+                />
+                {displayOpen && (
+                  <div className="mt-2">
+                    {/* Tab strip */}
+                    <div className="flex flex-wrap gap-1 mb-3 -mx-0.5" role="tablist" aria-label={t('display.options')}>
+                      {[
+                        { id: 'chart', label: t('display.tabChart') },
+                        { id: 'smoothing', label: t('display.tabSmoothing') },
+                        { id: 'stats', label: t('display.tabStats') },
+                        { id: 'performance', label: t('display.tabPerformance') },
+                        { id: 'baseline', label: t('display.tabBaseline') }
+                      ].map(tab => {
+                        const active = displayTab === tab.id;
+                        return (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            role="tab"
+                            aria-selected={active}
+                            onClick={() => setDisplayTab(tab.id)}
+                            className={`px-2 py-1 text-xs rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                              active
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                            }`}
+                          >
+                            {tab.label}
+                          </button>
+                        );
+                      })}
+                    </div>
 
-                  <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
-                    <h4 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">{t('display.performance')}</h4>
-                    <label className="flex items-center text-xs text-gray-700 dark:text-gray-300 mb-2">
-                      <input
-                        type="checkbox"
-                        className="mr-2 checkbox"
-                        checked={chartConfig.downsampleEnabled}
-                        onChange={(e) => setChartConfig(prev => ({ ...prev, downsampleEnabled: e.target.checked }))}
-                      />
-                      {t('display.downsample')}
-                    </label>
-                    {chartConfig.downsampleEnabled && (
-                      <div>
-                        <label
-                          htmlFor="downsample-threshold"
-                          className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1"
-                        >
-                          {t('display.downsampleThreshold')}
+                    {/* Tab panels */}
+                    {displayTab === 'chart' && (
+                      <div className="space-y-2" role="tabpanel">
+                        <div>
+                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1" htmlFor="chart-type">
+                            {t('display.chartTypeLabel')}
+                          </label>
+                          <select
+                            id="chart-type"
+                            value={chartConfig.chartType}
+                            onChange={(e) => setChartConfig(prev => ({ ...prev, chartType: e.target.value }))}
+                            className="input-field"
+                          >
+                            <option value="line">{t('display.chartTypeLine')}</option>
+                            <option value="scatter">{t('display.chartTypeScatter')}</option>
+                            <option value="bar">{t('display.chartTypeBar')}</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1" htmlFor="y-axis-type">
+                            {t('display.yAxisType')}
+                          </label>
+                          <select
+                            id="y-axis-type"
+                            value={chartConfig.yAxisType}
+                            onChange={(e) => setChartConfig(prev => ({ ...prev, yAxisType: e.target.value }))}
+                            className="input-field"
+                          >
+                            <option value="linear">{t('display.yAxisLinear')}</option>
+                            <option value="log">{t('display.yAxisLog')}</option>
+                          </select>
+                        </div>
+                        <label className="flex items-center text-xs text-gray-700 dark:text-gray-300">
+                          <input
+                            type="checkbox"
+                            className="mr-2 checkbox"
+                            checked={chartConfig.combinedView}
+                            onChange={(e) => setChartConfig(prev => ({ ...prev, combinedView: e.target.checked }))}
+                          />
+                          {t('display.combinedView')}
                         </label>
-                        <input
-                          id="downsample-threshold"
-                          type="number"
-                          min="100"
-                          step="100"
-                          value={chartConfig.downsampleThreshold}
-                          onChange={(e) => {
-                            const v = parseInt(e.target.value, 10);
-                            if (Number.isFinite(v) && v >= 100) {
-                              setChartConfig(prev => ({ ...prev, downsampleThreshold: v }));
-                            }
-                          }}
-                          className="input-field"
-                        />
                       </div>
                     )}
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('display.downsampleDesc')}</p>
-                  </div>
 
-                  <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
-                    <h4 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">{t('display.baseline')}</h4>
-                    <div className="space-y-3">
-                      <div>
-                        <label
-                          htmlFor="relative-baseline"
-                          className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1"
-                        >
-                          {t('display.relativeBaseline')}
-                        </label>
-                        <input
-                          id="relative-baseline"
-                          type="number"
-                          step="0.001"
-                          value={relativeBaseline}
-                          onChange={(e) => setRelativeBaseline(parseFloat(e.target.value) || 0)}
+                    {displayTab === 'smoothing' && (
+                      <div className="space-y-2" role="tabpanel">
+                        <select
+                          value={chartConfig.smoothing}
+                          onChange={(e) => setChartConfig(prev => ({ ...prev, smoothing: e.target.value }))}
                           className="input-field"
-                          placeholder="0.002"
-                          aria-describedby="relative-baseline-description"
-                        />
-                        <span
-                          id="relative-baseline-description"
-                          className="sr-only"
+                          aria-label={t('display.smoothing')}
                         >
-                          {t('display.relativeBaselineDesc')}
-                        </span>
+                          <option value="none">{t('display.smoothingNone')}</option>
+                          <option value="ma">{t('display.smoothingMA')}</option>
+                          <option value="ema">{t('display.smoothingEMA')}</option>
+                        </select>
+                        {chartConfig.smoothing !== 'none' && (
+                          <div>
+                            <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1" htmlFor="smoothing-window">
+                              {t('display.smoothingWindow', { value: chartConfig.smoothingWindow })}
+                            </label>
+                            <input
+                              id="smoothing-window"
+                              type="range"
+                              min="2"
+                              max="100"
+                              value={chartConfig.smoothingWindow}
+                              onChange={(e) => setChartConfig(prev => ({ ...prev, smoothingWindow: parseInt(e.target.value, 10) || 10 }))}
+                              className="w-full"
+                            />
+                          </div>
+                        )}
                       </div>
+                    )}
 
-                      <div>
-                        <label
-                          htmlFor="absolute-baseline"
-                          className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1"
-                        >
-                          {t('display.absoluteBaseline')}
+                    {displayTab === 'stats' && (
+                      <div className="space-y-2" role="tabpanel">
+                        <label className="flex items-center text-xs text-gray-700 dark:text-gray-300">
+                          <input
+                            type="checkbox"
+                            className="mr-2 checkbox"
+                            checked={chartConfig.showStats}
+                            onChange={(e) => setChartConfig(prev => ({ ...prev, showStats: e.target.checked }))}
+                          />
+                          {t('display.showStats')}
                         </label>
-                        <input
-                          id="absolute-baseline"
-                          type="number"
-                          step="0.001"
-                          value={absoluteBaseline}
-                          onChange={(e) => setAbsoluteBaseline(parseFloat(e.target.value) || 0)}
-                          className="input-field"
-                          placeholder="0.005"
-                          aria-describedby="absolute-baseline-description"
-                        />
-                        <span
-                          id="absolute-baseline-description"
-                          className="sr-only"
-                        >
-                          {t('display.absoluteBaselineDesc')}
-                        </span>
                       </div>
-                    </div>
+                    )}
+
+                    {displayTab === 'performance' && (
+                      <div className="space-y-2" role="tabpanel">
+                        <label className="flex items-center text-xs text-gray-700 dark:text-gray-300">
+                          <input
+                            type="checkbox"
+                            className="mr-2 checkbox"
+                            checked={chartConfig.downsampleEnabled}
+                            onChange={(e) => setChartConfig(prev => ({ ...prev, downsampleEnabled: e.target.checked }))}
+                          />
+                          {t('display.downsample')}
+                        </label>
+                        {chartConfig.downsampleEnabled && (
+                          <div>
+                            <label
+                              htmlFor="downsample-threshold"
+                              className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1"
+                            >
+                              {t('display.downsampleThreshold')}
+                            </label>
+                            <input
+                              id="downsample-threshold"
+                              type="number"
+                              min="100"
+                              step="100"
+                              value={chartConfig.downsampleThreshold}
+                              onChange={(e) => {
+                                const v = parseInt(e.target.value, 10);
+                                if (Number.isFinite(v) && v >= 100) {
+                                  setChartConfig(prev => ({ ...prev, downsampleThreshold: v }));
+                                }
+                              }}
+                              className="input-field"
+                            />
+                          </div>
+                        )}
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{t('display.downsampleDesc')}</p>
+                      </div>
+                    )}
+
+                    {displayTab === 'baseline' && (
+                      <div className="space-y-3" role="tabpanel">
+                        <div>
+                          <label
+                            htmlFor="relative-baseline"
+                            className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1"
+                          >
+                            {t('display.relativeBaseline')}
+                          </label>
+                          <input
+                            id="relative-baseline"
+                            type="number"
+                            step="0.001"
+                            value={relativeBaseline}
+                            onChange={(e) => setRelativeBaseline(parseFloat(e.target.value) || 0)}
+                            className="input-field"
+                            placeholder="0.002"
+                            aria-describedby="relative-baseline-description"
+                          />
+                          <span id="relative-baseline-description" className="sr-only">
+                            {t('display.relativeBaselineDesc')}
+                          </span>
+                        </div>
+                        <div>
+                          <label
+                            htmlFor="absolute-baseline"
+                            className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1"
+                          >
+                            {t('display.absoluteBaseline')}
+                          </label>
+                          <input
+                            id="absolute-baseline"
+                            type="number"
+                            step="0.001"
+                            value={absoluteBaseline}
+                            onChange={(e) => setAbsoluteBaseline(parseFloat(e.target.value) || 0)}
+                            className="input-field"
+                            placeholder="0.005"
+                            aria-describedby="absolute-baseline-description"
+                          />
+                          <span id="absolute-baseline-description" className="sr-only">
+                            {t('display.absoluteBaselineDesc')}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
+                )}
               </section>
             </aside>
           )}
@@ -745,6 +885,13 @@ function App() {
               onMaxStepChange={setMaxStep}
               downsampleEnabled={chartConfig.downsampleEnabled}
               downsampleThreshold={chartConfig.downsampleThreshold}
+              yAxisType={chartConfig.yAxisType}
+              smoothing={chartConfig.smoothing}
+              smoothingWindow={chartConfig.smoothingWindow}
+              showStats={chartConfig.showStats}
+              chartType={chartConfig.chartType}
+              combinedView={chartConfig.combinedView}
+              annotations={chartConfig.annotations}
             />
           </section>
         </main>

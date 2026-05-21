@@ -17,8 +17,13 @@ vi.mock('chart.js', () => {
     ChartJS: Chart,
     CategoryScale: {},
     LinearScale: {},
+    LogarithmicScale: {},
     PointElement: {},
     LineElement: {},
+    BarElement: {},
+    BarController: {},
+    LineController: {},
+    ScatterController: {},
     Title: {},
     Tooltip: {},
     Legend: {},
@@ -27,12 +32,12 @@ vi.mock('chart.js', () => {
 
 vi.mock('react-chartjs-2', async () => {
   const React = await import('react');
-  return {
-    Line: React.forwardRef(() => <div data-testid="line-chart" />)
-  };
+  const Stub = React.forwardRef(() => <div data-testid="line-chart" />);
+  return { Chart: Stub, Line: Stub, Scatter: Stub, Bar: Stub };
 });
 
 vi.mock('chartjs-plugin-zoom', () => ({ default: {} }));
+vi.mock('chartjs-plugin-annotation', () => ({ default: {} }));
 
 function stubFileReader(result) {
   class FileReaderMock {

@@ -1,6 +1,8 @@
 import React from 'react';
 import { BarChart2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { CollapsibleCardHeader } from './CollapsibleCardHeader.jsx';
+import { useCollapsedSection } from '../utils/useCollapsedSection.js';
 
 export function ComparisonControls({
   compareMode,
@@ -9,9 +11,12 @@ export function ComparisonControls({
   baseline,
   onBaselineChange,
   multiFileMode = 'baseline',
-  onMultiFileModeChange
+  onMultiFileModeChange,
+  collapseId
 }) {
   const { t } = useTranslation();
+  const [open, setOpen] = useCollapsedSection(collapseId, true);
+  const collapsible = Boolean(collapseId);
   const modes = [
     { value: 'normal', label: t('comparison.normal'), description: t('comparison.normalDesc') },
     { value: 'absolute', label: t('comparison.absolute'), description: t('comparison.absoluteDesc') },
@@ -21,21 +26,16 @@ export function ComparisonControls({
 
   return (
     <section className="card" aria-labelledby="comparison-controls-heading">
-      <div className="flex items-center gap-2 mb-2">
-        <BarChart2
-          size={16}
-          className="text-gray-600 dark:text-gray-300"
-          aria-hidden="true"
-        />
-        <h3
-          id="comparison-controls-heading"
-          className="card-title"
-        >
-          {t('comparison.title')}
-        </h3>
-      </div>
-
-      <div className="space-y-4">
+      <CollapsibleCardHeader
+        title={t('comparison.title')}
+        titleId="comparison-controls-heading"
+        icon={<BarChart2 size={16} />}
+        collapsible={collapsible}
+        open={open}
+        onToggle={() => setOpen(o => !o)}
+      />
+      {(!collapsible || open) && (
+      <div className="space-y-4 mt-2">
         <div>
           <span className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
             {t('comparison.multiFileMode')}
@@ -133,6 +133,7 @@ export function ComparisonControls({
           ))}
         </fieldset>
       </div>
+      )}
     </section>
   );
 }

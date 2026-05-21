@@ -15,8 +15,13 @@ vi.mock('chart.js', () => {
     ChartJS: Chart,
     CategoryScale: {},
     LinearScale: {},
+    LogarithmicScale: {},
     PointElement: {},
     LineElement: {},
+    BarElement: {},
+    BarController: {},
+    LineController: {},
+    ScatterController: {},
     Title: {},
     Tooltip: {},
     Legend: {},
@@ -27,20 +32,24 @@ vi.mock('react-chartjs-2', async () => {
   const React = await import('react');
   const charts = [];
   const lineProps = [];
+  const ChartMock = React.forwardRef((props, ref) => {
+    lineProps.push(props);
+    const chart = {
+      data: props.data,
+      setActiveElements: vi.fn(),
+      tooltip: { setActiveElements: vi.fn() },
+      draw: vi.fn(),
+      scales: { x: { getPixelForValue: vi.fn(() => 0) } },
+    };
+    charts.push(chart);
+    if (typeof ref === 'function') ref(chart);
+    return <div data-testid="line-chart" />;
+  });
   return {
-    Line: React.forwardRef((props, ref) => {
-      lineProps.push(props);
-      const chart = {
-        data: props.data,
-        setActiveElements: vi.fn(),
-        tooltip: { setActiveElements: vi.fn() },
-        draw: vi.fn(),
-        scales: { x: { getPixelForValue: vi.fn(() => 0) } },
-      };
-      charts.push(chart);
-      if (typeof ref === 'function') ref(chart);
-      return <div data-testid="line-chart" />;
-    }),
+    Chart: ChartMock,
+    Line: ChartMock,
+    Scatter: ChartMock,
+    Bar: ChartMock,
     __charts: charts,
     __lineProps: lineProps,
   };
@@ -48,6 +57,7 @@ vi.mock('react-chartjs-2', async () => {
 import { __charts, __lineProps } from 'react-chartjs-2';
 
 vi.mock('chartjs-plugin-zoom', () => ({ default: {} }));
+vi.mock('chartjs-plugin-annotation', () => ({ default: {} }));
 
 describe('ChartContainer', () => {
   it('prompts to upload files when none provided', () => {

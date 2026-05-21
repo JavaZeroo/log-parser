@@ -4,6 +4,8 @@ import { METRIC_PRESETS } from '../metricPresets.js';
 import { useTranslation, Trans } from 'react-i18next';
 import { ValueExtractor } from '../utils/ValueExtractor';
 import { MATCH_MODES, MODE_CONFIG, getMetricTitle } from '../utils/metricHelpers';
+import { CollapsibleCardHeader } from './CollapsibleCardHeader.jsx';
+import { useCollapsedSection } from '../utils/useCollapsedSection.js';
 
 
 
@@ -15,11 +17,14 @@ export function RegexControls({
   onXRangeChange,
   yRange,
   onYRangeChange,
-  maxStep
+  maxStep,
+  collapseId
 }) {
   const [showPreview, setShowPreview] = useState(false);
   const [previewResults, setPreviewResults] = useState({});
   const { t } = useTranslation();
+  const [open, setOpen] = useCollapsedSection(collapseId, true);
+  const collapsible = Boolean(collapseId);
 
   const handleStepToggle = useCallback((checked) => {
     onGlobalParsingConfigChange({
@@ -244,43 +249,40 @@ export function RegexControls({
     );
   };
 
+  const headerActions = (
+    <>
+      {uploadedFiles.length > 0 && (
+        <button
+          onClick={smartRecommend}
+          className="p-1 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900 rounded transition-colors"
+          title={t('regex.smartRecommend')}
+        >
+          <Zap size={14} />
+        </button>
+      )}
+      <button
+        onClick={() => setShowPreview(!showPreview)}
+        className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900 rounded transition-colors"
+        title={t('regex.previewMatches')}
+      >
+        <Eye size={14} />
+      </button>
+    </>
+  );
+
   return (
     <section className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-3" aria-labelledby="regex-controls-heading">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <Settings
-            size={16}
-            className="text-gray-600 dark:text-gray-300"
-            aria-hidden="true"
-          />
-          <h3
-            id="regex-controls-heading"
-            className="text-base font-semibold text-gray-800 dark:text-gray-100"
-          >
-            {t('regex.dataParsing')}
-          </h3>
-        </div>
-
-        <div className="flex items-center gap-1">
-          {uploadedFiles.length > 0 && (
-            <button
-              onClick={smartRecommend}
-              className="p-1 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900 rounded transition-colors"
-              title={t('regex.smartRecommend')}
-            >
-              <Zap size={14} />
-            </button>
-          )}
-          <button
-            onClick={() => setShowPreview(!showPreview)}
-            className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900 rounded transition-colors"
-            title={t('regex.previewMatches')}
-          >
-            <Eye size={14} />
-          </button>
-        </div>
-      </div>
-
+      <CollapsibleCardHeader
+        title={t('regex.dataParsing')}
+        titleId="regex-controls-heading"
+        icon={<Settings size={16} />}
+        actions={headerActions}
+        collapsible={collapsible}
+        open={open}
+        onToggle={() => setOpen(o => !o)}
+        className="mb-3"
+      />
+      {(!collapsible || open) && (
       <div className="space-y-4">
         {globalParsingConfig.metrics.map((cfg, idx) => (
           <div key={idx} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 relative">
@@ -454,6 +456,7 @@ export function RegexControls({
           </ul>
         </div>
       </div>
+      )}
     </section>
   );
 }
