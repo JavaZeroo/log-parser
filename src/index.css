@@ -4,6 +4,16 @@
 
 /* Accessibility improvements */
 @layer base {
+  html {
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    /* Inter's stylistic sets: cv11 = single-storey a, ss03 = better default cursive. Subtle polish. */
+    font-feature-settings: 'cv11', 'ss03';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  code, pre, kbd, samp {
+    font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  }
   body {
     @apply bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100;
   }
@@ -67,7 +77,11 @@
 
 @layer components {
   .card {
-    @apply bg-white dark:bg-gray-800 rounded-lg shadow-md p-3;
+    @apply bg-white dark:bg-gray-800 rounded-lg shadow-md p-3 transition-shadow duration-200 ease-out;
+  }
+  /* Subtle lift on hover — adds life without being distracting */
+  .card:hover {
+    @apply shadow-lg;
   }
 
   .card-title {
@@ -100,6 +114,20 @@
 
   .resizable-chart-container {
     @apply relative min-h-[200px] max-h-[600px] resize-y overflow-hidden border border-gray-200 dark:border-gray-700 rounded-lg;
+  }
+
+  /* Tabular figures — for number columns / stats so digits don't jitter */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+
+  /* Subtle card hover affordance — gentle lift + shadow bump. Cheap visual feedback. */
+  .card-hover {
+    @apply transition-[transform,box-shadow] duration-200 ease-out;
+  }
+  .card-hover:hover {
+    @apply -translate-y-px shadow-lg;
   }
 }
 
@@ -242,8 +270,33 @@ input[type="checkbox"]:focus {
   animation: pageFadeIn 0.5s ease-out;
 }
 
+/* Sidebar cards stagger entrance — 40ms apart, small translateY for a "settling in" feel.
+   `backwards` fill keeps each card invisible until its delay elapses. */
+@keyframes cardSettleIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.sidebar-stagger > * {
+  animation: cardSettleIn 0.3s ease-out backwards;
+}
+.sidebar-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.sidebar-stagger > *:nth-child(2) { animation-delay: 40ms; }
+.sidebar-stagger > *:nth-child(3) { animation-delay: 80ms; }
+.sidebar-stagger > *:nth-child(4) { animation-delay: 120ms; }
+.sidebar-stagger > *:nth-child(5) { animation-delay: 160ms; }
+.sidebar-stagger > *:nth-child(6) { animation-delay: 200ms; }
+.sidebar-stagger > *:nth-child(7) { animation-delay: 240ms; }
+
 @media (prefers-reduced-motion: reduce) {
-  .page-fade-in {
+  .page-fade-in,
+  .sidebar-stagger > * {
     animation: none !important;
   }
 }

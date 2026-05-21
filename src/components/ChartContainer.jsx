@@ -959,7 +959,7 @@ export default function ChartContainer({
         {perFileStats.length > 0 && (
           <div className="card overflow-x-auto">
             <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{key} {t('chart.summaryStats')}</h4>
-            <table className="min-w-full text-xs">
+            <table className="min-w-full text-xs tabular">
               <thead>
                 <tr className="text-left">
                   <th className="pr-2">{t('chart.stats.file')}</th>
@@ -990,7 +990,7 @@ export default function ChartContainer({
         {stats && (
           <div className="card overflow-x-auto">
             <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{key} {t('chart.diffStats')}</h4>
-            <table className="min-w-full text-xs">
+            <table className="min-w-full text-xs tabular">
               <thead>
                 <tr className="text-left">
                   <th className="pr-2">{t('comparison.pair')}</th>

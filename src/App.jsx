@@ -543,7 +543,7 @@ function App() {
         >
           {sidebarVisible && (
             <aside
-              className="xl:col-span-1 space-y-3"
+              className="xl:col-span-1 space-y-3 sidebar-stagger"
               role="complementary"
               aria-label={t('sidebar.controlPanel')}
             >
