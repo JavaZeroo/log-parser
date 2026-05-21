@@ -56,6 +56,10 @@
   "display.options": "🎛️ Display Options",
   "display.chart": "📊 Chart Display",
   "display.chartDesc": "Automatically shows charts for all configured metrics after upload",
+  "display.performance": "Performance",
+  "display.downsample": "Downsample large datasets",
+  "display.downsampleDesc": "Uses LTTB to keep visual shape while reducing rendered points. Disable to see every data point.",
+  "display.downsampleThreshold": "Max points per series",
   "display.baseline": "Baseline Settings",
   "display.relativeBaseline": "Relative error baseline",
   "display.relativeBaselineDesc": "Set baseline value for relative error comparison",
@@ -134,5 +138,10 @@
   "configModal.example2": "Start: 50, End: empty → shows data points 51-end",
   "configModal.example3": "Start: 0, End: empty → shows all data points (default)",
   "configModal.cancel": "Cancel",
-  "configModal.save": "Save Config"
+  "configModal.save": "Save Config",
+  "toast.parseError": "Failed to parse {{name}}: {{error}}",
+  "toast.parseComplete": "Parsed {{name}}",
+  "toast.storageQuotaExceeded": "Storage limit reached. File persistence has been disabled for this session.",
+  "toast.copyImageSuccess": "Image copied to clipboard",
+  "toast.copyImageError": "Failed to copy image"
 }

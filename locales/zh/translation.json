@@ -56,6 +56,10 @@
   "display.options": "🎛️ 显示选项",
   "display.chart": "📊 图表显示",
   "display.chartDesc": "上传文件后自动展示所有已配置的指标图表",
+  "display.performance": "性能",
+  "display.downsample": "对大数据集启用降采样",
+  "display.downsampleDesc": "使用 LTTB 算法在保留曲线形态的前提下减少绘制点数。关闭以查看完整数据点。",
+  "display.downsampleThreshold": "每条曲线最大点数",
   "display.baseline": "基准线设置",
   "display.relativeBaseline": "相对误差 Baseline",
   "display.relativeBaselineDesc": "设置相对误差对比的基准线数值",
@@ -134,5 +138,10 @@
   "configModal.example2": "起始: 50, 结束: 留空 → 显示第51个数据点到结尾",
   "configModal.example3": "起始: 0, 结束: 留空 → 显示全部数据点（默认）",
   "configModal.cancel": "取消",
-  "configModal.save": "保存配置"
+  "configModal.save": "保存配置",
+  "toast.parseError": "解析 {{name}} 失败：{{error}}",
+  "toast.parseComplete": "已解析 {{name}}",
+  "toast.storageQuotaExceeded": "存储空间已满，本次会话将不再持久化文件。",
+  "toast.copyImageSuccess": "图片已复制到剪贴板",
+  "toast.copyImageError": "复制图片失败"
 }
