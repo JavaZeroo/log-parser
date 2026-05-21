@@ -31,6 +31,8 @@ self.onmessage = (e) => {
                 keyword: config.stepKeyword || 'step:'
             };
 
+            const totalMetrics = config.metrics.length || 1;
+
             config.metrics.forEach((metric, idx) => {
                 let points = [];
                 let rawMatches = [];
@@ -77,6 +79,16 @@ self.onmessage = (e) => {
                 }
 
                 metricsData[key] = points;
+
+                if (idx < totalMetrics - 1) {
+                    self.postMessage({
+                        type: 'PARSE_PROGRESS',
+                        payload: {
+                            fileId,
+                            progress: (idx + 1) / totalMetrics
+                        }
+                    });
+                }
             });
 
             self.postMessage({

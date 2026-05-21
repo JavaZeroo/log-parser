@@ -15,7 +15,10 @@ import {
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { ImageDown, Copy, FileDown } from 'lucide-react';
 import { getMinSteps } from "../utils/getMinSteps.js";
+import { getMetricTitle } from '../utils/metricHelpers';
+import { maybeDownsample, DEFAULT_DOWNSAMPLE_THRESHOLD } from '../utils/downsample.js';
 import { useTranslation } from 'react-i18next';
+import { useToast } from './ToastContext.jsx';
 
 ChartJS.register(
   CategoryScale,
@@ -100,10 +103,17 @@ export default function ChartContainer({
   xRange = { min: undefined, max: undefined },
   yRange = { min: undefined, max: undefined },
   onXRangeChange,
-  onMaxStepChange
+  onMaxStepChange,
+  downsampleEnabled = true,
+  downsampleThreshold = DEFAULT_DOWNSAMPLE_THRESHOLD
 }) {
+  const downsamplePoints = useCallback(
+    (points) => (downsampleEnabled ? maybeDownsample(points, downsampleThreshold) : points),
+    [downsampleEnabled, downsampleThreshold]
+  );
   const chartRefs = useRef(new Map());
   const { t } = useTranslation();
+  const toast = useToast();
   const syncLockRef = useRef(false);
   const registerChart = useCallback((id, inst) => {
     chartRefs.current.set(id, inst);
@@ -129,10 +139,12 @@ export default function ChartContainer({
       await navigator.clipboard.write([
         new ClipboardItem({ 'image/png': blob })
       ]);
+      toast.success(t('toast.copyImageSuccess'));
     } catch (e) {
       console.error(t('copyImageError'), e);
+      toast.error(t('toast.copyImageError'));
     }
-  }, [t]);
+  }, [t, toast]);
 
   const exportChartCSV = useCallback((id) => {
     const chart = chartRefs.current.get(id);
@@ -303,7 +315,7 @@ export default function ChartContainer({
         const color = colors[index % colors.length];
         return {
           label: item.name?.replace(/\.(log|txt)$/i, '') || `File ${index + 1}`,
-          data: item.data,
+          data: downsamplePoints(item.data),
           borderColor: color,
           backgroundColor: `${color}33`,
           borderWidth: 2,
@@ -322,7 +334,7 @@ export default function ChartContainer({
         };
       })
     };
-  }, [colors]);
+  }, [colors, downsamplePoints]);
 
   const getComparisonData = (data1, data2, mode) => {
     const map2 = new Map(data2.map(p => [p.x, p.y]));
@@ -552,7 +564,7 @@ export default function ChartContainer({
       const color = colors[colorIdx % colors.length];
       datasets.push({
         label: `${target.name} vs ${base.name}`,
-        data: diffData,
+        data: downsamplePoints(diffData),
         borderColor: color,
         backgroundColor: color,
         borderWidth: 2,
@@ -639,15 +651,7 @@ export default function ChartContainer({
     );
   }
 
-  const metricNames = metrics.map((m, idx) => {
-    if (m.name && m.name.trim()) return m.name.trim();
-    if (m.keyword) return m.keyword.replace(/[:：]/g, '').trim();
-    if (m.regex) {
-      const sanitized = m.regex.replace(/[^a-zA-Z0-9_]/g, '').trim();
-      return sanitized || `metric${idx + 1}`;
-    }
-    return `metric${idx + 1}`;
-  });
+  const metricNames = metrics.map((m, idx) => getMetricTitle(m, idx));
   const metricDataArrays = {};
   metricNames.forEach(name => {
     metricDataArrays[name] = parsedData

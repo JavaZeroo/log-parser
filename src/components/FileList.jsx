@@ -2,6 +2,24 @@ import React from 'react';
 import { FileText, X, Settings, Loader2, AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+function ProgressBar({ value }) {
+  const pct = Math.max(0, Math.min(1, value)) * 100;
+  return (
+    <div
+      className="mt-1 h-1 w-full bg-gray-200 dark:bg-gray-600 rounded overflow-hidden"
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(pct)}
+    >
+      <div
+        className="h-full bg-blue-500 transition-[width] duration-150 ease-out"
+        style={{ width: `${pct}%` }}
+      />
+    </div>
+  );
+}
+
   export function FileList({ files, onFileRemove, onFileToggle, onFileConfig }) {
     const { t } = useTranslation();
     if (files.length === 0) {
@@ -35,7 +53,8 @@ import { useTranslation } from 'react-i18next';
             className="p-2 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600"
             role="listitem"
           >
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 <label className="flex items-center gap-2 cursor-pointer flex-1">
                   <input
@@ -102,6 +121,10 @@ import { useTranslation } from 'react-i18next';
                     <X size={14} aria-hidden="true" />
                   </button>
               </div>
+              </div>
+              {file.isParsing && typeof file.progress === 'number' && (
+                <ProgressBar value={file.progress} />
+              )}
             </div>
           </li>
         ))}

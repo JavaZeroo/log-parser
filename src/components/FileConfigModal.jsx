@@ -1,39 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Settings, TrendingDown, TrendingUp, Sliders, BarChart3, Target, Code, Zap } from 'lucide-react';
+import { X, Settings, TrendingDown, Sliders, BarChart3, Zap } from 'lucide-react';
 import { METRIC_PRESETS } from '../metricPresets.js';
-import { useTranslation, Trans } from 'react-i18next';
-
-// Match mode enum
-const MATCH_MODES = {
-  KEYWORD: 'keyword',
-  REGEX: 'regex'
-};
-
-// Mode configuration
-const MODE_CONFIG = {
-  [MATCH_MODES.KEYWORD]: {
-    nameKey: 'regex.mode.keyword',
-    icon: Target,
-    descriptionKey: 'regex.mode.keywordDesc',
-    example: 'input "loss" matches "loss: 0.123"'
-  },
-  [MATCH_MODES.REGEX]: {
-    nameKey: 'regex.mode.regex',
-    icon: Code,
-    descriptionKey: 'regex.mode.regexDesc',
-    example: 'loss:\\s*([\\d.eE+-]+)'
-  }
-};
-
-function getMetricTitle(metric, index) {
-  if (metric.name && metric.name.trim()) return metric.name.trim();
-  if (metric.keyword) return metric.keyword.replace(/[:：]/g, '').trim();
-  if (metric.regex) {
-    const sanitized = metric.regex.replace(/[^a-zA-Z0-9_]/g, '').trim();
-    return sanitized || `Metric ${index + 1}`;
-  }
-  return `Metric ${index + 1}`;
-}
+import { useTranslation } from 'react-i18next';
+import { MATCH_MODES, MODE_CONFIG, getMetricTitle } from '../utils/metricHelpers';
 
 export function FileConfigModal({ file, isOpen, onClose, onSave, globalParsingConfig }) {
     const { t } = useTranslation();

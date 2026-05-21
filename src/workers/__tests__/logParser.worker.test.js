@@ -83,7 +83,7 @@ loss: 3.0`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       expect(call.payload.metricsData['Loss']).toHaveLength(3);
       expect(call.payload.metricsData['Loss'][0].y).toBe(1.0);
     });
@@ -106,7 +106,7 @@ loss: 3.14e10`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       expect(call.payload.metricsData['Loss']).toEqual([
         { x: 0, y: 1.5e-3 },
         { x: 1, y: 2.5e2 },
@@ -133,7 +133,7 @@ step 1: loss: 0.8 acc: 0.6 lr: 0.0009`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       expect(call.payload.metricsData).toEqual({
         'Loss': [{ x: 0, y: 1.0 }, { x: 1, y: 0.8 }],
         'Accuracy': [{ x: 0, y: 0.5 }, { x: 1, y: 0.6 }],
@@ -158,7 +158,7 @@ gradient: -1.5e-2`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       expect(call.payload.metricsData['Gradient']).toEqual([
         { x: 0, y: -0.123 },
         { x: 1, y: -1.5e-2 }
@@ -184,7 +184,7 @@ gradient: -1.5e-2`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       expect(call.payload.metricsData['Loss']).toEqual([
         { x: 0, y: 1.234 },
         { x: 1, y: 0.567 }
@@ -208,7 +208,7 @@ gradient: -1.5e-2`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       expect(call.payload.metricsData['Loss']).toHaveLength(2);
     });
 
@@ -229,7 +229,7 @@ no numbers here`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       expect(call.payload.metricsData['Loss']).toEqual([]);
     });
 
@@ -249,7 +249,7 @@ no numbers here`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       // Should return empty results for invalid regex
       expect(call.payload.metricsData['Loss']).toEqual([]);
     });
@@ -275,7 +275,7 @@ step: 300 loss: 0.6`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       expect(call.payload.metricsData['Loss']).toEqual([
         { x: 100, y: 1.0 },
         { x: 200, y: 0.8 },
@@ -301,7 +301,7 @@ Step: 20 loss: 0.8`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       expect(call.payload.metricsData['Loss'][0].x).toBe(10);
       expect(call.payload.metricsData['Loss'][1].x).toBe(20);
     });
@@ -325,7 +325,7 @@ loss: 0.6`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       // Should fall back to index when no step found
       expect(call.payload.metricsData['Loss']).toEqual([
         { x: 0, y: 1.0 },
@@ -352,7 +352,7 @@ iteration 100: loss: 0.8`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       expect(call.payload.metricsData['Loss']).toEqual([
         { x: 50, y: 1.0 },
         { x: 100, y: 0.8 }
@@ -377,7 +377,7 @@ step: -3 loss: 0.8`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       expect(call.payload.metricsData['Loss'][0].x).toBe(-5);
       expect(call.payload.metricsData['Loss'][1].x).toBe(-3);
     });
@@ -400,7 +400,7 @@ step: -3 loss: 0.8`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       expect(call.payload.metricsData).toHaveProperty('Custom Name');
     });
 
@@ -420,7 +420,7 @@ step: -3 loss: 0.8`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       expect(call.payload.metricsData).toHaveProperty('loss');
     });
 
@@ -440,7 +440,7 @@ step: -3 loss: 0.8`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       // Should sanitize regex to create a valid metric name
       expect(Object.keys(call.payload.metricsData)[0]).toBeTruthy();
     });
@@ -461,7 +461,7 @@ step: -3 loss: 0.8`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       expect(call.payload.metricsData).toHaveProperty('metric1');
     });
 
@@ -482,7 +482,7 @@ step: -3 loss: 0.8`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       expect(call.payload.metricsData).toHaveProperty('metric1');
       expect(call.payload.metricsData).toHaveProperty('metric2');
     });
@@ -503,7 +503,7 @@ step: -3 loss: 0.8`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       expect(call.payload.metricsData['Loss']).toEqual([]);
     });
 
@@ -521,7 +521,7 @@ step: -3 loss: 0.8`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       expect(call.payload.metricsData['Loss']).toEqual([]);
     });
 
@@ -543,7 +543,7 @@ loss: 3.0 中文`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       expect(call.payload.metricsData['Loss']).toHaveLength(3);
     });
 
@@ -564,7 +564,7 @@ loss: 1e308`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       expect(call.payload.metricsData['Loss'][0].y).toBe(9999999999999);
       expect(call.payload.metricsData['Loss'][1].y).toBe(1e308);
     });
@@ -587,7 +587,7 @@ loss: Infinity`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       // Should only capture valid number
       expect(call.payload.metricsData['Loss']).toHaveLength(1);
       expect(call.payload.metricsData['Loss'][0].y).toBe(1.0);
@@ -609,7 +609,7 @@ loss: Infinity`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       expect(call.payload.metricsData['Loss']).toHaveLength(3);
     });
 
@@ -633,7 +633,7 @@ Done!`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       expect(call.payload.metricsData['Loss']).toHaveLength(2);
     });
 
@@ -647,7 +647,7 @@ Done!`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       expect(call.type).toBe('PARSE_ERROR');
       expect(call.payload.fileId).toBe('test-file-error');
       expect(call.payload.error).toBeTruthy();
@@ -676,7 +676,7 @@ Step 2: loss: 1.9876, acc: 0.456`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       expect(call.payload.metricsData['Loss']).toEqual([
         { x: 0, y: 2.3456 },
         { x: 1, y: 2.1234 },
@@ -703,7 +703,7 @@ Step 2: loss: 1.9876, acc: 0.456`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       expect(call.payload.metricsData['Train Loss']).toHaveLength(2);
       expect(call.payload.metricsData['Val Loss']).toHaveLength(2);
     });
@@ -727,7 +727,7 @@ Step 2: loss: 1.9876, acc: 0.456`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       expect(call.payload.metricsData['Loss'][0].x).toBe(100);
       expect(call.payload.metricsData['Loss'][1].x).toBe(200);
     });
@@ -751,9 +751,42 @@ wandb: step 1000 | loss 0.987 | lr 0.0009`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       expect(call.payload.metricsData['Loss'][0].x).toBe(500);
       expect(call.payload.metricsData['LR'][1].x).toBe(1000);
+    });
+  });
+
+  describe('Progress reporting', () => {
+    it('emits PARSE_PROGRESS messages between metrics', async () => {
+      const content = `loss: 1 acc: 0.5\nloss: 2 acc: 0.6`;
+      const config = {
+        metrics: [
+          { name: 'Loss', mode: 'keyword', keyword: 'loss:' },
+          { name: 'Accuracy', mode: 'keyword', keyword: 'acc:' },
+          { name: 'LR', mode: 'keyword', keyword: 'lr:' }
+        ],
+        useStepKeyword: false
+      };
+      await sendWorkerMessage('PARSE_FILE', { fileId: 'p1', content, config });
+
+      const calls = global.self.postMessage.mock.calls.map(c => c[0]);
+      const progressCalls = calls.filter(c => c.type === 'PARSE_PROGRESS');
+      expect(progressCalls.length).toBe(2);
+      expect(progressCalls[0].payload.progress).toBeCloseTo(1 / 3);
+      expect(progressCalls[1].payload.progress).toBeCloseTo(2 / 3);
+      expect(calls[calls.length - 1].type).toBe('PARSE_COMPLETE');
+    });
+
+    it('does not emit progress for single-metric configs', async () => {
+      const config = {
+        metrics: [{ name: 'Loss', mode: 'keyword', keyword: 'loss:' }],
+        useStepKeyword: false
+      };
+      await sendWorkerMessage('PARSE_FILE', { fileId: 'p2', content: 'loss: 1', config });
+
+      const types = global.self.postMessage.mock.calls.map(c => c[0].type);
+      expect(types).toEqual(['PARSE_COMPLETE']);
     });
   });
 
@@ -780,7 +813,7 @@ wandb: step 1000 | loss 0.987 | lr 0.0009`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       expect(call.payload.metricsData['Loss']).toHaveLength(1000);
       expect(call.payload.metricsData['Loss'][0].x).toBe(0);
       expect(call.payload.metricsData['Loss'][999].x).toBe(999);
@@ -809,7 +842,7 @@ wandb: step 1000 | loss 0.987 | lr 0.0009`;
         config
       });
 
-      const call = global.self.postMessage.mock.calls[0][0];
+      const call = global.self.postMessage.mock.calls.find(c => c[0].type === 'PARSE_COMPLETE' || c[0].type === 'PARSE_ERROR')[0];
       expect(call.payload.metricsData['Loss']).toHaveLength(500);
       expect(call.payload.metricsData['Accuracy']).toHaveLength(500);
       expect(call.payload.metricsData['LR']).toHaveLength(500);

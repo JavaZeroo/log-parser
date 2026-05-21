@@ -10,6 +10,8 @@ import { ThemeToggle } from './components/ThemeToggle';
 import { Header } from './components/Header';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { mergeFilesWithReplacement } from './utils/mergeFiles.js';
+import { useToast } from './components/ToastContext.jsx';
+import { loadFiles as loadFilesFromStorage, saveFiles as saveFilesToStorage, clearFiles as clearFilesInStorage } from './utils/fileStorage.js';
 
 // Threshold for "large file" - files above this won't have content persisted
 const LARGE_FILE_THRESHOLD = 5 * 1024 * 1024; // 5MB of content
@@ -34,32 +36,56 @@ export const DEFAULT_GLOBAL_PARSING_CONFIG = {
   stepKeyword: 'step:'
 };
 
+export const DEFAULT_CHART_CONFIG = {
+  downsampleEnabled: true,
+  downsampleThreshold: 2000
+};
+
+function restoreFile(file) {
+  return {
+    ...file,
+    enabled: file.enabled ?? true,
+    isParsing: false,
+    metricsData: file.metricsData || {},
+    needsReupload: file.isLargeFile && !file.content
+  };
+}
+
 function App() {
   const { t } = useTranslation();
+  const toast = useToast();
+  const toastRef = useRef(toast);
+  const tRef = useRef(t);
+  useEffect(() => { toastRef.current = toast; }, [toast]);
+  useEffect(() => { tRef.current = t; }, [t]);
+  // Sync init from legacy localStorage so the first paint matches prior behavior;
+  // an async IndexedDB load below will replace this state if richer data is present.
   const [uploadedFiles, setUploadedFiles] = useState(() => {
     const stored = localStorage.getItem('uploadedFiles');
     if (!stored) return [];
     try {
       const parsed = JSON.parse(stored);
-      // Restore files with proper defaults for large files that have metricsData
-      return parsed.map(file => ({
-        ...file,
-        enabled: file.enabled ?? true,
-        isParsing: false,
-        // For large files, metricsData is already stored; for small files it will be re-parsed
-        metricsData: file.metricsData || {},
-        // Mark large files that need re-upload for re-parsing
-        needsReupload: file.isLargeFile && !file.content
-      }));
+      return parsed.map(restoreFile);
     } catch {
       return [];
     }
   });
+  const initialLoadDoneRef = useRef(false);
 
   // Global parsing configuration state
   const [globalParsingConfig, setGlobalParsingConfig] = useState(() => {
     const stored = localStorage.getItem('globalParsingConfig');
     return stored ? JSON.parse(stored) : JSON.parse(JSON.stringify(DEFAULT_GLOBAL_PARSING_CONFIG));
+  });
+
+  const [chartConfig, setChartConfig] = useState(() => {
+    const stored = localStorage.getItem('chartConfig');
+    if (!stored) return { ...DEFAULT_CHART_CONFIG };
+    try {
+      return { ...DEFAULT_CHART_CONFIG, ...JSON.parse(stored) };
+    } catch {
+      return { ...DEFAULT_CHART_CONFIG };
+    }
   });
 
   const [compareMode, setCompareMode] = useState('normal');
@@ -85,29 +111,46 @@ function App() {
 
     workerRef.current.onmessage = (e) => {
       const { type, payload } = e.data;
-      if (type === 'PARSE_COMPLETE') {
+      if (type === 'PARSE_PROGRESS') {
+        setUploadedFiles(prev => prev.map(file => {
+          if (file.id === payload.fileId) {
+            return { ...file, progress: payload.progress };
+          }
+          return file;
+        }));
+      } else if (type === 'PARSE_COMPLETE') {
         setUploadedFiles(prev => prev.map(file => {
           if (file.id === payload.fileId) {
             return {
               ...file,
               metricsData: payload.metricsData,
-              isParsing: false
+              isParsing: false,
+              progress: 1
             };
           }
           return file;
         }));
       } else if (type === 'PARSE_ERROR') {
         console.error('Worker parsing error:', payload.error);
-        setUploadedFiles(prev => prev.map(file => {
-          if (file.id === payload.fileId) {
-            return {
-              ...file,
-              isParsing: false,
-              error: payload.error
-            };
+        setUploadedFiles(prev => {
+          const target = prev.find(f => f.id === payload.fileId);
+          if (target) {
+            toastRef.current.error(
+              tRef.current('toast.parseError', { name: target.name, error: payload.error })
+            );
           }
-          return file;
-        }));
+          return prev.map(file => {
+            if (file.id === payload.fileId) {
+              return {
+                ...file,
+                isParsing: false,
+                progress: undefined,
+                error: payload.error
+              };
+            }
+            return file;
+          });
+        });
       }
     };
 
@@ -128,6 +171,26 @@ function App() {
     }
   }, [enabledFiles, baselineFile]);
 
+  // Async load from IndexedDB on mount. Overrides the sync localStorage init
+  // if richer data is present (e.g. after migration or in IDB-capable browsers).
+  useEffect(() => {
+    let cancelled = false;
+    loadFilesFromStorage().then(files => {
+      if (cancelled) return;
+      initialLoadDoneRef.current = true;
+      if (Array.isArray(files) && files.length > 0) {
+        setUploadedFiles(prev => {
+          // Avoid overwriting if user already added files during async load
+          if (prev.length > 0) return prev;
+          return files.map(restoreFile);
+        });
+      }
+    }).catch(() => {
+      initialLoadDoneRef.current = true;
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   // Persist configuration to localStorage
   useEffect(() => {
     if (savingDisabledRef.current) return;
@@ -136,46 +199,35 @@ function App() {
 
   useEffect(() => {
     if (savingDisabledRef.current) return;
-    try {
-      // Smart serialization: for large files, only store metricsData (not raw content)
-      // This allows the app to still display charts after refresh, but re-parsing will need re-upload
-      const serialized = uploadedFiles.map(({ id, name, enabled, content, config, metricsData }) => {
-        const isLargeFile = content && content.length > LARGE_FILE_THRESHOLD;
-        return {
-          id,
-          name,
-          enabled,
-          // For large files, don't store content to save memory/storage
-          content: isLargeFile ? null : content,
-          config,
-          // Store metricsData for large files so charts still work after refresh
-          metricsData: isLargeFile ? metricsData : undefined,
-          // Flag to indicate this file needs re-upload for re-parsing
-          isLargeFile
-        };
-      });
-      if (serialized.length > 0) {
-        const json = JSON.stringify(serialized);
-        // Avoid filling localStorage with very large data
-        if (json.length > 5 * 1024 * 1024) {
-          savingDisabledRef.current = true;
-          console.warn('Uploaded files exceed storage limit; persistence disabled.');
-          return;
-        }
-        localStorage.setItem('uploadedFiles', json);
-      } else {
-        localStorage.removeItem('uploadedFiles');
-      }
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'QuotaExceededError') {
+    localStorage.setItem('chartConfig', JSON.stringify(chartConfig));
+  }, [chartConfig]);
+
+  useEffect(() => {
+    if (savingDisabledRef.current) return;
+    // Smart serialization: for large files, only store metricsData (not raw content).
+    // Charts still render after refresh, but re-parsing requires re-upload.
+    const serialized = uploadedFiles.map(({ id, name, enabled, content, config, metricsData }) => {
+      const isLargeFile = content && content.length > LARGE_FILE_THRESHOLD;
+      return {
+        id,
+        name,
+        enabled,
+        content: isLargeFile ? null : content,
+        config,
+        metricsData: isLargeFile ? metricsData : undefined,
+        isLargeFile
+      };
+    });
+    saveFilesToStorage(serialized).catch(err => {
+      if (err && (err.name === 'QuotaExceededError' || err.code === 22)) {
         savingDisabledRef.current = true;
-        console.warn('LocalStorage quota exceeded; uploaded files will not be persisted.');
-        localStorage.removeItem('uploadedFiles');
+        console.warn('Storage quota exceeded; uploaded files will not be persisted.');
+        toastRef.current.warning(t('toast.storageQuotaExceeded'));
       } else {
-        throw err;
+        console.warn('Failed to persist uploaded files', err);
       }
-    }
-  }, [uploadedFiles]);
+    });
+  }, [uploadedFiles, t]);
 
   const handleFilesUploaded = useCallback((files) => {
     const filesWithDefaults = files.map(file => ({
@@ -183,6 +235,7 @@ function App() {
       enabled: true,
       metricsData: {}, // Initialize empty
       isParsing: true, // Mark as parsing
+      progress: 0,
       config: {
         // Use global parsing config as default values
         metrics: globalParsingConfig.metrics.map(m => ({ ...m })),
@@ -273,7 +326,7 @@ function App() {
             }
           });
         }
-        return { ...file, config, isParsing: true };
+        return { ...file, config, isParsing: true, progress: 0 };
       }
       return file;
     }));
@@ -320,7 +373,8 @@ function App() {
           return {
             ...file,
             config: newFileConfig,
-            isParsing: true
+            isParsing: true,
+            progress: 0
           };
         }
         return file;
@@ -333,8 +387,10 @@ function App() {
   const handleResetConfig = useCallback(() => {
     savingDisabledRef.current = true;
     localStorage.removeItem('globalParsingConfig');
-    localStorage.removeItem('uploadedFiles');
+    localStorage.removeItem('chartConfig');
+    clearFilesInStorage();
     setGlobalParsingConfig(JSON.parse(JSON.stringify(DEFAULT_GLOBAL_PARSING_CONFIG)));
+    setChartConfig({ ...DEFAULT_CHART_CONFIG });
     setUploadedFiles([]);
     setTimeout(() => {
       savingDisabledRef.current = false;
@@ -574,6 +630,44 @@ function App() {
                   </div>
 
                   <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
+                    <h4 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">{t('display.performance')}</h4>
+                    <label className="flex items-center text-xs text-gray-700 dark:text-gray-300 mb-2">
+                      <input
+                        type="checkbox"
+                        className="mr-2 checkbox"
+                        checked={chartConfig.downsampleEnabled}
+                        onChange={(e) => setChartConfig(prev => ({ ...prev, downsampleEnabled: e.target.checked }))}
+                      />
+                      {t('display.downsample')}
+                    </label>
+                    {chartConfig.downsampleEnabled && (
+                      <div>
+                        <label
+                          htmlFor="downsample-threshold"
+                          className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1"
+                        >
+                          {t('display.downsampleThreshold')}
+                        </label>
+                        <input
+                          id="downsample-threshold"
+                          type="number"
+                          min="100"
+                          step="100"
+                          value={chartConfig.downsampleThreshold}
+                          onChange={(e) => {
+                            const v = parseInt(e.target.value, 10);
+                            if (Number.isFinite(v) && v >= 100) {
+                              setChartConfig(prev => ({ ...prev, downsampleThreshold: v }));
+                            }
+                          }}
+                          className="input-field"
+                        />
+                      </div>
+                    )}
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('display.downsampleDesc')}</p>
+                  </div>
+
+                  <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
                     <h4 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">{t('display.baseline')}</h4>
                     <div className="space-y-3">
                       <div>
@@ -649,6 +743,8 @@ function App() {
               onXRangeChange={setXRange}
               yRange={yRange}
               onMaxStepChange={setMaxStep}
+              downsampleEnabled={chartConfig.downsampleEnabled}
+              downsampleThreshold={chartConfig.downsampleThreshold}
             />
           </section>
         </main>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi, expect, afterEach, describe, it } from 'vitest';
 import '@testing-library/jest-dom/vitest';
@@ -8,6 +8,7 @@ import { FileList } from '../FileList.jsx';
 import i18n from '../../i18n';
 
 afterEach(() => {
+  cleanup();
   vi.restoreAllMocks();
 });
 
@@ -43,5 +44,18 @@ describe('FileList', () => {
     render(<FileList files={[file]} onFileRemove={vi.fn()} onFileToggle={vi.fn()} onFileConfig={vi.fn()} />);
     const configButton = screen.getByRole('button', { name: i18n.t('fileList.config', { name: file.name }) });
     expect(configButton).toBeDisabled();
+  });
+
+  it('renders progress bar while parsing', () => {
+    const file = { id: '3', name: 'wip.log', enabled: true, isParsing: true, progress: 0.42 };
+    render(<FileList files={[file]} onFileRemove={vi.fn()} onFileToggle={vi.fn()} onFileConfig={vi.fn()} />);
+    const bar = screen.getByRole('progressbar');
+    expect(bar).toHaveAttribute('aria-valuenow', '42');
+  });
+
+  it('omits progress bar when not parsing', () => {
+    const file = { id: '4', name: 'done.log', enabled: true, isParsing: false, progress: 1 };
+    render(<FileList files={[file]} onFileRemove={vi.fn()} onFileToggle={vi.fn()} onFileConfig={vi.fn()} />);
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
   });
 });

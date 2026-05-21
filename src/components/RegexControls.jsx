@@ -1,41 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Settings, Zap, Eye, ChevronDown, ChevronUp, Target, Code, ZoomIn } from 'lucide-react';
+import { Settings, Zap, Eye, Target, Code, ZoomIn } from 'lucide-react';
 import { METRIC_PRESETS } from '../metricPresets.js';
 import { useTranslation, Trans } from 'react-i18next';
 import { ValueExtractor } from '../utils/ValueExtractor';
-
-// Match mode enum
-const MATCH_MODES = {
-  KEYWORD: 'keyword',
-  REGEX: 'regex'
-};
-
-// Mode configuration
-const MODE_CONFIG = {
-  [MATCH_MODES.KEYWORD]: {
-    nameKey: 'regex.mode.keyword',
-    icon: Target,
-    descriptionKey: 'regex.mode.keywordDesc',
-    example: 'input "loss" matches "loss: 0.123"'
-  },
-  [MATCH_MODES.REGEX]: {
-    nameKey: 'regex.mode.regex',
-    icon: Code,
-    descriptionKey: 'regex.mode.regexDesc',
-    example: 'loss:\\s*([\\d.eE+-]+)'
-  }
-};
-
-// Generate title from config
-function getMetricTitle(metric, index) {
-  if (metric.name && metric.name.trim()) return metric.name.trim();
-  if (metric.keyword) return metric.keyword.replace(/[:：]/g, '').trim();
-  if (metric.regex) {
-    const sanitized = metric.regex.replace(/[^a-zA-Z0-9_]/g, '').trim();
-    return sanitized || `Metric ${index + 1}`;
-  }
-  return `Metric ${index + 1}`;
-}
+import { MATCH_MODES, MODE_CONFIG, getMetricTitle } from '../utils/metricHelpers';
 
 
 
