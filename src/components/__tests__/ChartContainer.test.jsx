@@ -20,6 +20,7 @@ vi.mock('chart.js', () => {
     Title: {},
     Tooltip: {},
     Legend: {},
+    Decimation: {},
   };
 });
 
