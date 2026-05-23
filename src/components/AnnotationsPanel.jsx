@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { MapPin, Plus, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { CollapsibleCardHeader } from './CollapsibleCardHeader.jsx';
+import { SmoothCollapse } from './SmoothCollapse.jsx';
 import { useCollapsedSection } from '../utils/useCollapsedSection.js';
 
 export function AnnotationsPanel({ annotations = [], onAdd, onRemove, collapseId }) {
@@ -37,8 +38,7 @@ export function AnnotationsPanel({ annotations = [], onAdd, onRemove, collapseId
         open={open}
         onToggle={() => setOpen(o => !o)}
       />
-      {(!collapsible || open) && (
-      <>
+      <SmoothCollapse open={!collapsible || open}>
       <div className="flex gap-1 mb-2 mt-2">
         <input
           type="number"
@@ -95,8 +95,7 @@ export function AnnotationsPanel({ annotations = [], onAdd, onRemove, collapseId
           ))}
         </ul>
       )}
-      </>
-      )}
+      </SmoothCollapse>
     </section>
   );
 }

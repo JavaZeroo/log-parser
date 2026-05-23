@@ -2,6 +2,7 @@ import React from 'react';
 import { FileText, X, Settings, Loader2, AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { CollapsibleCardHeader } from './CollapsibleCardHeader.jsx';
+import { SmoothCollapse } from './SmoothCollapse.jsx';
 import { useCollapsedSection } from '../utils/useCollapsedSection.js';
 
 function ProgressBar({ value }) {
@@ -44,11 +45,11 @@ function ProgressBar({ value }) {
       return (
         <section className="card" aria-labelledby="file-list-heading">
           {header}
-          {(!collapsible || open) && (
+          <SmoothCollapse open={!collapsible || open}>
             <p className="text-gray-500 dark:text-gray-400 text-center py-4 text-sm mt-2" role="status">
               {t('fileList.empty')}
             </p>
-          )}
+          </SmoothCollapse>
         </section>
       );
     }
@@ -56,7 +57,7 @@ function ProgressBar({ value }) {
     return (
       <section className="card" aria-labelledby="file-list-heading">
         {header}
-        {(!collapsible || open) && (
+        <SmoothCollapse open={!collapsible || open}>
         <ul className="space-y-2 mt-2" role="list" aria-label={t('fileList.loaded', { count: files.length })}>
           {files.map((file, index) => (
             <li
@@ -140,7 +141,7 @@ function ProgressBar({ value }) {
           </li>
         ))}
       </ul>
-        )}
+        </SmoothCollapse>
     </section>
   );
 }

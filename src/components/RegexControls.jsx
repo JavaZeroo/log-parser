@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Settings, Zap, Eye, Target, Code, ZoomIn } from 'lucide-react';
+import { Settings, Zap, Eye, Plus, X } from 'lucide-react';
 import { METRIC_PRESETS } from '../metricPresets.js';
 import { useTranslation, Trans } from 'react-i18next';
 import { ValueExtractor } from '../utils/ValueExtractor';
-import { MATCH_MODES, MODE_CONFIG, getMetricTitle } from '../utils/metricHelpers';
+import { MATCH_MODES, getMetricTitle } from '../utils/metricHelpers';
 import { CollapsibleCardHeader } from './CollapsibleCardHeader.jsx';
+import { SmoothCollapse } from './SmoothCollapse.jsx';
 import { useCollapsedSection } from '../utils/useCollapsedSection.js';
 
 
@@ -144,12 +145,14 @@ export function RegexControls({
     onGlobalParsingConfigChange({ metrics: newMetrics });
   };
 
-  const applyPreset = (index, presetLabel) => {
+  // Add a new metric pre-filled from a preset, then return the select to its
+  // placeholder so the same preset can be added again.
+  const addMetricFromPreset = (presetLabel) => {
     const preset = METRIC_PRESETS.find(p => p.label === presetLabel);
     if (!preset) return;
-    const newMetrics = [...globalParsingConfig.metrics];
-    newMetrics[index] = { ...newMetrics[index], ...preset };
-    onGlobalParsingConfigChange({ metrics: newMetrics });
+    onGlobalParsingConfigChange({
+      metrics: [...globalParsingConfig.metrics, { ...preset, regex: preset.regex || '' }]
+    });
   };
 
   const handleXRangeChange = (field, value) => {
@@ -162,92 +165,69 @@ export function RegexControls({
     onYRangeChange(newRange);
   };
 
-  // Function to render config panel
-  const renderConfigPanel = (type, config, onConfigChange, index) => {
-    const ModeIcon = MODE_CONFIG[config.mode].icon;
-
-    return (
-      <div className="space-y-2">
-        <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{t('regex.metricName')}</label>
-          <input
-            type="text"
-            value={config.name}
-            onChange={(e) => onConfigChange('name', e.target.value)}
-            className="input-field text-sm"
-          />
-          <select
-            onChange={(e) => applyPreset(index, e.target.value)}
-            className="input-field mt-1"
-            defaultValue=""
-          >
-            <option value="">{t('regex.selectPreset')}</option>
-            {METRIC_PRESETS.map(p => (
-              <option key={p.label} value={p.label}>{p.label}</option>
-            ))}
-          </select>
-        </div>
-        {/* Mode selection */}
-        <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('regex.mode')}
-          </label>
-          <select
-            value={config.mode}
-            onChange={(e) => onConfigChange('mode', e.target.value)}
-            className="input-field"
-          >
-            {Object.entries(MODE_CONFIG).map(([key, modeConfig]) => (
-              <option key={key} value={key}>
-                {t(modeConfig.nameKey)}
-              </option>
-            ))}
-          </select>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            <ModeIcon size={10} className="inline mr-1" />
-            {t(MODE_CONFIG[config.mode].descriptionKey)}
-          </p>
-        </div>
-
-        {/* Config fields based on mode */}
-        {config.mode === MATCH_MODES.KEYWORD && (
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('regex.keyword')}
-            </label>
-            <input
-              type="text"
-              value={config.keyword}
-              onChange={(e) => onConfigChange('keyword', e.target.value)}
-              className="input-field text-sm"
-              placeholder="keyword"
-            />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              {t('regex.keywordHint')}
-            </p>
-          </div>
-        )}
-
-        {config.mode === MATCH_MODES.REGEX && (
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('regex.regex')}
-            </label>
-            <input
-              type="text"
-              value={config.regex}
-              onChange={(e) => onConfigChange('regex', e.target.value)}
-              className="input-field text-sm font-mono"
-              placeholder="value:\\s*([\\d.eE+-]+)"
-            />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              {t('regex.regexHint')}
-            </p>
-          </div>
-        )}
+  // Single metric row — 2 lines, each input prefixed with a short text label
+  // so first-time users can tell the two boxes apart at a glance.
+  const renderMetricRow = (cfg, idx) => (
+    <div
+      key={idx}
+      className="pl-2 border-l-2 border-blue-400 dark:border-blue-500 space-y-1"
+    >
+      <div className="flex items-center gap-1.5">
+        <span className="text-xs font-medium text-gray-500 dark:text-gray-400 w-14 shrink-0">
+          {t('regex.labelName')}
+        </span>
+        <input
+          type="text"
+          value={cfg.name || ''}
+          onChange={(e) => handleMetricChange(idx, 'name', e.target.value)}
+          className="input-field flex-1 min-w-0"
+          placeholder={t('regex.metricNamePlaceholder')}
+          aria-label={t('regex.metricName')}
+        />
+        <select
+          value={cfg.mode}
+          onChange={(e) => handleMetricChange(idx, 'mode', e.target.value)}
+          className="input-field w-auto"
+          aria-label={t('regex.mode')}
+        >
+          <option value={MATCH_MODES.KEYWORD}>{t('regex.modeShortKw')}</option>
+          <option value={MATCH_MODES.REGEX}>{t('regex.modeShortRgx')}</option>
+        </select>
+        <button
+          type="button"
+          onClick={() => removeMetric(idx)}
+          className="p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400 focus:outline-none focus:ring-2 focus:ring-red-500 rounded shrink-0"
+          aria-label={t('regex.deleteConfig')}
+          title={t('regex.deleteConfig')}
+        >
+          <X size={12} aria-hidden="true" />
+        </button>
       </div>
-    );
-  };
+      <div className="flex items-center gap-1.5">
+        <span className="text-xs font-medium text-gray-500 dark:text-gray-400 w-14 shrink-0">
+          {t('regex.labelPattern')}
+        </span>
+        <input
+          type="text"
+          value={(cfg.mode === MATCH_MODES.REGEX ? cfg.regex : cfg.keyword) || ''}
+          onChange={(e) =>
+            handleMetricChange(
+              idx,
+              cfg.mode === MATCH_MODES.REGEX ? 'regex' : 'keyword',
+              e.target.value
+            )
+          }
+          className="input-field flex-1 min-w-0 font-mono"
+          placeholder={
+            cfg.mode === MATCH_MODES.REGEX
+              ? t('regex.regexPlaceholder')
+              : t('regex.keywordPlaceholder')
+          }
+          aria-label={cfg.mode === MATCH_MODES.REGEX ? t('regex.regex') : t('regex.keyword')}
+        />
+      </div>
+    </div>
+  );
 
   const headerActions = (
     <>
@@ -282,156 +262,151 @@ export function RegexControls({
         onToggle={() => setOpen(o => !o)}
         className="mb-3"
       />
-      {(!collapsible || open) && (
-      <div className="space-y-4">
-        {globalParsingConfig.metrics.map((cfg, idx) => (
-          <div key={idx} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 relative">
-            <button
-              onClick={() => removeMetric(idx)}
-              className="absolute top-1 right-1 text-red-500"
-              title={t('regex.deleteConfig')}
-            >
-              ×
-            </button>
-            <h4 className="text-sm font-medium text-gray-800 dark:text-gray-100 mb-2 flex items-center gap-1">
-              <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
-              {t('regex.metricConfig', { title: getMetricTitle(cfg, idx) })}
-            </h4>
-            {renderConfigPanel(`metric-${idx}`, cfg, (field, value) => handleMetricChange(idx, field, value), idx)}
-          </div>
-        ))}
-        <button
-          onClick={addMetric}
-          className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
-        >
-          {t('regex.addMetric')}
-        </button>
-
-        <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-          <div className="flex items-center gap-2">
-            <label className="flex items-center text-xs text-gray-700 dark:text-gray-300">
-              <input
-                type="checkbox"
-                className="mr-2 checkbox"
-                checked={globalParsingConfig.useStepKeyword || false}
-                onChange={(e) => handleStepToggle(e.target.checked)}
-              />
-              {t('useStepKeyword')}
-            </label>
-            {globalParsingConfig.useStepKeyword && (
-              <input
-                type="text"
-                className="flex-1 input-field"
-                value={globalParsingConfig.stepKeyword || t('placeholder.step')}
-                onChange={(e) => handleStepKeywordChange(e.target.value)}
-                placeholder={t('placeholder.step')}
-              />
-            )}
-          </div>
+      <SmoothCollapse open={!collapsible || open}>
+      <div className="space-y-2.5">
+        {/* Metric rows */}
+        <div className="space-y-2">
+          {globalParsingConfig.metrics.map((cfg, idx) => renderMetricRow(cfg, idx))}
         </div>
 
-        <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-          <div className="flex items-center gap-2 mb-2">
-            <ZoomIn
-              size={16}
-              className="text-gray-600 dark:text-gray-300"
-              aria-hidden="true"
+        {/* Add metric controls — empty button on the left, preset select on the right */}
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={addMetric}
+            className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <Plus size={12} aria-hidden="true" />
+            {t('regex.addMetric')}
+          </button>
+          <select
+            onChange={(e) => {
+              if (e.target.value) {
+                addMetricFromPreset(e.target.value);
+                e.target.value = '';
+              }
+            }}
+            className="input-field w-auto text-xs"
+            aria-label={t('regex.selectPreset')}
+            defaultValue=""
+          >
+            <option value="">{t('regex.fromPreset')}</option>
+            {METRIC_PRESETS.map(p => (
+              <option key={p.label} value={p.label}>{p.label}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Step keyword — single inline row */}
+        <div className="flex items-center gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+          <label className="flex items-center text-xs text-gray-700 dark:text-gray-300 shrink-0">
+            <input
+              type="checkbox"
+              className="mr-1.5 checkbox"
+              checked={globalParsingConfig.useStepKeyword || false}
+              onChange={(e) => handleStepToggle(e.target.checked)}
             />
-            <h4 className="text-base font-semibold text-gray-800 dark:text-gray-100">
-              {t('regex.yRange')}
-            </h4>
+            {t('useStepKeyword')}
+          </label>
+          {globalParsingConfig.useStepKeyword && (
+            <input
+              type="text"
+              className="flex-1 input-field font-mono min-w-0"
+              value={globalParsingConfig.stepKeyword || ''}
+              onChange={(e) => handleStepKeywordChange(e.target.value)}
+              placeholder={t('placeholder.step')}
+              aria-label={t('useStepKeyword')}
+            />
+          )}
+        </div>
+
+        {/* Axis range — compact, one row each */}
+        <div className="space-y-1.5 pt-2 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-1">
+            <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400 w-4 shrink-0">X</span>
+            <input
+              type="number"
+              placeholder={t('regex.min')}
+              value={xRange.min === undefined ? '' : xRange.min}
+              onChange={(e) => handleXRangeChange('min', e.target.value)}
+              className="input-field min-w-0 tabular"
+              aria-label={`X ${t('regex.min')}`}
+            />
+            <span className="text-gray-400 dark:text-gray-500 text-xs">–</span>
+            <input
+              type="number"
+              placeholder={
+                xRange.max === undefined && maxStep !== undefined ? `${maxStep}` : t('regex.max')
+              }
+              value={xRange.max === undefined ? '' : xRange.max}
+              onChange={(e) => handleXRangeChange('max', e.target.value)}
+              className="input-field min-w-0 tabular"
+              aria-label={`X ${t('regex.max')}`}
+            />
+            <button
+              type="button"
+              onClick={() => onXRangeChange({ min: undefined, max: undefined })}
+              className="px-1.5 py-0.5 text-[11px] bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 shrink-0"
+            >
+              {t('regex.reset')}
+            </button>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400 w-4 shrink-0">Y</span>
             <input
               type="number"
               placeholder={t('regex.min')}
               value={yRange?.min ?? ''}
               onChange={(e) => handleYRangeChange('min', e.target.value)}
-              className="input-field"
+              className="input-field min-w-0 tabular"
+              aria-label={`Y ${t('regex.min')}`}
             />
-            <span className="text-gray-500 dark:text-gray-400">-</span>
+            <span className="text-gray-400 dark:text-gray-500 text-xs">–</span>
             <input
               type="number"
               placeholder={t('regex.max')}
               value={yRange?.max ?? ''}
               onChange={(e) => handleYRangeChange('max', e.target.value)}
-              className="input-field"
+              className="input-field min-w-0 tabular"
+              aria-label={`Y ${t('regex.max')}`}
             />
             <button
+              type="button"
               onClick={() => onYRangeChange({ min: undefined, max: undefined })}
-              className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 whitespace-nowrap"
+              className="px-1.5 py-0.5 text-[11px] bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 shrink-0"
             >
               {t('regex.auto')}
             </button>
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            {t('regex.yRangeHint')}
-          </p>
-        </div>
-
-        <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-          <div className="flex items-center gap-2 mb-2">
-            <ZoomIn
-              size={16}
-              className="text-gray-600 dark:text-gray-300"
-              aria-hidden="true"
-            />
-            <h4 className="text-base font-semibold text-gray-800 dark:text-gray-100">
-              {t('regex.xRange')}
-            </h4>
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              placeholder="Min"
-              value={xRange.min === undefined ? 0 : xRange.min}
-              onChange={(e) => handleXRangeChange('min', e.target.value)}
-              className="input-field"
-            />
-            <span className="text-gray-500 dark:text-gray-400">-</span>
-            <input
-              type="number"
-              placeholder={xRange.max === undefined && maxStep !== undefined ? `${maxStep}` : 'Max'}
-              value={xRange.max === undefined ? maxStep : xRange.max}
-              onChange={(e) => handleXRangeChange('max', e.target.value)}
-              className="input-field"
-            />
-            <button
-              onClick={() => onXRangeChange({ min: undefined, max: undefined })}
-              className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 whitespace-nowrap"
-            >
-              {t('regex.reset')}
-            </button>
-          </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            <Trans i18nKey="regex.xRangeHint">
-              Hold <kbd>Shift</kbd> and drag on the chart to select range, or input values directly.
+          <p className="text-[11px] text-gray-400 dark:text-gray-500 leading-tight">
+            <Trans i18nKey="regex.rangeHint">
+              Hold <kbd>Shift</kbd> + drag on the chart to zoom.
             </Trans>
           </p>
         </div>
 
-        {/* Preview results */}
+        {/* Preview results — only when toggled via eye icon */}
         {showPreview && uploadedFiles.length > 0 && (
-          <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900 rounded border border-blue-200 dark:border-blue-700">
-            <h4 className="text-sm font-medium text-blue-800 mb-2">{t('regex.matchPreview')}</h4>
-            <div className="space-y-3 text-xs">
+          <div className="mt-1 p-2 bg-blue-50 dark:bg-blue-950 rounded border border-blue-200 dark:border-blue-800">
+            <h4 className="text-xs font-medium text-blue-800 dark:text-blue-200 mb-1.5">{t('regex.matchPreview')}</h4>
+            <div className="space-y-2 text-xs">
               {Object.entries(previewResults).map(([key, results]) => (
                 results.map((result, idx) => (
-                  <div key={`${key}-${idx}`} className="border-l-4 border-blue-300 dark:border-blue-700 pl-3">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-blue-700">{key} - {result.fileName}</span>
-                      <span className="text-gray-600 dark:text-gray-300">{t('regex.matchCount', { count: result.count })}</span>
+                  <div key={`${key}-${idx}`} className="border-l-2 border-blue-300 dark:border-blue-700 pl-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-blue-700 dark:text-blue-300 truncate">{key} · {result.fileName}</span>
+                      <span className="text-gray-600 dark:text-gray-400 tabular shrink-0">{t('regex.matchCount', { count: result.count })}</span>
                     </div>
                     {result.examples.length > 0 && (
-                      <div className="mt-1 space-y-1">
+                      <div className="mt-1 space-y-0.5">
                         {result.examples.map((example, exIdx) => (
-                          <div key={exIdx} className="text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 p-1 rounded text-xs">
-                            <span className="font-mono text-blue-600">{example.value}</span>
-                            <span className="text-gray-500 dark:text-gray-400 ml-2">{t('regex.lineNumber', { line: example.line })}</span>
+                          <div key={exIdx} className="text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded text-[11px]">
+                            <span className="font-mono text-blue-600 dark:text-blue-400 tabular">{example.value}</span>
+                            <span className="text-gray-500 dark:text-gray-400 ml-1.5">L{example.line}</span>
                             {example.format && (
-                              <span className="text-purple-600 ml-2">[{example.format}]</span>
+                              <span className="text-purple-600 dark:text-purple-400 ml-1.5">[{example.format}]</span>
                             )}
-                            <div className="text-gray-400 dark:text-gray-500 truncate">{example.text}</div>
+                            <div className="text-gray-400 dark:text-gray-500 truncate font-mono text-[10px]">{example.text}</div>
                           </div>
                         ))}
                       </div>
@@ -442,21 +417,8 @@ export function RegexControls({
             </div>
           </div>
         )}
-
-        <div
-          className="text-xs text-gray-500 dark:text-gray-400 p-2 bg-gray-50 dark:bg-gray-700 rounded"
-          role="region"
-          aria-label={t('regex.featureDescAria')}
-        >
-          <p><strong>{t('regex.featureHeading')}</strong></p>
-          <ul role="list" className="mt-1 space-y-1">
-            <li>• <Target size={10} className="inline" /> <strong>{t('regex.featureKeywordTitle')}</strong>: {t('regex.featureKeywordDesc')}</li>
-            <li>• <Code size={10} className="inline" /> <strong>{t('regex.featureRegexTitle')}</strong>: {t('regex.featureRegexDesc')}</li>
-            <li>• <Zap size={10} className="inline" /> <strong>{t('regex.featureSmartTitle')}</strong>: {t('regex.featureSmartDesc')}</li>
-          </ul>
-        </div>
       </div>
-      )}
+      </SmoothCollapse>
     </section>
   );
 }

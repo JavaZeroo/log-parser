@@ -81,8 +81,10 @@ describe('Global config override', () => {
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 
-    // Update global config
-    const globalKeyword = screen.getAllByPlaceholderText('keyword')[0];
+    // Update global config (parsing config lives in the sidebar). RegexControls
+    // uses the new keyword placeholder "例如 loss:" / "e.g. loss:" — match via
+    // its localized form so the test follows the language fixture.
+    const globalKeyword = screen.getAllByPlaceholderText(i18n.t('regex.keywordPlaceholder'))[0];
     await user.clear(globalKeyword);
     await user.type(globalKeyword, 'val_loss:');
     expect(globalKeyword.value).toBe('val_loss:');

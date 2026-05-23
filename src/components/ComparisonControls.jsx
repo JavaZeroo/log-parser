@@ -2,6 +2,7 @@ import React from 'react';
 import { BarChart2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { CollapsibleCardHeader } from './CollapsibleCardHeader.jsx';
+import { SmoothCollapse } from './SmoothCollapse.jsx';
 import { useCollapsedSection } from '../utils/useCollapsedSection.js';
 
 export function ComparisonControls({
@@ -34,7 +35,7 @@ export function ComparisonControls({
         open={open}
         onToggle={() => setOpen(o => !o)}
       />
-      {(!collapsible || open) && (
+      <SmoothCollapse open={!collapsible || open}>
       <div className="space-y-4 mt-2">
         <div>
           <span className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -133,7 +134,7 @@ export function ComparisonControls({
           ))}
         </fieldset>
       </div>
-      )}
+      </SmoothCollapse>
     </section>
   );
 }

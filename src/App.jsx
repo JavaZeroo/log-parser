@@ -11,10 +11,12 @@ import { Header } from './components/Header';
 import { AnnotationsPanel } from './components/AnnotationsPanel.jsx';
 import { AnomaliesPanel } from './components/AnomaliesPanel.jsx';
 import { CollapsibleCardHeader } from './components/CollapsibleCardHeader.jsx';
+import { SmoothCollapse } from './components/SmoothCollapse.jsx';
 import { ShortcutHelp } from './components/ShortcutHelp.jsx';
+import { SettingsModal } from './components/SettingsModal.jsx';
 import { useCollapsedSection } from './utils/useCollapsedSection.js';
 import { useKeyboardShortcuts } from './utils/useKeyboardShortcuts.js';
-import { PanelLeftClose, PanelLeftOpen, HelpCircle } from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen, HelpCircle, Settings as SettingsIcon, Github } from 'lucide-react';
 import { mergeFilesWithReplacement } from './utils/mergeFiles.js';
 import { useToast } from './components/ToastContext.jsx';
 import { loadFiles as loadFilesFromStorage, saveFiles as saveFilesToStorage, clearFiles as clearFilesInStorage } from './utils/fileStorage.js';
@@ -44,7 +46,9 @@ export const DEFAULT_GLOBAL_PARSING_CONFIG = {
 };
 
 export const DEFAULT_CHART_CONFIG = {
-  downsampleEnabled: true,
+  // Off by default — most logs are small enough to render every point, and
+  // surprise downsampling can mislead users when investigating spikes.
+  downsampleEnabled: false,
   downsampleThreshold: 2000,
   yAxisType: 'linear', // 'linear' | 'log'
   smoothing: 'none',   // 'none' | 'ma' | 'ema'
@@ -53,7 +57,11 @@ export const DEFAULT_CHART_CONFIG = {
   chartType: 'line',   // 'line' | 'scatter' | 'bar'
   combinedView: false,
   annotations: [],
-  showAnomalies: true
+  showAnomalies: true,
+  // Experimental features — opt-in via Settings → Experimental. Hidden from the
+  // default sidebar to keep new users focused on core analysis.
+  experimentalAnomalies: false,
+  experimentalAnnotations: false
 };
 
 function restoreFile(file) {
@@ -128,6 +136,7 @@ function App() {
   }, [displayTab]);
   const [displayOpen, setDisplayOpen] = useCollapsedSection('display', true);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const savingDisabledRef = useRef(false);
   const enabledFiles = uploadedFiles.filter(file => file.enabled);
   const workerRef = useRef(null);
@@ -436,15 +445,15 @@ function App() {
     '?': () => setHelpOpen(true),
     'Escape': () => {
       setHelpOpen(false);
+      setSettingsOpen(false);
       setConfigModalOpen(false);
     },
     's': () => setSidebarVisible(v => !v),
     'c': () => setChartConfig(prev => ({ ...prev, combinedView: !prev.combinedView })),
+    'mod+,': () => setSettingsOpen(s => !s),
     '1': () => setDisplayTab('chart'),
     '2': () => setDisplayTab('smoothing'),
-    '3': () => setDisplayTab('stats'),
-    '4': () => setDisplayTab('performance'),
-    '5': () => setDisplayTab('baseline')
+    '3': () => setDisplayTab('stats')
   });
 
   // Reset configuration
@@ -567,92 +576,105 @@ function App() {
         </div>
       )}
 
-      {!sidebarVisible && (
-        <button
-          onClick={() => setSidebarVisible(true)}
-          className="fixed top-3 left-3 z-40 p-2 bg-white dark:bg-gray-800 rounded-full shadow-md text-gray-600 dark:text-gray-200 hover:text-gray-800 dark:hover:text-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          aria-label={t('showToolbar')}
-        >
-          <PanelLeftOpen size={20} aria-hidden="true" />
-        </button>
-      )}
+      {/* Always mounted so we can cross-fade with sidebar collapse; opacity gets
+          a delay when the sidebar is leaving so the button doesn't overlap the
+          still-visible aside. */}
+      <button
+        onClick={() => setSidebarVisible(true)}
+        className={`fixed top-3 left-3 z-40 p-2 bg-white dark:bg-gray-800 rounded-full shadow-md text-gray-600 dark:text-gray-200 hover:text-gray-800 dark:hover:text-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-opacity duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+          sidebarVisible
+            ? 'opacity-0 pointer-events-none'
+            : 'opacity-100 delay-200'
+        }`}
+        aria-label={t('showToolbar')}
+        aria-hidden={sidebarVisible}
+        tabIndex={sidebarVisible ? -1 : 0}
+      >
+        <PanelLeftOpen size={20} aria-hidden="true" />
+      </button>
 
       <div className="w-full px-3 py-3">
 
         <main
           id="main-content"
-          className="grid grid-cols-1 xl:grid-cols-5 gap-3"
+          className="flex flex-col xl:grid transition-[grid-template-columns,gap] duration-[320ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+          style={{
+            // Synchronous layout shift: sidebar track and gap animate together
+            // with the same timing as the chart area's implicit re-fill, so
+            // both halves of the screen settle in one motion.
+            gridTemplateColumns: sidebarVisible ? '22rem minmax(0, 1fr)' : '0rem minmax(0, 1fr)',
+            columnGap: sidebarVisible ? '0.75rem' : '0',
+            rowGap: '0.75rem'
+          }}
           role="main"
         >
-          {sidebarVisible && (
             <aside
-              className="xl:col-span-1 space-y-3 sidebar-stagger"
+              className={`sidebar-stagger overflow-hidden transition-opacity duration-[260ms] ease-[cubic-bezier(0.4,0,0.2,1)] ${
+                sidebarVisible
+                  ? 'opacity-100'
+                  : 'opacity-0 pointer-events-none xl:visible invisible xl:h-auto h-0'
+              }`}
               role="complementary"
               aria-label={t('sidebar.controlPanel')}
+              aria-hidden={!sidebarVisible}
             >
-              {/* Header info */}
+            <div className="space-y-3 xl:w-[22rem] w-full">
+              {/* Header info — 2-row compact layout. Brand on top, utility icons on
+                  the right of row 2 so the title row is purely brand-focused. */}
               <div className="card">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                    <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                  </div>
-                  <h1 className="text-lg font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-purple-500 to-indigo-600 animate-gradient-slow">
-                    Log Analyzer
-                  </h1>
-                  <div className="ml-auto flex items-center gap-2">
-                    <Header />
-                    <ThemeToggle />
-                    <button
-                      onClick={() => setHelpOpen(true)}
-                      className="p-1 text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
-                      aria-label={t('shortcuts.aria')}
-                      title={t('shortcuts.aria') + ' (?)'}
-                    >
-                      <HelpCircle size={16} aria-hidden="true" />
-                    </button>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="p-1.5 bg-blue-100 dark:bg-blue-900 rounded-md shrink-0">
+                      <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                    </div>
+                    <h1 className="text-lg font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-purple-500 to-indigo-600 animate-gradient-slow truncate whitespace-nowrap">
+                      Log Analyzer
+                    </h1>
                   </div>
                   <button
                     onClick={() => setSidebarVisible(false)}
-                    className="p-1 text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                    className="p-1 text-gray-400 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded shrink-0"
                     aria-label={t('hideToolbar')}
+                    title={t('hideToolbar') + ' (s)'}
                   >
                     <PanelLeftClose size={16} aria-hidden="true" />
                   </button>
                 </div>
-                <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
-                  {t('intro')}
-                </p>
-
-                {/* Status and link buttons */}
-                <div className="flex items-center gap-2" role="group" aria-label={t('status.group')}>
-                  <span
-                    className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                    aria-label={t('status.onlineAria')}
-                  >
-                    <span aria-hidden="true">🌐</span>
-                    <span className="ml-1">{t('status.online')}</span>
-                  </span>
-                  <a
-                    href="https://github.com/JavaZeroo/log-parser"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                    aria-label={t('github.aria')}
-                  >
-                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 0C4.477 0 0 4.484 0 10.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0110 4.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.942.359.31.678.921.678 1.856 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0020 10.017C20 4.484 15.522 0 10 0z" clipRule="evenodd" />
-                    </svg>
-                    <span>GitHub</span>
-                  </a>
-                  <button
-                    onClick={handleResetConfig}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-                    aria-label={t('resetConfig')}
-                  >
-                    {t('resetConfig')}
-                  </button>
+                {/* Utility row: language toggle on the left, all single-icon utilities
+                    grouped on the right. Reset moved to Settings → Experimental. */}
+                <div className="flex items-center justify-between gap-2">
+                  <Header />
+                  <div className="flex items-center gap-0.5">
+                    <a
+                      href="https://github.com/JavaZeroo/log-parser"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1 text-gray-400 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                      aria-label={t('github.aria')}
+                      title="GitHub"
+                    >
+                      <Github size={15} aria-hidden="true" />
+                    </a>
+                    <ThemeToggle />
+                    <button
+                      onClick={() => setSettingsOpen(true)}
+                      className="p-1 text-gray-400 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                      aria-label={t('settings.aria')}
+                      title={t('settings.aria') + ' (Ctrl+,)'}
+                    >
+                      <SettingsIcon size={15} aria-hidden="true" />
+                    </button>
+                    <button
+                      onClick={() => setHelpOpen(true)}
+                      className="p-1 text-gray-400 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                      aria-label={t('shortcuts.aria')}
+                      title={t('shortcuts.aria') + ' (?)'}
+                    >
+                      <HelpCircle size={15} aria-hidden="true" />
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -678,18 +700,22 @@ function App() {
                 collapseId="files"
               />
 
-              <AnnotationsPanel
-                annotations={chartConfig.annotations || []}
-                onAdd={(a) => setChartConfig(prev => ({ ...prev, annotations: [...(prev.annotations || []), a] }))}
-                onRemove={(id) => setChartConfig(prev => ({ ...prev, annotations: (prev.annotations || []).filter(x => x.id !== id) }))}
-                collapseId="annotations"
-              />
+              {chartConfig.experimentalAnnotations && (
+                <AnnotationsPanel
+                  annotations={chartConfig.annotations || []}
+                  onAdd={(a) => setChartConfig(prev => ({ ...prev, annotations: [...(prev.annotations || []), a] }))}
+                  onRemove={(id) => setChartConfig(prev => ({ ...prev, annotations: (prev.annotations || []).filter(x => x.id !== id) }))}
+                  collapseId="annotations"
+                />
+              )}
 
-              <AnomaliesPanel
-                anomaliesByFile={anomaliesByFile}
-                files={uploadedFiles}
-                collapseId="anomalies"
-              />
+              {chartConfig.experimentalAnomalies && (
+                <AnomaliesPanel
+                  anomaliesByFile={anomaliesByFile}
+                  files={uploadedFiles}
+                  collapseId="anomalies"
+                />
+              )}
 
               {enabledFiles.length >= 2 && (
                 <ComparisonControls
@@ -712,16 +738,14 @@ function App() {
                   open={displayOpen}
                   onToggle={() => setDisplayOpen(o => !o)}
                 />
-                {displayOpen && (
+                <SmoothCollapse open={displayOpen}>
                   <div className="mt-2">
                     {/* Tab strip */}
                     <div className="flex flex-wrap gap-1 mb-3 -mx-0.5" role="tablist" aria-label={t('display.options')}>
                       {[
                         { id: 'chart', label: t('display.tabChart') },
                         { id: 'smoothing', label: t('display.tabSmoothing') },
-                        { id: 'stats', label: t('display.tabStats') },
-                        { id: 'performance', label: t('display.tabPerformance') },
-                        { id: 'baseline', label: t('display.tabBaseline') }
+                        { id: 'stats', label: t('display.tabStats') }
                       ].map(tab => {
                         const active = displayTab === tab.id;
                         return (
@@ -745,7 +769,7 @@ function App() {
 
                     {/* Tab panels */}
                     {displayTab === 'chart' && (
-                      <div className="space-y-2" role="tabpanel">
+                      <div className="space-y-2 tab-fade" role="tabpanel">
                         <div>
                           <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1" htmlFor="chart-type">
                             {t('display.chartTypeLabel')}
@@ -784,20 +808,22 @@ function App() {
                           />
                           {t('display.combinedView')}
                         </label>
-                        <label className="flex items-center text-xs text-gray-700 dark:text-gray-300">
-                          <input
-                            type="checkbox"
-                            className="mr-2 checkbox"
-                            checked={chartConfig.showAnomalies !== false}
-                            onChange={(e) => setChartConfig(prev => ({ ...prev, showAnomalies: e.target.checked }))}
-                          />
-                          {t('display.showAnomalies')}
-                        </label>
+                        {chartConfig.experimentalAnomalies && (
+                          <label className="flex items-center text-xs text-gray-700 dark:text-gray-300">
+                            <input
+                              type="checkbox"
+                              className="mr-2 checkbox"
+                              checked={chartConfig.showAnomalies !== false}
+                              onChange={(e) => setChartConfig(prev => ({ ...prev, showAnomalies: e.target.checked }))}
+                            />
+                            {t('display.showAnomalies')}
+                          </label>
+                        )}
                       </div>
                     )}
 
                     {displayTab === 'smoothing' && (
-                      <div className="space-y-2" role="tabpanel">
+                      <div className="space-y-2 tab-fade" role="tabpanel">
                         <select
                           value={chartConfig.smoothing}
                           onChange={(e) => setChartConfig(prev => ({ ...prev, smoothing: e.target.value }))}
@@ -828,7 +854,7 @@ function App() {
                     )}
 
                     {displayTab === 'stats' && (
-                      <div className="space-y-2" role="tabpanel">
+                      <div className="space-y-2 tab-fade" role="tabpanel">
                         <label className="flex items-center text-xs text-gray-700 dark:text-gray-300">
                           <input
                             type="checkbox"
@@ -841,99 +867,23 @@ function App() {
                       </div>
                     )}
 
-                    {displayTab === 'performance' && (
-                      <div className="space-y-2" role="tabpanel">
-                        <label className="flex items-center text-xs text-gray-700 dark:text-gray-300">
-                          <input
-                            type="checkbox"
-                            className="mr-2 checkbox"
-                            checked={chartConfig.downsampleEnabled}
-                            onChange={(e) => setChartConfig(prev => ({ ...prev, downsampleEnabled: e.target.checked }))}
-                          />
-                          {t('display.downsample')}
-                        </label>
-                        {chartConfig.downsampleEnabled && (
-                          <div>
-                            <label
-                              htmlFor="downsample-threshold"
-                              className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1"
-                            >
-                              {t('display.downsampleThreshold')}
-                            </label>
-                            <input
-                              id="downsample-threshold"
-                              type="number"
-                              min="100"
-                              step="100"
-                              value={chartConfig.downsampleThreshold}
-                              onChange={(e) => {
-                                const v = parseInt(e.target.value, 10);
-                                if (Number.isFinite(v) && v >= 100) {
-                                  setChartConfig(prev => ({ ...prev, downsampleThreshold: v }));
-                                }
-                              }}
-                              className="input-field"
-                            />
-                          </div>
-                        )}
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{t('display.downsampleDesc')}</p>
-                      </div>
-                    )}
-
-                    {displayTab === 'baseline' && (
-                      <div className="space-y-3" role="tabpanel">
-                        <div>
-                          <label
-                            htmlFor="relative-baseline"
-                            className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1"
-                          >
-                            {t('display.relativeBaseline')}
-                          </label>
-                          <input
-                            id="relative-baseline"
-                            type="number"
-                            step="0.001"
-                            value={relativeBaseline}
-                            onChange={(e) => setRelativeBaseline(parseFloat(e.target.value) || 0)}
-                            className="input-field"
-                            placeholder="0.002"
-                            aria-describedby="relative-baseline-description"
-                          />
-                          <span id="relative-baseline-description" className="sr-only">
-                            {t('display.relativeBaselineDesc')}
-                          </span>
-                        </div>
-                        <div>
-                          <label
-                            htmlFor="absolute-baseline"
-                            className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1"
-                          >
-                            {t('display.absoluteBaseline')}
-                          </label>
-                          <input
-                            id="absolute-baseline"
-                            type="number"
-                            step="0.001"
-                            value={absoluteBaseline}
-                            onChange={(e) => setAbsoluteBaseline(parseFloat(e.target.value) || 0)}
-                            className="input-field"
-                            placeholder="0.005"
-                            aria-describedby="absolute-baseline-description"
-                          />
-                          <span id="absolute-baseline-description" className="sr-only">
-                            {t('display.absoluteBaselineDesc')}
-                          </span>
-                        </div>
-                      </div>
-                    )}
+                    {/* Performance + Baseline tabs moved to SettingsModal (Ctrl+,) */}
+                    <button
+                      type="button"
+                      onClick={() => setSettingsOpen(true)}
+                      className="mt-2 inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                    >
+                      <SettingsIcon size={11} aria-hidden="true" />
+                      {t('display.openSettings')}
+                    </button>
                   </div>
-                )}
+                </SmoothCollapse>
               </section>
+            </div>
             </aside>
-          )}
 
           <section
-            className={sidebarVisible ? 'xl:col-span-4' : 'xl:col-span-5'}
+            className="min-w-0"
             role="region"
             aria-label={t('chart.area')}
           >
@@ -957,9 +907,9 @@ function App() {
               showStats={chartConfig.showStats}
               chartType={chartConfig.chartType}
               combinedView={chartConfig.combinedView}
-              annotations={chartConfig.annotations}
-              anomaliesByFile={anomaliesByFile}
-              showAnomalies={chartConfig.showAnomalies !== false}
+              annotations={chartConfig.experimentalAnnotations ? chartConfig.annotations : []}
+              anomaliesByFile={chartConfig.experimentalAnomalies ? anomaliesByFile : {}}
+              showAnomalies={chartConfig.experimentalAnomalies && chartConfig.showAnomalies !== false}
             />
           </section>
         </main>
@@ -971,6 +921,21 @@ function App() {
         onClose={handleConfigClose}
         onSave={handleConfigSave}
         globalParsingConfig={globalParsingConfig}
+      />
+
+      <SettingsModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        chartConfig={chartConfig}
+        onChartConfigChange={setChartConfig}
+        relativeBaseline={relativeBaseline}
+        onRelativeBaselineChange={setRelativeBaseline}
+        absoluteBaseline={absoluteBaseline}
+        onAbsoluteBaselineChange={setAbsoluteBaseline}
+        onResetAll={() => {
+          handleResetConfig();
+          setSettingsOpen(false);
+        }}
       />
 
       <ShortcutHelp
@@ -988,7 +953,8 @@ function App() {
             title: t('shortcuts.groupView'),
             items: [
               { label: t('shortcuts.toggleSidebar'), key: 's' },
-              { label: t('shortcuts.toggleCombined'), key: 'c' }
+              { label: t('shortcuts.toggleCombined'), key: 'c' },
+              { label: t('shortcuts.openSettings'), key: 'mod+,' }
             ]
           },
           {
@@ -996,9 +962,7 @@ function App() {
             items: [
               { label: t('display.tabChart'), key: '1' },
               { label: t('display.tabSmoothing'), key: '2' },
-              { label: t('display.tabStats'), key: '3' },
-              { label: t('display.tabPerformance'), key: '4' },
-              { label: t('display.tabBaseline'), key: '5' }
+              { label: t('display.tabStats'), key: '3' }
             ]
           }
         ]}

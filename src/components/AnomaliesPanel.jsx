@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { AlertTriangle, AlertOctagon, TrendingUp, Minus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { CollapsibleCardHeader } from './CollapsibleCardHeader.jsx';
+import { SmoothCollapse } from './SmoothCollapse.jsx';
 import { useCollapsedSection } from '../utils/useCollapsedSection.js';
 
 const TYPE_META = {
@@ -79,7 +80,7 @@ export function AnomaliesPanel({ anomaliesByFile = {}, files = [], collapseId })
         open={open}
         onToggle={() => setOpen(o => !o)}
       />
-      {(!collapsible || open) && (
+      <SmoothCollapse open={!collapsible || open}>
         <div className="mt-2">
           {entries.length === 0 ? (
             <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -122,7 +123,7 @@ export function AnomaliesPanel({ anomaliesByFile = {}, files = [], collapseId })
             {t('anomalies.hint')}
           </p>
         </div>
-      )}
+      </SmoothCollapse>
     </section>
   );
 }

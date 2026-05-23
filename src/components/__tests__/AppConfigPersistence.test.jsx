@@ -1,7 +1,7 @@
 import React from 'react';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import App from '../../App.jsx';
 import i18n from '../../i18n';
@@ -56,6 +56,10 @@ describe('App configuration persistence', () => {
     localStorage.clear();
   });
 
+  afterEach(() => {
+    cleanup();
+  });
+
   it('saves and restores config from localStorage', async () => {
     stubFileReader('loss: 1');
     const user = userEvent.setup();
@@ -107,10 +111,14 @@ describe('App configuration persistence', () => {
     expect(screen.getByText('saved.log')).toBeInTheDocument();
     expect(screen.getAllByLabelText(i18n.t('useStepKeyword'))[0]).toBeChecked();
 
-    const resetButtons = screen.getAllByRole('button', { name: i18n.t('resetConfig') });
-    for (const btn of resetButtons) {
-      await user.click(btn);
-    }
+    // Reset lives in Settings → Experimental → Danger zone now. Open it via the
+    // gear button, switch to that tab, then click the Reset button.
+    const gearBtn = screen.getAllByLabelText(i18n.t('settings.aria'))[0];
+    await user.click(gearBtn);
+    const expTab = await screen.findByRole('tab', { name: i18n.t('settings.tabExperimental') });
+    await user.click(expTab);
+    const resetBtn = await screen.findByRole('button', { name: i18n.t('settings.resetButton') });
+    await user.click(resetBtn);
 
     await waitFor(() => {
       expect(localStorage.getItem('uploadedFiles')).toBeNull();
@@ -118,6 +126,8 @@ describe('App configuration persistence', () => {
       expect(screen.queryByText('saved.log')).not.toBeInTheDocument();
     });
 
+    // Settings modal auto-closes on reset (onResetAll closes it). The step
+    // keyword toggle in the sidebar should reflect the cleared state.
     expect(screen.getAllByLabelText(i18n.t('useStepKeyword'))[0]).not.toBeChecked();
   });
 });
