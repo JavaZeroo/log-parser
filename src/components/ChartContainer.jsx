@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useCallback, useEffect } from 'react';
+import React, { useMemo, useRef, useCallback, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { Chart as ReactChart } from 'react-chartjs-2';
 import { ResizablePanel } from './ResizablePanel';
 import {
@@ -19,7 +19,9 @@ import {
 } from 'chart.js';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import annotationPlugin from 'chartjs-plugin-annotation';
-import { ImageDown, Copy, FileDown } from 'lucide-react';
+import { ImageDown, Copy, FileDown, Minimize2 } from 'lucide-react';
+import { chartToSmallPNG, buildCombinedReport } from '../utils/chartExport.js';
+import { ExportMenu } from './ExportMenu.jsx';
 import { getMinSteps } from "../utils/getMinSteps.js";
 import { getMetricTitle } from '../utils/metricHelpers';
 import { maybeDownsample, DEFAULT_DOWNSAMPLE_THRESHOLD } from '../utils/downsample.js';
@@ -45,15 +47,15 @@ ChartJS.register(
   annotationPlugin
 );
 
-const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover, syncRef, chartType = 'line' }) => {
+const ChartWrapper = ({ data, options, chartId, chartTitle, onRegisterChart, onSyncHover, syncRef, chartType = 'line' }) => {
   const chartRef = useRef(null);
 
   const handleChartRef = useCallback((ref) => {
     if (ref) {
       chartRef.current = ref;
-      onRegisterChart(chartId, ref);
+      onRegisterChart(chartId, ref, chartTitle);
     }
-  }, [chartId, onRegisterChart]);
+  }, [chartId, chartTitle, onRegisterChart]);
 
   const enhancedOptions = {
     ...options,
@@ -106,7 +108,7 @@ const ChartWrapper = ({ data, options, chartId, onRegisterChart, onSyncHover, sy
   );
 };
 
-export default function ChartContainer({
+const ChartContainer = forwardRef(function ChartContainer({
   files,
   metrics = [],
   compareMode,
@@ -129,7 +131,7 @@ export default function ChartContainer({
   annotations = [],
   anomaliesByFile = {},
   showAnomalies = true
-}) {
+}, ref) {
   const downsamplePoints = useCallback(
     (points) => (downsampleEnabled ? maybeDownsample(points, downsampleThreshold) : points),
     [downsampleEnabled, downsampleThreshold]
@@ -141,11 +143,15 @@ export default function ChartContainer({
     [smoothing, smoothingWindow]
   );
   const chartRefs = useRef(new Map());
+  // Parallel map: chartId → human-readable title for use in the exported
+  // report (otherwise users see internal IDs like 'metric-0').
+  const chartTitles = useRef(new Map());
   const { t } = useTranslation();
   const toast = useToast();
   const syncLockRef = useRef(false);
-  const registerChart = useCallback((id, inst) => {
+  const registerChart = useCallback((id, inst, title) => {
     chartRefs.current.set(id, inst);
+    if (title) chartTitles.current.set(id, title);
   }, []);
 
   const exportChartPNG = useCallback((id) => {
@@ -174,6 +180,136 @@ export default function ChartContainer({
       toast.error(t('toast.copyImageError'));
     }
   }, [t, toast]);
+
+  const exportChartSmallPNG = useCallback(async (id) => {
+    const chart = chartRefs.current.get(id);
+    if (!chart) return;
+    try {
+      const blob = await chartToSmallPNG(chart, 50 * 1024);
+      if (!blob) {
+        toast.error(t('toast.exportFailed'));
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${id}-small.png`;
+      // Some browsers won't trigger downloads on detached anchors. Attach,
+      // click, detach, then defer revoke so the download has time to start.
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      toast.success(t('toast.smallPNGSaved', { kb: Math.round(blob.size / 1024) }));
+    } catch (e) {
+      console.error('Failed to export small PNG', e);
+      toast.error(t('toast.exportFailed'));
+    }
+  }, [t, toast]);
+
+  // Build the metadata snapshot embedded in the report header so reviewers
+  // know exactly which files / config the curves came from.
+  const buildReportOpts = useCallback(() => {
+    const enabledFiles = files.filter(f => f.enabled !== false);
+    const fileNames = enabledFiles.map(f => f.name);
+    const metaItems = {};
+    if (smoothing && smoothing !== 'none') {
+      const label = smoothing === 'ema' ? 'EMA' : 'MA';
+      metaItems[t('display.smoothing')] = `${label} (${smoothingWindow})`;
+    }
+    if (yAxisType === 'log') metaItems[t('display.yAxisType')] = t('display.yAxisLog');
+    if (chartType !== 'line') {
+      metaItems[t('display.chartTypeLabel')] =
+        chartType === 'scatter' ? t('display.chartTypeScatter') : t('display.chartTypeBar');
+    }
+    if (combinedView) metaItems[t('display.combinedView').split(' ')[0]] = '✓';
+    if (downsampleEnabled) metaItems[t('display.performance')] = `≤${downsampleThreshold} pts`;
+    return {
+      files: fileNames,
+      meta: Object.keys(metaItems).length > 0 ? metaItems : null,
+      title: t('report.title'),
+      timestamp: new Date().toLocaleString(),
+      sectionLabels: {
+        main: t('report.sectionMain'),
+        comparison: t('report.sectionComparison'),
+        combined: t('report.sectionCombined')
+      }
+    };
+  }, [files, smoothing, smoothingWindow, yAxisType, chartType, combinedView, downsampleEnabled, downsampleThreshold, t]);
+
+  // Map chartRefs (id → instance) into the [id, { chart, title }] shape that
+  // buildCombinedReport expects, falling back to the id when no title was
+  // registered (defensive — every registered chart should have a title).
+  const collectReportEntries = useCallback(() => {
+    return [...chartRefs.current.entries()].map(([id, chart]) => [
+      id,
+      { chart, title: chartTitles.current.get(id) || id }
+    ]);
+  }, []);
+
+  const copyReport = useCallback(async () => {
+    try {
+      const entries = collectReportEntries();
+      if (entries.length === 0) {
+        toast.error(t('toast.noChartsToExport'));
+        return;
+      }
+      if (!navigator?.clipboard || typeof window.ClipboardItem === 'undefined') {
+        toast.error(t('toast.clipboardUnsupported'));
+        return;
+      }
+      const blob = await buildCombinedReport(entries, buildReportOpts());
+      if (!blob) {
+        toast.error(t('toast.exportFailed'));
+        return;
+      }
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      toast.success(t('toast.reportCopied'));
+    } catch (e) {
+      console.error('Failed to copy report', e);
+      toast.error(t('toast.copyImageError'));
+    }
+  }, [t, toast, buildReportOpts, collectReportEntries]);
+
+  const downloadReport = useCallback(async () => {
+    try {
+      const entries = collectReportEntries();
+      if (entries.length === 0) {
+        toast.error(t('toast.noChartsToExport'));
+        return;
+      }
+      const blob = await buildCombinedReport(entries, buildReportOpts());
+      if (!blob) {
+        toast.error(t('toast.exportFailed'));
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      link.download = `log-analyzer-report-${stamp}.png`;
+      // Attach to DOM — some browsers (notably Firefox) require this for
+      // .click() to actually fire the download.
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      // Defer revoke so the download stream has time to start.
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      toast.success(t('toast.reportSaved'));
+    } catch (e) {
+      console.error('Failed to download report', e);
+      toast.error(t('toast.exportFailed'));
+    }
+  }, [t, toast, buildReportOpts, collectReportEntries]);
+
+  // Expose report actions so the sidebar header (which lives in App.jsx) can
+  // trigger them via a ref. Lets us move the "Copy report / Download report"
+  // buttons out of the chart area into the global utility row.
+  useImperativeHandle(ref, () => ({
+    copyReport,
+    downloadReport,
+    hasCharts: () => chartRefs.current.size > 0
+  }), [copyReport, downloadReport]);
 
   const exportChartCSV = useCallback((id) => {
     const chart = chartRefs.current.get(id);
@@ -901,40 +1037,21 @@ export default function ChartContainer({
         }
       };
       const compActions = (
-        <>
-          <button
-            type="button"
-            className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
-            onClick={() => exportChartPNG(`metric-comp-${idx}`)}
-            aria-label={t('exportPNG')}
-            title={t('exportPNG')}
-          >
-            <ImageDown size={16} />
-          </button>
-          <button
-            type="button"
-            className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
-            onClick={() => copyChartImage(`metric-comp-${idx}`)}
-            aria-label={t('copyImage')}
-            title={t('copyImage')}
-          >
-            <Copy size={16} />
-          </button>
-          <button
-            type="button"
-            className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
-            onClick={() => exportChartCSV(`metric-comp-${idx}`)}
-            aria-label={t('exportCSV')}
-            title={t('exportCSV')}
-          >
-            <FileDown size={16} />
-          </button>
-        </>
+        <ExportMenu
+          label={t('exportMenu')}
+          items={[
+            { label: t('exportPNG'), icon: ImageDown, onClick: () => exportChartPNG(`metric-comp-${idx}`) },
+            { label: t('exportPNGSmall'), icon: Minimize2, hint: '≤50KB', onClick: () => exportChartSmallPNG(`metric-comp-${idx}`) },
+            { label: t('copyImage'), icon: Copy, onClick: () => copyChartImage(`metric-comp-${idx}`) },
+            { label: t('exportCSV'), icon: FileDown, onClick: () => exportChartCSV(`metric-comp-${idx}`) }
+          ]}
+        />
       );
       comparisonChart = (
         <ResizablePanel title={t('comparison.panelTitle', { key, mode: compareMode })} initialHeight={440} actions={compActions}>
           <ChartWrapper
             chartId={`metric-comp-${idx}`}
+            chartTitle={t('comparison.panelTitle', { key, mode: compareMode })}
             onRegisterChart={registerChart}
             onSyncHover={syncHoverToAllCharts}
             syncRef={syncLockRef}
@@ -952,39 +1069,20 @@ export default function ChartContainer({
           title={key}
           initialHeight={440}
           actions={(
-            <>
-              <button
-                type="button"
-                className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
-                onClick={() => exportChartPNG(`metric-${idx}`)}
-                aria-label={t('exportPNG')}
-                title={t('exportPNG')}
-              >
-                <ImageDown size={16} />
-              </button>
-              <button
-                type="button"
-                className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
-                onClick={() => copyChartImage(`metric-${idx}`)}
-                aria-label={t('copyImage')}
-                title={t('copyImage')}
-              >
-                <Copy size={16} />
-              </button>
-              <button
-                type="button"
-                className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
-                onClick={() => exportChartCSV(`metric-${idx}`)}
-                aria-label={t('exportCSV')}
-                title={t('exportCSV')}
-              >
-                <FileDown size={16} />
-              </button>
-            </>
+            <ExportMenu
+              label={t('exportMenu')}
+              items={[
+                { label: t('exportPNG'), icon: ImageDown, onClick: () => exportChartPNG(`metric-${idx}`) },
+                { label: t('exportPNGSmall'), icon: Minimize2, hint: '≤50KB', onClick: () => exportChartSmallPNG(`metric-${idx}`) },
+                { label: t('copyImage'), icon: Copy, onClick: () => copyChartImage(`metric-${idx}`) },
+                { label: t('exportCSV'), icon: FileDown, onClick: () => exportChartCSV(`metric-${idx}`) }
+              ]}
+            />
           )}
         >
           <ChartWrapper
             chartId={`metric-${idx}`}
+            chartTitle={key}
             onRegisterChart={registerChart}
             onSyncHover={syncHoverToAllCharts}
             syncRef={syncLockRef}
@@ -1135,39 +1233,20 @@ export default function ChartContainer({
           initialHeight={720}
           maxHeight={1200}
           actions={(
-            <>
-              <button
-                type="button"
-                className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
-                onClick={() => exportChartPNG('combined')}
-                aria-label={t('exportPNG')}
-                title={t('exportPNG')}
-              >
-                <ImageDown size={16} />
-              </button>
-              <button
-                type="button"
-                className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
-                onClick={() => copyChartImage('combined')}
-                aria-label={t('copyImage')}
-                title={t('copyImage')}
-              >
-                <Copy size={16} />
-              </button>
-              <button
-                type="button"
-                className="p-1 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
-                onClick={() => exportChartCSV('combined')}
-                aria-label={t('exportCSV')}
-                title={t('exportCSV')}
-              >
-                <FileDown size={16} />
-              </button>
-            </>
+            <ExportMenu
+              label={t('exportMenu')}
+              items={[
+                { label: t('exportPNG'), icon: ImageDown, onClick: () => exportChartPNG('combined') },
+                { label: t('exportPNGSmall'), icon: Minimize2, hint: '≤50KB', onClick: () => exportChartSmallPNG('combined') },
+                { label: t('copyImage'), icon: Copy, onClick: () => copyChartImage('combined') },
+                { label: t('exportCSV'), icon: FileDown, onClick: () => exportChartCSV('combined') }
+              ]}
+            />
           )}
         >
           <ChartWrapper
             chartId="combined"
+            chartTitle={t('chart.combinedTitle')}
             onRegisterChart={registerChart}
             onSyncHover={syncHoverToAllCharts}
             syncRef={syncLockRef}
@@ -1180,9 +1259,13 @@ export default function ChartContainer({
     );
   }
 
+  // Report toolbar moved into the sidebar header (App.jsx) — chart area now
+  // shows only the charts themselves, no global export chrome.
   return (
     <div className="grid grid-cols-2 gap-3">
       {metricElements}
     </div>
   );
-}
+});
+
+export default ChartContainer;

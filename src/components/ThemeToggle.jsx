@@ -16,7 +16,10 @@ function applyTheme(theme) {
   }
 }
 
-  export function ThemeToggle({ className = '' }) {
+  // showLabel: when true, renders icon + label text matching the current
+  // theme (System / Light / Dark) so it doesn't read as a mystery icon in
+  // the sidebar utility row.
+  export function ThemeToggle({ className = '', showLabel = false }) {
     const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'system');
     const { t } = useTranslation();
 
@@ -39,11 +42,31 @@ function applyTheme(theme) {
     setTheme(next);
   };
 
+  const iconSize = showLabel ? 13 : 16;
   const icons = {
-    system: <Monitor size={16} aria-hidden="true" />,
-    light: <Sun size={16} aria-hidden="true" />,
-    dark: <Moon size={16} aria-hidden="true" />,
+    system: <Monitor size={iconSize} aria-hidden="true" />,
+    light: <Sun size={iconSize} aria-hidden="true" />,
+    dark: <Moon size={iconSize} aria-hidden="true" />,
   };
+  const labelMap = {
+    system: t('themeToggle.labelSystem'),
+    light: t('themeToggle.labelLight'),
+    dark: t('themeToggle.labelDark')
+  };
+
+  if (showLabel) {
+    return (
+      <button
+        onClick={cycleTheme}
+        aria-label={t('themeToggle.aria')}
+        title={t('themeToggle.aria')}
+        className={`inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md ${className}`}
+      >
+        {icons[theme]}
+        <span>{labelMap[theme]}</span>
+      </button>
+    );
+  }
 
   return (
     <button

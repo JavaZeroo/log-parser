@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation, Trans } from 'react-i18next';
 import { FileUpload } from './components/FileUpload';
+import { FilesPanel } from './components/FilesPanel.jsx';
 import { RegexControls } from './components/RegexControls';
 import { FileList } from './components/FileList';
 import ChartContainer from './components/ChartContainer';
@@ -14,9 +15,10 @@ import { CollapsibleCardHeader } from './components/CollapsibleCardHeader.jsx';
 import { SmoothCollapse } from './components/SmoothCollapse.jsx';
 import { ShortcutHelp } from './components/ShortcutHelp.jsx';
 import { SettingsModal } from './components/SettingsModal.jsx';
+import { ExportMenu } from './components/ExportMenu.jsx';
 import { useCollapsedSection } from './utils/useCollapsedSection.js';
 import { useKeyboardShortcuts } from './utils/useKeyboardShortcuts.js';
-import { PanelLeftClose, PanelLeftOpen, HelpCircle, Settings as SettingsIcon, Github } from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen, HelpCircle, Settings as SettingsIcon, Github, FileBarChart, Copy, Download } from 'lucide-react';
 import { mergeFilesWithReplacement } from './utils/mergeFiles.js';
 import { useToast } from './components/ToastContext.jsx';
 import { loadFiles as loadFilesFromStorage, saveFiles as saveFilesToStorage, clearFiles as clearFilesInStorage } from './utils/fileStorage.js';
@@ -137,6 +139,9 @@ function App() {
   const [displayOpen, setDisplayOpen] = useCollapsedSection('display', true);
   const [helpOpen, setHelpOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Imperative handle to ChartContainer — lets the sidebar Header trigger
+  // report export without lifting all chart state into App.
+  const chartContainerRef = useRef(null);
   const savingDisabledRef = useRef(false);
   const enabledFiles = uploadedFiles.filter(file => file.enabled);
   const workerRef = useRef(null);
@@ -456,6 +461,12 @@ function App() {
     '3': () => setDisplayTab('stats')
   });
 
+  // Clear all uploaded files (but keep parsing config + display preferences).
+  // Used by the FilesPanel "Clear all" action.
+  const handleClearAllFiles = useCallback(() => {
+    setUploadedFiles([]);
+  }, []);
+
   // Reset configuration
   const handleResetConfig = useCallback(() => {
     savingDisabledRef.current = true;
@@ -642,43 +653,67 @@ function App() {
                     <PanelLeftClose size={16} aria-hidden="true" />
                   </button>
                 </div>
-                {/* Utility row: language toggle on the left, all single-icon utilities
-                    grouped on the right. Reset moved to Settings → Experimental. */}
-                <div className="flex items-center justify-between gap-2">
+                {/* Primary actions — icon + text so users don't have to guess
+                    what the icons mean. */}
+                <div className="flex items-center gap-1 mt-1">
+                  <ExportMenu
+                    icon={FileBarChart}
+                    variant="ghost"
+                    label={t('report.exportLabel')}
+                    tooltip={t('report.exportLabel')}
+                    items={[
+                      { label: t('report.copy'), icon: Copy, onClick: () => chartContainerRef.current?.copyReport() },
+                      { label: t('report.download'), icon: Download, onClick: () => chartContainerRef.current?.downloadReport() }
+                    ]}
+                  />
+                  <button
+                    onClick={() => setSettingsOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md"
+                    aria-label={t('settings.aria')}
+                    title={t('settings.aria') + ' (Ctrl+,)'}
+                  >
+                    <SettingsIcon size={13} aria-hidden="true" />
+                    <span>{t('header.settings')}</span>
+                  </button>
+                  <button
+                    onClick={() => setHelpOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md"
+                    aria-label={t('shortcuts.aria')}
+                    title={t('shortcuts.aria') + ' (?)'}
+                  >
+                    <HelpCircle size={13} aria-hidden="true" />
+                    <span>{t('header.shortcuts')}</span>
+                  </button>
+                </div>
+
+                {/* Preferences — language toggle (already labeled), theme cycle
+                    with label, GitHub link with text. */}
+                <div className="flex items-center gap-1 mt-1">
                   <Header />
-                  <div className="flex items-center gap-0.5">
-                    <a
-                      href="https://github.com/JavaZeroo/log-parser"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-1 text-gray-400 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
-                      aria-label={t('github.aria')}
-                      title="GitHub"
-                    >
-                      <Github size={15} aria-hidden="true" />
-                    </a>
-                    <ThemeToggle />
-                    <button
-                      onClick={() => setSettingsOpen(true)}
-                      className="p-1 text-gray-400 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
-                      aria-label={t('settings.aria')}
-                      title={t('settings.aria') + ' (Ctrl+,)'}
-                    >
-                      <SettingsIcon size={15} aria-hidden="true" />
-                    </button>
-                    <button
-                      onClick={() => setHelpOpen(true)}
-                      className="p-1 text-gray-400 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
-                      aria-label={t('shortcuts.aria')}
-                      title={t('shortcuts.aria') + ' (?)'}
-                    >
-                      <HelpCircle size={15} aria-hidden="true" />
-                    </button>
-                  </div>
+                  <ThemeToggle showLabel />
+                  <a
+                    href="https://github.com/JavaZeroo/log-parser"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md"
+                    aria-label={t('github.aria')}
+                    title="GitHub"
+                  >
+                    <Github size={13} aria-hidden="true" />
+                    <span>GitHub</span>
+                  </a>
                 </div>
               </div>
 
-              <FileUpload onFilesUploaded={handleFilesUploaded} />
+              <FilesPanel
+                files={uploadedFiles}
+                onFilesUploaded={handleFilesUploaded}
+                onFileRemove={handleFileRemove}
+                onFileToggle={handleFileToggle}
+                onFileConfig={handleFileConfig}
+                onClearAll={handleClearAllFiles}
+                collapseId="files"
+              />
 
               <RegexControls
                 globalParsingConfig={globalParsingConfig}
@@ -690,14 +725,6 @@ function App() {
                 onYRangeChange={setYRange}
                 maxStep={maxStep}
                 collapseId="regex"
-              />
-
-              <FileList
-                files={uploadedFiles}
-                onFileRemove={handleFileRemove}
-                onFileToggle={handleFileToggle}
-                onFileConfig={handleFileConfig}
-                collapseId="files"
               />
 
               {chartConfig.experimentalAnnotations && (
@@ -888,6 +915,7 @@ function App() {
             aria-label={t('chart.area')}
           >
             <ChartContainer
+              ref={chartContainerRef}
               files={uploadedFiles}
               metrics={globalParsingConfig.metrics}
               compareMode={compareMode}
