@@ -24,10 +24,19 @@ This document provides comprehensive guidance for AI assistants (like Claude) wo
    - Prevents UI blocking during heavy parsing operations
    - Communication via postMessage/onmessage pattern
 
-3. **LocalStorage Persistence**
+3. **Persistence**
    - Uploaded files and parsing configs persist across sessions
-   - 5MB storage limit with quota handling
+   - IndexedDB is the primary store (`src/utils/idb.js` opens the shared DB);
+     localStorage is the fallback where IndexedDB is unavailable, with a 5MB
+     limit and quota handling
    - Config saved on every change (with safeguards)
+
+4. **Perfetto-style Cache Links** (`src/utils/sessionCache.js` + `cacheUrl.js`)
+   - Every analysis (files + parsed metrics + parsing config) is snapshotted to
+     IndexedDB under a UUID and addressed by `#!/viewer?local_cache_key=<uuid>`
+   - Reload, bookmark or a second tab reopens the same logs without re-uploading
+   - Local to the browser by design — nothing is uploaded anywhere
+   - LRU eviction by age (30d), count (20) and total bytes (192MB)
 
 4. **Global Drag-and-Drop**
    - Full-page drag overlay for intuitive file uploads
@@ -52,10 +61,15 @@ This document provides comprehensive guidance for AI assistants (like Claude) wo
 │   │   ├── Header.jsx             # Header with language/theme toggle
 │   │   ├── RegexControls.jsx      # Global parsing config
 │   │   ├── ResizablePanel.jsx     # Draggable chart height
+│   │   ├── SessionsModal.jsx      # Cached analyses / cache links
 │   │   └── ThemeToggle.jsx        # Dark mode toggle
 │   ├── utils/             # Utility functions
 │   │   ├── __tests__/    # Utility tests (colocated)
 │   │   ├── ValueExtractor.js   # Core parsing logic
+│   │   ├── idb.js              # Shared IndexedDB open/upgrade
+│   │   ├── fileStorage.js      # Active working set persistence
+│   │   ├── sessionCache.js     # Cached analyses (local_cache_key)
+│   │   ├── cacheUrl.js         # local_cache_key URL plumbing
 │   │   ├── getMinSteps.js      # Chart step calculation
 │   │   └── mergeFiles.js       # File merging logic
 │   ├── workers/

@@ -1,38 +1,16 @@
-// File persistence layer. Prefers IndexedDB (multi-MB capacity) and falls back
-// to localStorage where IndexedDB is unavailable (e.g. jsdom tests, restricted
-// contexts). All keys are stable so legacy localStorage data is migrated on
-// first IndexedDB load.
+// File persistence layer for the active working set. Prefers IndexedDB
+// (multi-MB capacity) and falls back to localStorage where IndexedDB is
+// unavailable (e.g. jsdom tests, restricted contexts). All keys are stable so
+// legacy localStorage data is migrated on first IndexedDB load.
+//
+// Snapshots addressable by a cache key live in sessionCache.js; both share the
+// database opened by idb.js.
 
-const DB_NAME = 'log-parser';
-const DB_VERSION = 1;
-const STORE = 'files';
+import { openDB, hasIDB, FILES_STORE as STORE } from './idb.js';
+
 const FILES_KEY = 'all';
 export const LEGACY_LS_KEY = 'uploadedFiles';
 const LS_MAX_BYTES = 5 * 1024 * 1024;
-
-const hasIDB = typeof indexedDB !== 'undefined';
-
-let dbPromise = null;
-
-function openDB() {
-  if (!hasIDB) return Promise.reject(new Error('IndexedDB unavailable'));
-  if (!dbPromise) {
-    dbPromise = new Promise((resolve, reject) => {
-      const req = indexedDB.open(DB_NAME, DB_VERSION);
-      req.onupgradeneeded = () => {
-        const db = req.result;
-        if (!db.objectStoreNames.contains(STORE)) {
-          db.createObjectStore(STORE);
-        }
-      };
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-      req.onblocked = () => reject(new Error('IndexedDB open blocked'));
-    });
-    dbPromise.catch(() => { dbPromise = null; });
-  }
-  return dbPromise;
-}
 
 function quotaError(message) {
   const err = new Error(message);
@@ -87,7 +65,7 @@ async function idbDelete() {
 }
 
 export async function loadFiles() {
-  if (hasIDB) {
+  if (hasIDB()) {
     try {
       const data = await idbGetAll();
       if (Array.isArray(data) && data.length > 0) {
@@ -113,7 +91,7 @@ export async function loadFiles() {
 }
 
 export async function saveFiles(files) {
-  if (hasIDB) {
+  if (hasIDB()) {
     try {
       await idbPut(files);
       try { localStorage.removeItem(LEGACY_LS_KEY); } catch { /* ignore */ }
@@ -142,13 +120,11 @@ export async function saveFiles(files) {
 }
 
 export async function clearFiles() {
-  if (hasIDB) {
+  if (hasIDB()) {
     try { await idbDelete(); } catch { /* ignore */ }
   }
   try { localStorage.removeItem(LEGACY_LS_KEY); } catch { /* ignore */ }
 }
 
 // Exposed for tests: clears in-memory DB promise so a fresh open is attempted.
-export function _resetForTests() {
-  dbPromise = null;
-}
+export { _resetDbForTests as _resetForTests } from './idb.js';
