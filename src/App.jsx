@@ -15,14 +15,27 @@ import { CollapsibleCardHeader } from './components/CollapsibleCardHeader.jsx';
 import { SmoothCollapse } from './components/SmoothCollapse.jsx';
 import { ShortcutHelp } from './components/ShortcutHelp.jsx';
 import { SettingsModal } from './components/SettingsModal.jsx';
+import { SessionsModal } from './components/SessionsModal.jsx';
 import { ExportMenu } from './components/ExportMenu.jsx';
 import { useCollapsedSection } from './utils/useCollapsedSection.js';
 import { useKeyboardShortcuts } from './utils/useKeyboardShortcuts.js';
-import { PanelLeftClose, PanelLeftOpen, HelpCircle, Settings as SettingsIcon, Github, FileBarChart, Copy, Download } from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen, HelpCircle, Settings as SettingsIcon, Github, FileBarChart, Copy, Download, History } from 'lucide-react';
 import { mergeFilesWithReplacement } from './utils/mergeFiles.js';
 import { useToast } from './components/ToastContext.jsx';
 import { loadFiles as loadFilesFromStorage, saveFiles as saveFilesToStorage, clearFiles as clearFilesInStorage } from './utils/fileStorage.js';
 import { detectAnomalies } from './utils/anomalyDetection.js';
+import {
+  isCacheAvailable,
+  saveSession,
+  loadSession,
+  listSessions,
+  deleteSession as deleteCachedSession,
+  clearSessions
+} from './utils/sessionCache.js';
+import { readCacheKey, writeCacheKey, clearCacheKey, generateCacheKey } from './utils/cacheUrl.js';
+
+// One-time explainer for the cache link that appears in the address bar
+const CACHE_HINT_KEY = 'sessions.hintShown';
 
 // Threshold for "large file" - files above this won't have content persisted
 const LARGE_FILE_THRESHOLD = 5 * 1024 * 1024; // 5MB of content
@@ -86,6 +99,9 @@ function App() {
   // Sync init from legacy localStorage so the first paint matches prior behavior;
   // an async IndexedDB load below will replace this state if richer data is present.
   const [uploadedFiles, setUploadedFiles] = useState(() => {
+    // A cache key in the URL wins: its snapshot loads asynchronously below, and
+    // painting the previous working set first would just flash the wrong logs.
+    if (readCacheKey()) return [];
     const stored = localStorage.getItem('uploadedFiles');
     if (!stored) return [];
     try {
@@ -143,6 +159,18 @@ function App() {
   // report export without lifting all chart state into App.
   const chartContainerRef = useRef(null);
   const savingDisabledRef = useRef(false);
+  // Perfetto-style cache key for the analysis currently on screen. Mirrored in
+  // the URL hash so a reload, bookmark or second tab reopens the same logs.
+  const [cacheKey, setCacheKey] = useState(() => readCacheKey());
+  const sessionIdRef = useRef(readCacheKey());
+  const cacheDisabledRef = useRef(false);
+  // Set when state was just loaded *from* the cache, so the save effect doesn't
+  // immediately write the snapshot it has only just read back.
+  const skipNextSaveRef = useRef(false);
+  // The debounced write still in flight, if any. Switching analyses cancels the
+  // timer, so it has to be flushed first or the last edit is silently lost.
+  const pendingSaveRef = useRef(null);
+  const [sessionsOpen, setSessionsOpen] = useState(false);
   const enabledFiles = uploadedFiles.filter(file => file.enabled);
   const workerRef = useRef(null);
 
@@ -232,25 +260,90 @@ function App() {
     }
   }, [enabledFiles, baselineFile]);
 
-  // Async load from IndexedDB on mount. Overrides the sync localStorage init
-  // if richer data is present (e.g. after migration or in IDB-capable browsers).
+  // Write out a debounced save that has not fired yet.
+  const flushPendingSave = useCallback(async () => {
+    const pending = pendingSaveRef.current;
+    if (!pending) return;
+    pendingSaveRef.current = null;
+    try {
+      await saveSession(pending);
+    } catch {
+      // Best effort — the same failure surfaces through the save effect
+    }
+  }, []);
+
+  // Apply a cached snapshot to the live app state.
+  const applySession = useCallback((key, record) => {
+    skipNextSaveRef.current = true;
+    sessionIdRef.current = key;
+    setCacheKey(key);
+    setUploadedFiles((record.files || []).map(restoreFile));
+    if (record.globalParsingConfig) {
+      setGlobalParsingConfig(record.globalParsingConfig);
+    }
+  }, []);
+
+  // Restore on mount, in order of preference:
+  //   1. the `local_cache_key` in the URL — a bookmarked/reloaded analysis
+  //   2. the most recently used cached analysis (bare URL keeps working)
+  //   3. the legacy single working set, which the first save adopts into a
+  //      cache entry of its own
   useEffect(() => {
     let cancelled = false;
-    loadFilesFromStorage().then(files => {
-      if (cancelled) return;
-      initialLoadDoneRef.current = true;
-      if (Array.isArray(files) && files.length > 0) {
-        setUploadedFiles(prev => {
-          // Avoid overwriting if user already added files during async load
-          if (prev.length > 0) return prev;
-          return files.map(restoreFile);
-        });
+
+    const loadWorkingSet = () => {
+      loadFilesFromStorage().then(files => {
+        if (cancelled) return;
+        initialLoadDoneRef.current = true;
+        if (Array.isArray(files) && files.length > 0) {
+          setUploadedFiles(prev => {
+            // Avoid overwriting if user already added files during async load
+            if (prev.length > 0) return prev;
+            return files.map(restoreFile);
+          });
+        }
+      }).catch(() => {
+        initialLoadDoneRef.current = true;
+      });
+    };
+
+    (async () => {
+      const urlKey = readCacheKey();
+      if (isCacheAvailable()) {
+        try {
+          let key = urlKey;
+          let record = key ? await loadSession(key) : null;
+          if (urlKey && !record) {
+            // The key is valid but names nothing here: cache links are local to
+            // the browser that made them, so this is the expected miss.
+            toastRef.current.warning(tRef.current('sessions.notFound'));
+            clearCacheKey();
+            key = null;
+          }
+          if (!record && !urlKey) {
+            const [latest] = await listSessions();
+            if (latest) {
+              record = await loadSession(latest.id);
+              key = latest.id;
+            }
+          }
+          if (cancelled) return;
+          if (record) {
+            applySession(key, record);
+            writeCacheKey(key);
+            initialLoadDoneRef.current = true;
+            return;
+          }
+        } catch {
+          // Cache unreadable — fall through to the legacy working set
+        }
+        if (cancelled) return;
       }
-    }).catch(() => {
-      initialLoadDoneRef.current = true;
-    });
+      loadWorkingSet();
+    })();
+
     return () => { cancelled = true; };
-  }, []);
+  }, [applySession]);
 
   // Persist configuration to localStorage
   useEffect(() => {
@@ -263,8 +356,69 @@ function App() {
     localStorage.setItem('chartConfig', JSON.stringify(chartConfig));
   }, [chartConfig]);
 
+  // Persist the analysis. Where IndexedDB exists the snapshot goes to the
+  // session cache under the URL's cache key (minted on first save); otherwise
+  // we keep the legacy single localStorage working set.
   useEffect(() => {
     if (savingDisabledRef.current) return;
+    // Don't write before the restore above has had its say, or an empty initial
+    // state would overwrite the snapshot we are about to load.
+    if (!initialLoadDoneRef.current) return;
+    if (skipNextSaveRef.current) {
+      skipNextSaveRef.current = false;
+      return;
+    }
+
+    if (isCacheAvailable() && !cacheDisabledRef.current) {
+      if (uploadedFiles.length === 0) {
+        const staleId = sessionIdRef.current;
+        pendingSaveRef.current = null;
+        if (staleId) {
+          sessionIdRef.current = null;
+          setCacheKey(null);
+          clearCacheKey();
+          deleteCachedSession(staleId).catch(() => { /* best effort */ });
+        }
+        return;
+      }
+      // Caching mid-parse would snapshot empty metrics; the parse completion
+      // re-runs this effect a moment later.
+      if (uploadedFiles.some(file => file.isParsing)) return;
+
+      const minted = !sessionIdRef.current;
+      const id = sessionIdRef.current || generateCacheKey();
+      sessionIdRef.current = id;
+      const payload = { id, files: uploadedFiles, globalParsingConfig };
+      pendingSaveRef.current = payload;
+      const timer = setTimeout(() => {
+        if (pendingSaveRef.current === payload) pendingSaveRef.current = null;
+        saveSession(payload)
+          .then(() => {
+            setCacheKey(prev => (prev === id ? prev : id));
+            writeCacheKey(id);
+            // Explain the URL that just appeared — once per browser.
+            if (minted) {
+              try {
+                if (!localStorage.getItem(CACHE_HINT_KEY)) {
+                  localStorage.setItem(CACHE_HINT_KEY, '1');
+                  toastRef.current.info(tRef.current('sessions.firstHint'));
+                }
+              } catch { /* private mode — the hint is optional */ }
+            }
+          })
+          .catch(err => {
+            if (err && (err.name === 'QuotaExceededError' || err.code === 22)) {
+              cacheDisabledRef.current = true;
+              console.warn('Storage quota exceeded; analysis will not be cached.');
+              toastRef.current.warning(tRef.current('toast.storageQuotaExceeded'));
+            } else {
+              console.warn('Failed to cache analysis', err);
+            }
+          });
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+
     // Smart serialization: for large files, only store metricsData (not raw content).
     // Charts still render after refresh, but re-parsing requires re-upload.
     const serialized = uploadedFiles.map(({ id, name, enabled, content, config, metricsData }) => {
@@ -288,7 +442,7 @@ function App() {
         console.warn('Failed to persist uploaded files', err);
       }
     });
-  }, [uploadedFiles, t]);
+  }, [uploadedFiles, globalParsingConfig, t]);
 
   const handleFilesUploaded = useCallback((files) => {
     const filesWithDefaults = files.map(file => ({
@@ -467,12 +621,53 @@ function App() {
     setUploadedFiles([]);
   }, []);
 
+  // Open a cached analysis by its cache key (from the sessions list or a link).
+  const handleOpenSession = useCallback(async (id) => {
+    await flushPendingSave();
+    const record = await loadSession(id);
+    if (!record) {
+      toastRef.current.warning(tRef.current('sessions.notFound'));
+      return;
+    }
+    applySession(id, record);
+    // pushState, not replaceState: Back should return to the previous analysis.
+    writeCacheKey(id, { replace: false });
+  }, [applySession, flushPendingSave]);
+
+  // Start a fresh analysis while keeping the current one in the cache. Without
+  // this the only way to an empty canvas is "clear all", which throws the
+  // current snapshot away — and then the cache never holds more than one entry.
+  const handleNewAnalysis = useCallback(async () => {
+    await flushPendingSave();
+    sessionIdRef.current = null;
+    setCacheKey(null);
+    clearCacheKey();
+    setUploadedFiles([]);
+  }, [flushPendingSave]);
+
+  // Back/forward between cache links, or a link pasted into the same tab.
+  const openSessionRef = useRef(handleOpenSession);
+  useEffect(() => { openSessionRef.current = handleOpenSession; }, [handleOpenSession]);
+  useEffect(() => {
+    const onHashChange = () => {
+      const key = readCacheKey();
+      if (!key || key === sessionIdRef.current) return;
+      openSessionRef.current(key);
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
   // Reset configuration
   const handleResetConfig = useCallback(() => {
     savingDisabledRef.current = true;
     localStorage.removeItem('globalParsingConfig');
     localStorage.removeItem('chartConfig');
     clearFilesInStorage();
+    clearSessions();
+    sessionIdRef.current = null;
+    setCacheKey(null);
+    clearCacheKey();
     setGlobalParsingConfig(JSON.parse(JSON.stringify(DEFAULT_GLOBAL_PARSING_CONFIG)));
     setChartConfig({ ...DEFAULT_CHART_CONFIG });
     setUploadedFiles([]);
@@ -674,6 +869,15 @@ function App() {
                   >
                     <SettingsIcon size={13} aria-hidden="true" />
                     <span>{t('header.settings')}</span>
+                  </button>
+                  <button
+                    onClick={() => setSessionsOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md"
+                    aria-label={t('sessions.aria')}
+                    title={t('sessions.aria')}
+                  >
+                    <History size={13} aria-hidden="true" />
+                    <span>{t('header.sessions')}</span>
                   </button>
                   <button
                     onClick={() => setHelpOpen(true)}
@@ -964,6 +1168,15 @@ function App() {
           handleResetConfig();
           setSettingsOpen(false);
         }}
+      />
+
+      <SessionsModal
+        isOpen={sessionsOpen}
+        onClose={() => setSessionsOpen(false)}
+        currentKey={cacheKey}
+        onOpenSession={handleOpenSession}
+        onNewAnalysis={handleNewAnalysis}
+        hasFiles={uploadedFiles.length > 0}
       />
 
       <ShortcutHelp
