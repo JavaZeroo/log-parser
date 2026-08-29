@@ -275,5 +275,8 @@
   "sessions.current": "当前",
   "sessions.meta": "{{files}} 个文件 · {{size}} · {{time}}",
   "sessions.truncated": "文件过大，仅缓存了解析结果",
-  "sessions.notFound": "该链接对应的缓存不在此浏览器中（缓存链接仅在本机有效）。"
+  "sessions.notFound": "该链接对应的缓存不在此浏览器中（缓存链接仅在本机有效）。",
+  "sessions.newAnalysis": "新建分析（保留当前缓存）",
+  "sessions.rename": "重命名",
+  "sessions.firstHint": "本次分析已缓存，地址栏的链接可以收藏，下次直接回到这里。"
 }

@@ -34,6 +34,9 @@ import {
 } from './utils/sessionCache.js';
 import { readCacheKey, writeCacheKey, clearCacheKey, generateCacheKey } from './utils/cacheUrl.js';
 
+// One-time explainer for the cache link that appears in the address bar
+const CACHE_HINT_KEY = 'sessions.hintShown';
+
 // Threshold for "large file" - files above this won't have content persisted
 const LARGE_FILE_THRESHOLD = 5 * 1024 * 1024; // 5MB of content
 
@@ -164,6 +167,9 @@ function App() {
   // Set when state was just loaded *from* the cache, so the save effect doesn't
   // immediately write the snapshot it has only just read back.
   const skipNextSaveRef = useRef(false);
+  // The debounced write still in flight, if any. Switching analyses cancels the
+  // timer, so it has to be flushed first or the last edit is silently lost.
+  const pendingSaveRef = useRef(null);
   const [sessionsOpen, setSessionsOpen] = useState(false);
   const enabledFiles = uploadedFiles.filter(file => file.enabled);
   const workerRef = useRef(null);
@@ -253,6 +259,18 @@ function App() {
       setBaselineFile('');
     }
   }, [enabledFiles, baselineFile]);
+
+  // Write out a debounced save that has not fired yet.
+  const flushPendingSave = useCallback(async () => {
+    const pending = pendingSaveRef.current;
+    if (!pending) return;
+    pendingSaveRef.current = null;
+    try {
+      await saveSession(pending);
+    } catch {
+      // Best effort — the same failure surfaces through the save effect
+    }
+  }, []);
 
   // Apply a cached snapshot to the live app state.
   const applySession = useCallback((key, record) => {
@@ -354,6 +372,7 @@ function App() {
     if (isCacheAvailable() && !cacheDisabledRef.current) {
       if (uploadedFiles.length === 0) {
         const staleId = sessionIdRef.current;
+        pendingSaveRef.current = null;
         if (staleId) {
           sessionIdRef.current = null;
           setCacheKey(null);
@@ -366,13 +385,26 @@ function App() {
       // re-runs this effect a moment later.
       if (uploadedFiles.some(file => file.isParsing)) return;
 
+      const minted = !sessionIdRef.current;
       const id = sessionIdRef.current || generateCacheKey();
       sessionIdRef.current = id;
+      const payload = { id, files: uploadedFiles, globalParsingConfig };
+      pendingSaveRef.current = payload;
       const timer = setTimeout(() => {
-        saveSession({ id, files: uploadedFiles, globalParsingConfig })
+        if (pendingSaveRef.current === payload) pendingSaveRef.current = null;
+        saveSession(payload)
           .then(() => {
             setCacheKey(prev => (prev === id ? prev : id));
             writeCacheKey(id);
+            // Explain the URL that just appeared — once per browser.
+            if (minted) {
+              try {
+                if (!localStorage.getItem(CACHE_HINT_KEY)) {
+                  localStorage.setItem(CACHE_HINT_KEY, '1');
+                  toastRef.current.info(tRef.current('sessions.firstHint'));
+                }
+              } catch { /* private mode — the hint is optional */ }
+            }
           })
           .catch(err => {
             if (err && (err.name === 'QuotaExceededError' || err.code === 22)) {
@@ -591,6 +623,7 @@ function App() {
 
   // Open a cached analysis by its cache key (from the sessions list or a link).
   const handleOpenSession = useCallback(async (id) => {
+    await flushPendingSave();
     const record = await loadSession(id);
     if (!record) {
       toastRef.current.warning(tRef.current('sessions.notFound'));
@@ -599,7 +632,18 @@ function App() {
     applySession(id, record);
     // pushState, not replaceState: Back should return to the previous analysis.
     writeCacheKey(id, { replace: false });
-  }, [applySession]);
+  }, [applySession, flushPendingSave]);
+
+  // Start a fresh analysis while keeping the current one in the cache. Without
+  // this the only way to an empty canvas is "clear all", which throws the
+  // current snapshot away — and then the cache never holds more than one entry.
+  const handleNewAnalysis = useCallback(async () => {
+    await flushPendingSave();
+    sessionIdRef.current = null;
+    setCacheKey(null);
+    clearCacheKey();
+    setUploadedFiles([]);
+  }, [flushPendingSave]);
 
   // Back/forward between cache links, or a link pasted into the same tab.
   const openSessionRef = useRef(handleOpenSession);
@@ -1131,6 +1175,8 @@ function App() {
         onClose={() => setSessionsOpen(false)}
         currentKey={cacheKey}
         onOpenSession={handleOpenSession}
+        onNewAnalysis={handleNewAnalysis}
+        hasFiles={uploadedFiles.length > 0}
       />
 
       <ShortcutHelp

@@ -109,6 +109,26 @@ describe('local_cache_key session cache', () => {
     expect(readCacheKey()).toBe(key);
   }, 15000);
 
+  it('keeps the previous analysis cached when starting a new one', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await uploadLog(user, 'run-a.log');
+    await waitFor(() => expect(readCacheKey()).not.toBeNull(), { timeout: 4000 });
+    const firstKey = readCacheKey();
+
+    await user.click(screen.getByLabelText(i18n.t('sessions.aria')));
+    await user.click(await screen.findByText(i18n.t('sessions.newAnalysis')));
+    await waitFor(() => expect(readCacheKey()).toBeNull());
+
+    await uploadLog(user, 'run-b.log');
+    await waitFor(() => expect(readCacheKey()).not.toBeNull(), { timeout: 4000 });
+    expect(readCacheKey()).not.toBe(firstKey);
+
+    const sessions = await listSessions();
+    expect(sessions).toHaveLength(2);
+    expect(sessions.map(s => s.name).sort()).toEqual(['run-a.log', 'run-b.log']);
+  }, 15000);
+
   it('warns and drops the key when the link is not cached in this browser', async () => {
     window.location.hash = '#!/viewer?local_cache_key=11111111-2222-3333-4444-555555555555';
     render(<ToastProvider><App /></ToastProvider>);

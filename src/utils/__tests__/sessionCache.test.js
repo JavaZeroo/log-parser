@@ -9,6 +9,7 @@ import {
   deleteSession,
   clearSessions,
   pruneSessions,
+  renameSession,
   snapshotFiles,
   estimateBytes,
   deriveSessionName,
@@ -86,6 +87,17 @@ describe('sessionCache', () => {
     expect(list[0].name).toBe('b.log +1');
     expect(list[0].fileNames).toEqual(['b.log', 'c.log']);
     expect(list[0].files).toBeUndefined();
+  });
+
+  it('renames a snapshot without touching its payload', async () => {
+    await saveSession({ id: 'key-1', files: [file('a.log')] });
+    await renameSession('key-1', 'ResNet sweep');
+    const [summary] = await listSessions();
+    expect(summary.name).toBe('ResNet sweep');
+    expect((await loadSession('key-1')).files).toHaveLength(1);
+    // A later save keeps the chosen name rather than reverting to file names.
+    await saveSession({ id: 'key-1', files: [file('a.log'), file('b.log')] });
+    expect((await listSessions())[0].name).toBe('ResNet sweep');
   });
 
   it('deletes a snapshot and its summary', async () => {

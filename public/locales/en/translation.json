@@ -275,5 +275,8 @@
   "sessions.current": "Current",
   "sessions.meta": "{{files}} files · {{size}} · {{time}}",
   "sessions.truncated": "too large to cache in full — metrics only",
-  "sessions.notFound": "No cached analysis for this link in this browser (cache links are local to the machine that made them)."
+  "sessions.notFound": "No cached analysis for this link in this browser (cache links are local to the machine that made them).",
+  "sessions.newAnalysis": "New analysis (keeps the current one cached)",
+  "sessions.rename": "Rename",
+  "sessions.firstHint": "This analysis is cached — bookmark the link in the address bar to come straight back to it."
 }

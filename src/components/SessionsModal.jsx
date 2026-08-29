@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { X, History, Link2, Trash2, FolderOpen, Info } from 'lucide-react';
+import { X, History, Link2, Trash2, FolderOpen, Info, Pencil, FilePlus2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { listSessions, deleteSession, clearSessions } from '../utils/sessionCache.js';
+import { listSessions, deleteSession, clearSessions, renameSession } from '../utils/sessionCache.js';
 import { buildShareUrl } from '../utils/cacheUrl.js';
 import { useToast } from './ToastContext.jsx';
 
@@ -20,10 +20,12 @@ function formatBytes(bytes) {
 // Cached analyses, Perfetto-style: every snapshot has a `local_cache_key` link
 // that reopens it in this browser. Links are local by design — the modal says
 // so, because a "link" users can't send to a colleague needs explaining once.
-export function SessionsModal({ isOpen, onClose, currentKey, onOpenSession }) {
+export function SessionsModal({ isOpen, onClose, currentKey, onOpenSession, onNewAnalysis, hasFiles }) {
   const { t, i18n } = useTranslation();
   const toast = useToast();
   const [sessions, setSessions] = useState([]);
+  const [editingId, setEditingId] = useState(null);
+  const [draftName, setDraftName] = useState('');
   const closeBtnRef = useRef(null);
 
   const refresh = useCallback(() => {
@@ -32,9 +34,19 @@ export function SessionsModal({ isOpen, onClose, currentKey, onOpenSession }) {
 
   useEffect(() => {
     if (!isOpen) return;
+    setEditingId(null);
     refresh();
     if (closeBtnRef.current) closeBtnRef.current.focus();
   }, [isOpen, refresh]);
+
+  const commitRename = useCallback(async () => {
+    const id = editingId;
+    const name = draftName.trim();
+    setEditingId(null);
+    if (!id || !name) return;
+    await renameSession(id, name);
+    refresh();
+  }, [editingId, draftName, refresh]);
 
   const copyLink = useCallback(async (key) => {
     const url = buildShareUrl(key);
@@ -94,6 +106,17 @@ export function SessionsModal({ isOpen, onClose, currentKey, onOpenSession }) {
             <span>{t('sessions.hint')}</span>
           </p>
 
+          {(currentKey || hasFiles) && (
+            <button
+              type="button"
+              onClick={() => { onNewAnalysis(); onClose(); }}
+              className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-md border border-dashed border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <FilePlus2 size={14} aria-hidden="true" />
+              {t('sessions.newAnalysis')}
+            </button>
+          )}
+
           {currentKey && (
             <div className="rounded-md border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/40 p-3">
               <div className="text-xs font-medium text-blue-900 dark:text-blue-200 mb-1.5">
@@ -138,9 +161,32 @@ export function SessionsModal({ isOpen, onClose, currentKey, onOpenSession }) {
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                          {session.name}
-                        </span>
+                        {editingId === session.id ? (
+                          <input
+                            autoFocus
+                            value={draftName}
+                            onChange={(e) => setDraftName(e.target.value)}
+                            onBlur={commitRename}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') commitRename();
+                              if (e.key === 'Escape') setEditingId(null);
+                            }}
+                            className="input-field py-0.5 text-sm flex-1 min-w-0"
+                            aria-label={t('sessions.rename')}
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => { setEditingId(session.id); setDraftName(session.name); }}
+                            className="group flex items-center gap-1.5 min-w-0 text-left focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                            title={t('sessions.rename')}
+                          >
+                            <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                              {session.name}
+                            </span>
+                            <Pencil size={11} className="shrink-0 text-gray-400 opacity-0 group-hover:opacity-100" aria-hidden="true" />
+                          </button>
+                        )}
                         {isCurrent && (
                           <span className="shrink-0 text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-blue-600 text-white">
                             {t('sessions.current')}
