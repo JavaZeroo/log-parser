@@ -1,19 +1,29 @@
 // Shared IndexedDB handle for the app.
 //
-// Three object stores live in one database and therefore must be created by a
+// The object stores live in one database and therefore must be created by a
 // single upgrade path — two modules opening the same database at different
 // versions would make the older opener fail with a VersionError:
 //   files        – the single active working set (fileStorage.js)
-//   sessions     – full cached snapshots keyed by cache key (sessionCache.js)
-//   sessionIndex – lightweight summaries so the session list can render
-//                  without deserializing megabytes of log content
+//   sessionIndex – lightweight summaries, so listing cached analyses never
+//                  touches log text
+//   sessions     – per-analysis metadata: file names, enabled flags, configs,
+//                  and references into the two stores below
+//   content      – one record per file, holding the raw log
+//   metrics      – one record per file, holding parsed series as typed arrays
+//
+// Content and metrics are split out of the session record on purpose: they are
+// large and rarely change, while the session record is small and rewritten on
+// every checkbox toggle. Keeping them together made a toggle rewrite hundreds
+// of megabytes (measured at ~1.5s per 100MB); split, it writes ~1ms.
 
 const DB_NAME = 'log-parser';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export const FILES_STORE = 'files';
 export const SESSIONS_STORE = 'sessions';
 export const SESSION_INDEX_STORE = 'sessionIndex';
+export const CONTENT_STORE = 'content';
+export const METRICS_STORE = 'metrics';
 
 export function hasIDB() {
   return typeof indexedDB !== 'undefined';
@@ -37,6 +47,12 @@ export function openDB() {
         if (!db.objectStoreNames.contains(SESSION_INDEX_STORE)) {
           const idx = db.createObjectStore(SESSION_INDEX_STORE, { keyPath: 'id' });
           idx.createIndex('lastAccess', 'lastAccess');
+        }
+        if (!db.objectStoreNames.contains(CONTENT_STORE)) {
+          db.createObjectStore(CONTENT_STORE);
+        }
+        if (!db.objectStoreNames.contains(METRICS_STORE)) {
+          db.createObjectStore(METRICS_STORE);
         }
       };
       req.onsuccess = () => resolve(req.result);

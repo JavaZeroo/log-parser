@@ -36,7 +36,16 @@ This document provides comprehensive guidance for AI assistants (like Claude) wo
      IndexedDB under a UUID and addressed by `#!/viewer?local_cache_key=<uuid>`
    - Reload, bookmark or a second tab reopens the same logs without re-uploading
    - Local to the browser by design — nothing is uploaded anywhere
-   - LRU eviction by age (30d), count (20) and total bytes (192MB)
+   - Four stores, split by write frequency: `sessionIndex` (summaries, so
+     listing never reads log text), `sessions` (small metadata), `content`
+     (one record per file, UTF-8 bytes), `metrics` (one record per file,
+     Float64Array pairs). Content and metrics are written only when they
+     actually change, so a checkbox toggle writes ~4ms regardless of how many
+     hundreds of MB are cached
+   - LRU eviction by age (30d), count (20) and bytes (min of 2GB and half the
+     origin's quota); `navigator.storage.persist()` is requested best-effort
+   - Out of space: evict other analyses, then keep the parsed series and drop
+     the raw logs (charts still render; files are flagged for re-upload)
 
 4. **Global Drag-and-Drop**
    - Full-page drag overlay for intuitive file uploads

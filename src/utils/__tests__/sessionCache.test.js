@@ -1,7 +1,7 @@
 // jsdom has no IndexedDB, so this suite runs the real store logic against
 // fake-indexeddb — the same code path browsers take.
 import 'fake-indexeddb/auto';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   saveSession,
   loadSession,
@@ -10,16 +10,20 @@ import {
   clearSessions,
   pruneSessions,
   renameSession,
-  snapshotFiles,
+  planWrites,
+  packMetrics,
+  unpackMetrics,
+  metricsFingerprint,
   estimateBytes,
   deriveSessionName,
   isCacheAvailable,
   MAX_SESSIONS,
-  MAX_SESSION_BYTES,
   MAX_AGE_MS
 } from '../sessionCache';
 
-function file(name, content = 'loss: 1\n', metrics = { Loss: [{ x: 0, y: 1 }] }) {
+const SERIES = [{ x: 0, y: 1 }, { x: 1, y: 0.5 }];
+
+function file(name, content = 'loss: 1\n', metrics = { Loss: SERIES }) {
   return {
     id: name,
     name,
@@ -29,8 +33,7 @@ function file(name, content = 'loss: 1\n', metrics = { Loss: [{ x: 0, y: 1 }] })
     metricsData: metrics,
     // runtime-only fields that must not be persisted
     isParsing: true,
-    progress: 0.5,
-    file: { fake: true }
+    progress: 0.5
   };
 }
 
@@ -53,7 +56,7 @@ describe('sessionCache', () => {
     expect(record.files).toHaveLength(1);
     expect(record.files[0].name).toBe('a.log');
     expect(record.files[0].content).toBe('loss: 1\n');
-    expect(record.files[0].metricsData.Loss).toEqual([{ x: 0, y: 1 }]);
+    expect(record.files[0].metricsData.Loss).toEqual(SERIES);
     expect(record.globalParsingConfig.stepKeyword).toBe('iter:');
   });
 
@@ -62,7 +65,6 @@ describe('sessionCache', () => {
     const record = await loadSession('key-1');
     expect(record.files[0].isParsing).toBeUndefined();
     expect(record.files[0].progress).toBeUndefined();
-    expect(record.files[0].file).toBeUndefined();
   });
 
   it('returns null for an unknown key', async () => {
@@ -76,6 +78,13 @@ describe('sessionCache', () => {
     expect(list).toHaveLength(1);
     expect(list[0].fileCount).toBe(2);
     expect(list[0].createdAt).toBe(first.createdAt);
+  });
+
+  it('drops the records of files removed from a session', async () => {
+    await saveSession({ id: 'key-1', files: [file('a.log'), file('b.log')] });
+    await saveSession({ id: 'key-1', files: [file('a.log')] });
+    const record = await loadSession('key-1');
+    expect(record.files.map(f => f.name)).toEqual(['a.log']);
   });
 
   it('lists summaries newest first, without file contents', async () => {
@@ -134,23 +143,78 @@ describe('sessionCache', () => {
     expect(await listSessions()).toEqual([]);
   });
 
-  it('drops raw content for snapshots over the per-session ceiling', async () => {
-    const huge = 'x'.repeat(MAX_SESSION_BYTES + 1);
-    const snapshot = snapshotFiles([file('big.log', huge)]);
-    expect(snapshot[0].content).toBeNull();
-    expect(snapshot[0].isLargeFile).toBe(true);
-    // Parsed metrics survive, so charts still render after a reload.
-    expect(snapshot[0].metricsData.Loss).toHaveLength(1);
-
-    await saveSession({ id: 'key-big', files: [file('big.log', huge)] });
-    const [summary] = await listSessions();
-    expect(summary.truncated).toBe(true);
+  it('evicts past the byte ceiling, least recently used first', async () => {
+    const t0 = Date.now();
+    await saveSession({ id: 'small-old', files: [file('a.log', 'x'.repeat(1000))], now: t0 });
+    await saveSession({ id: 'small-new', files: [file('b.log', 'x'.repeat(1000))], now: t0 + 1000 });
+    const evicted = await pruneSessions({ budget: 1500, now: t0 + 2000 });
+    expect(evicted).toEqual(['small-old']);
+    expect((await listSessions()).map(s => s.id)).toEqual(['small-new']);
   });
 
-  it('sizes a snapshot from content and point counts', () => {
+  describe('incremental writes', () => {
+    // Writing content and metrics on every state change is what made the first
+    // version unusable with many large logs; these are the rules that stop it.
+    it('writes content and metrics on the first save', () => {
+      const plan = planWrites([file('a.log')], null, 'key-1');
+      expect(plan.contentWrites).toHaveLength(1);
+      expect(plan.metricsWrites).toHaveLength(1);
+    });
+
+    it('writes nothing but metadata when only a checkbox changed', () => {
+      const first = planWrites([file('a.log')], null, 'key-1');
+      const previous = { files: first.entries };
+      const toggled = { ...file('a.log'), enabled: false };
+      const plan = planWrites([toggled], previous, 'key-1');
+      expect(plan.contentWrites).toEqual([]);
+      expect(plan.metricsWrites).toEqual([]);
+      expect(plan.entries[0].enabled).toBe(false);
+    });
+
+    it('does not even encode content it is not going to write', () => {
+      // Encoding first and deciding after is the same cost as writing: it put
+      // seconds back into every checkbox toggle once before.
+      const first = planWrites([file('a.log')], null, 'key-1');
+      const encode = vi.spyOn(TextEncoder.prototype, 'encode');
+      planWrites([{ ...file('a.log'), enabled: false }], { files: first.entries }, 'key-1');
+      expect(encode).not.toHaveBeenCalled();
+      encode.mockRestore();
+    });
+
+    it('rewrites metrics — and only metrics — after a re-parse', () => {
+      const first = planWrites([file('a.log')], null, 'key-1');
+      const previous = { files: first.entries };
+      const reparsed = { ...file('a.log'), metricsData: { Loss: [{ x: 0, y: 9 }] } };
+      const plan = planWrites([reparsed], previous, 'key-1');
+      expect(plan.contentWrites).toEqual([]);
+      expect(plan.metricsWrites).toHaveLength(1);
+    });
+
+    it('reports files that dropped out of the session', () => {
+      const first = planWrites([file('a.log'), file('b.log')], null, 'key-1');
+      const plan = planWrites([file('a.log')], { files: first.entries }, 'key-1');
+      expect(plan.staleIds).toEqual(['b.log']);
+    });
+  });
+
+  it('packs and unpacks series losslessly', () => {
+    const metrics = { Loss: [{ x: 0, y: 1.5 }, { x: 10, y: -2.25e-8 }] };
+    const packed = packMetrics(metrics);
+    expect(packed.Loss.x).toBeInstanceOf(Float64Array);
+    expect(unpackMetrics(packed)).toEqual(metrics);
+  });
+
+  it('fingerprints a parse by count and endpoints', () => {
+    const a = metricsFingerprint({ Loss: SERIES });
+    expect(metricsFingerprint({ Loss: [...SERIES] })).toBe(a);
+    expect(metricsFingerprint({ Loss: [...SERIES, { x: 2, y: 3 }] })).not.toBe(a);
+    expect(metricsFingerprint({ Loss: [{ x: 0, y: 1 }, { x: 1, y: 0.6 }] })).not.toBe(a);
+  });
+
+  it('sizes a snapshot from content bytes and point counts', () => {
     expect(estimateBytes([])).toBe(0);
-    const bytes = estimateBytes([{ name: 'a', content: 'abcde', metricsData: { L: [1, 2, 3] } }]);
-    expect(bytes).toBe(5 + 1 + 3 * 40);
+    expect(estimateBytes([{ content: 'abcde', metricsData: { L: [1, 2, 3] } }])).toBe(5 + 3 * 16);
+    expect(estimateBytes([{ content: 'ab', metricsData: {} }])).toBe(2);
   });
 
   it('names a session after its files', () => {
