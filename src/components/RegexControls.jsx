@@ -1,14 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Settings, Zap, Eye, Plus, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { Settings, Zap, Eye, Plus, X, Loader2 } from 'lucide-react';
 import { METRIC_PRESETS } from '../metricPresets.js';
 import { useTranslation, Trans } from 'react-i18next';
-import { ValueExtractor } from '../utils/ValueExtractor';
-import { MATCH_MODES, getMetricTitle } from '../utils/metricHelpers';
+import { useMetricAnalysis } from '../utils/useMetricAnalysis.js';
+import { MATCH_MODES } from '../utils/metricHelpers';
 import { CollapsibleCardHeader } from './CollapsibleCardHeader.jsx';
 import { SmoothCollapse } from './SmoothCollapse.jsx';
 import { useCollapsedSection } from '../utils/useCollapsedSection.js';
-
-
 
 export function RegexControls({
   globalParsingConfig,
@@ -22,103 +20,12 @@ export function RegexControls({
   collapseId
 }) {
   const [showPreview, setShowPreview] = useState(false);
-  const [previewResults, setPreviewResults] = useState({});
+  const { results, failed, hasSources, recommend, recommending } = useMetricAnalysis(
+    uploadedFiles, globalParsingConfig.metrics, showPreview, onGlobalParsingConfigChange
+  );
   const { t } = useTranslation();
   const [open, setOpen] = useCollapsedSection(collapseId, true);
   const collapsible = Boolean(collapseId);
-
-  const handleStepToggle = useCallback((checked) => {
-    onGlobalParsingConfigChange({
-      ...globalParsingConfig,
-      useStepKeyword: checked
-    });
-  }, [globalParsingConfig, onGlobalParsingConfigChange]);
-
-  const handleStepKeywordChange = useCallback((value) => {
-    onGlobalParsingConfigChange({
-      ...globalParsingConfig,
-      stepKeyword: value
-    });
-  }, [globalParsingConfig, onGlobalParsingConfigChange]);
-
-  // Generic function to extract numbers
-  const extractValues = useCallback((content, mode, config) => {
-    switch (mode) {
-      case MATCH_MODES.KEYWORD:
-        return ValueExtractor.extractByKeyword(content, config.keyword);
-      case MATCH_MODES.REGEX:
-        return ValueExtractor.extractByRegex(content, config.regex);
-      default:
-        return [];
-    }
-  }, []);
-
-  // Preview match results
-  const previewMatches = useCallback(() => {
-    const results = {};
-
-    uploadedFiles.forEach(file => {
-      if (file.content) {
-        globalParsingConfig.metrics.forEach((cfg, idx) => {
-          const matches = extractValues(file.content, cfg.mode, cfg);
-          const key = getMetricTitle(cfg, idx);
-          if (!results[key]) results[key] = [];
-          results[key].push({
-            fileName: file.name,
-            count: matches.length,
-            examples: matches.slice(0, 3).map(m => ({
-              value: m.value,
-              line: m.line,
-              text: m.text,
-              format: m.format
-            }))
-          });
-        });
-      }
-    });
-
-    setPreviewResults(results);
-  }, [uploadedFiles, globalParsingConfig, extractValues]);
-
-  // Smartly recommend best config
-  const smartRecommend = useCallback(() => {
-    if (uploadedFiles.length === 0) return;
-
-    const allContent = uploadedFiles.map(f => f.content).join('\n');
-
-    const newMetrics = globalParsingConfig.metrics.map(m => ({ ...m }));
-
-    if (newMetrics[0]) {
-      let maxCount = 0;
-      ['loss', 'training_loss', 'train_loss'].forEach(keyword => {
-        const matches = ValueExtractor.extractByKeyword(allContent, keyword);
-        if (matches.length > maxCount) {
-          maxCount = matches.length;
-          newMetrics[0] = { ...newMetrics[0], mode: MATCH_MODES.KEYWORD, keyword };
-        }
-      });
-    }
-
-    if (newMetrics[1]) {
-      let maxCount = 0;
-      ['grad_norm', 'gradient_norm', 'gnorm', 'global_norm'].forEach(keyword => {
-        const matches = ValueExtractor.extractByKeyword(allContent, keyword);
-        if (matches.length > maxCount) {
-          maxCount = matches.length;
-          newMetrics[1] = { ...newMetrics[1], mode: MATCH_MODES.KEYWORD, keyword };
-        }
-      });
-    }
-
-    onGlobalParsingConfigChange({ metrics: newMetrics });
-  }, [uploadedFiles, globalParsingConfig, onGlobalParsingConfigChange]);
-
-  // Update preview when config changes
-  useEffect(() => {
-    if (showPreview) {
-      previewMatches();
-    }
-  }, [showPreview, previewMatches]);
 
   // Handle config change
   const handleMetricChange = (index, field, value) => {
@@ -233,15 +140,18 @@ export function RegexControls({
     <>
       {uploadedFiles.length > 0 && (
         <button
-          onClick={smartRecommend}
+          onClick={recommend}
+          disabled={!hasSources || recommending}
+          aria-busy={recommending}
           className="p-1 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900 rounded transition-colors"
           title={t('regex.smartRecommend')}
         >
-          <Zap size={14} />
+          {recommending ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
         </button>
       )}
       <button
-        onClick={() => setShowPreview(!showPreview)}
+        onClick={() => setShowPreview(value => !value)}
+        aria-pressed={showPreview}
         className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900 rounded transition-colors"
         title={t('regex.previewMatches')}
       >
@@ -304,7 +214,7 @@ export function RegexControls({
               type="checkbox"
               className="mr-1.5 checkbox"
               checked={globalParsingConfig.useStepKeyword || false}
-              onChange={(e) => handleStepToggle(e.target.checked)}
+              onChange={(e) => onGlobalParsingConfigChange({ useStepKeyword: e.target.checked })}
             />
             {t('useStepKeyword')}
           </label>
@@ -313,7 +223,7 @@ export function RegexControls({
               type="text"
               className="flex-1 input-field font-mono min-w-0"
               value={globalParsingConfig.stepKeyword || ''}
-              onChange={(e) => handleStepKeywordChange(e.target.value)}
+              onChange={(e) => onGlobalParsingConfigChange({ stepKeyword: e.target.value })}
               placeholder={t('placeholder.step')}
               aria-label={t('useStepKeyword')}
             />
@@ -386,12 +296,14 @@ export function RegexControls({
         </div>
 
         {/* Preview results — only when toggled via eye icon */}
+        {failed && <p role="alert" className="text-xs text-red-600">{t('regex.analysisError')}</p>}
         {showPreview && uploadedFiles.length > 0 && (
           <div className="mt-1 p-2 bg-blue-50 dark:bg-blue-950 rounded border border-blue-200 dark:border-blue-800">
             <h4 className="text-xs font-medium text-blue-800 dark:text-blue-200 mb-1.5">{t('regex.matchPreview')}</h4>
-            <div className="space-y-2 text-xs">
-              {Object.entries(previewResults).map(([key, results]) => (
-                results.map((result, idx) => (
+            {hasSources && !results && !failed && <p role="status" className="text-xs">{t('regex.previewLoading')}</p>}
+            <div className="space-y-2 text-xs" aria-busy={hasSources && !results && !failed}>
+              {Object.entries(results || {}).map(([key, rows]) => (
+                rows.map((result, idx) => (
                   <div key={`${key}-${idx}`} className="border-l-2 border-blue-300 dark:border-blue-700 pl-2">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium text-blue-700 dark:text-blue-300 truncate">{key} · {result.fileName}</span>

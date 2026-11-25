@@ -1,6 +1,7 @@
 // Exercise the same parsing, chart comparison and CSV code used by the app.
 import assert from 'node:assert/strict';
 import { performance } from 'node:perf_hooks';
+import { previewMatches, recommendKeywords } from '../src/utils/metricAnalysis.js';
 import { parseLog } from '../src/utils/parseLog.js';
 import { compareSeries } from '../src/utils/compareSeries.js';
 import { buildChartCSV } from '../src/utils/chartExport.js';
@@ -47,6 +48,17 @@ function benchmarkParser(count, repetitions) {
 for (const count of [10_000, 50_000, 100_000, 500_000, 1_000_000]) {
   benchmarkParser(count, count === 100_000 ? 5 : 1);
 }
+
+const analysisCount = 100_000;
+const analysisFiles = [{ name: 'preview.log', content: 'loss: 0.25 grad_norm: 0.5\n'.repeat(analysisCount) }];
+measure('Preview 100000 lines × 2 metrics', () => previewMatches(analysisFiles, config.metrics.slice(0, 2)), result => {
+  for (const [row] of Object.values(result)) {
+    assert.equal(row.count, analysisCount);
+    assert.deepEqual(row.examples.map(example => example.line), [1, 2, 3]);
+  }
+});
+measure('Recommend keywords over 100000 lines', () => recommendKeywords(analysisFiles, 2),
+  keywords => assert.deepEqual(keywords, ['loss', 'grad_norm']));
 
 const pointCount = 100_000;
 const base = Array.from({ length: pointCount }, (_, i) => ({ x: i * 2, y: i % 100 + 1 }));

@@ -21,7 +21,7 @@ This document provides comprehensive guidance for AI assistants (like Claude) wo
 
 2. **Web Worker for Performance**
    - Log parsing runs in a dedicated Web Worker (`src/workers/logParser.worker.js`)
-   - Prevents UI blocking during heavy parsing operations
+   - Match previews and keyword recommendations run in a separate on-demand worker. It counts every match and keeps up to three examples per file and metric.
    - Communication via postMessage/onmessage pattern
 
 3. **LocalStorage Persistence**
@@ -58,7 +58,8 @@ This document provides comprehensive guidance for AI assistants (like Claude) wo
 │   │   ├── getMinSteps.js      # Chart step calculation
 │   │   └── mergeFiles.js       # File merging logic
 │   ├── workers/
-│   │   └── logParser.worker.js # Web Worker for parsing
+│   │   ├── logParser.worker.js      # Produces chart series
+│   │   └── metricAnalysis.worker.js # Produces previews and recommendations
 │   ├── App.jsx            # Main application component
 │   ├── i18n.js           # i18next configuration
 │   ├── main.jsx          # Application entry point
@@ -100,7 +101,7 @@ This document provides comprehensive guidance for AI assistants (like Claude) wo
 
 ### logParser.worker.js (Web Worker)
 - **Message Handler**: Receives `PARSE_FILE` messages with fileId, content, config
-- **Parsing Loop**: Iterates through metrics, calls ValueExtractor methods
+- Scans log lines with the same compiled metric matchers used by the preview.
 - **Step Extraction**: Optional step keyword parsing for x-axis values
 - **Result Posting**: Sends `PARSE_COMPLETE` or `PARSE_ERROR` back to main thread
 

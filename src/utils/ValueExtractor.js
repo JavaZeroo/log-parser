@@ -44,6 +44,11 @@ export function compileValueMatcher(mode, pattern) {
   };
 }
 
+export function compileMetricMatcher(metric) {
+  if (metric.mode === MATCH_MODES.KEYWORD) return compileValueMatcher(metric.mode, metric.keyword);
+  return metric.regex ? compileValueMatcher(metric.mode, metric.regex) : null;
+}
+
 function collectMatches(lines, mode, pattern) {
   const results = [];
   if (lines.length === 0) return results;

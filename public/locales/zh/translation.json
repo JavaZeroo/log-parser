@@ -177,6 +177,8 @@
   "regex.reset": "复位",
   "regex.xRangeHint": "在图表上按住 <0>Shift</0> 键并拖动鼠标可选择范围，或直接输入数值。",
   "regex.yRangeHint": "留空即自动缩放，也可以输入一个或两个边界手动固定 Y 轴范围。",
+  "regex.analysisError": "日志分析失败，请重试。",
+  "regex.previewLoading": "正在查找匹配项…",
   "regex.matchPreview": "匹配预览",
   "regex.matchCount": "({{count}} 个匹配)",
   "regex.lineNumber": "(第{{line}}行)",

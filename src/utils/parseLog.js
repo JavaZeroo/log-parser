@@ -1,4 +1,4 @@
-import { compileKeyword, compileValueMatcher, MATCH_MODES } from './ValueExtractor.js';
+import { compileKeyword, compileMetricMatcher, MATCH_MODES } from './ValueExtractor.js';
 
 export function getMetricTitle(metric, index) {
   if (metric.name && metric.name.trim()) return metric.name.trim();
@@ -12,13 +12,12 @@ export function getMetricTitle(metric, index) {
 
 export function parseLog(content, config, onProgress) {
   if (typeof content !== 'string') throw new TypeError('Expected log content to be a string');
-  const series = config.metrics.map((metric, index) => {
-    const isKeyword = metric.mode === MATCH_MODES.KEYWORD;
-    const match = isKeyword || metric.regex
-      ? compileValueMatcher(metric.mode, isKeyword ? metric.keyword : metric.regex)
-      : null;
-    return { name: getMetricTitle(metric, index), points: [], match, isKeyword };
-  });
+  const series = config.metrics.map((metric, index) => ({
+    name: getMetricTitle(metric, index),
+    match: compileMetricMatcher(metric),
+    isKeyword: metric.mode === MATCH_MODES.KEYWORD,
+    points: []
+  }));
   const matchStep = config.useStepKeyword
     ? compileKeyword(config.stepKeyword || 'step:', /[+-]?\d+/g)
     : null;
