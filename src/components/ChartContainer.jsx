@@ -871,8 +871,7 @@ const ChartContainer = forwardRef(function ChartContainer({
     };
   };
 
-  const renderMetric = (metric, idx) => {
-    const key = metric.name || metric.keyword || `metric${idx + 1}`;
+  const renderMetric = (key, idx) => {
     const dataArray = metricDataArrays[key] || [];
     const showComparison = dataArray.length >= 2;
 
@@ -1230,7 +1229,7 @@ const ChartContainer = forwardRef(function ChartContainer({
   // shows only the charts themselves, no global export chrome.
   return (
     <div className="grid grid-cols-2 gap-3">
-      {metrics.map(renderMetric)}
+      {metricNames.map(renderMetric)}
     </div>
   );
 });

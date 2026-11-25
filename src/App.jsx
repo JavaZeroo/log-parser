@@ -22,6 +22,7 @@ import { PanelLeftClose, PanelLeftOpen, HelpCircle, Settings as SettingsIcon, Gi
 import { mergeFilesWithReplacement } from './utils/mergeFiles.js';
 import { useToast } from './components/ToastContext.jsx';
 import { loadFiles as loadFilesFromStorage, saveFiles as saveFilesToStorage, clearFiles as clearFilesInStorage } from './utils/fileStorage.js';
+import { updateFileConfig } from './utils/fileParsingConfig.js';
 import { detectAnomalies } from './utils/anomalyDetection.js';
 
 // Threshold for "large file" - files above this won't have content persisted
@@ -72,7 +73,7 @@ function restoreFile(file, defaults) {
   const isParsing = hasSource && Object.keys(metricsData).length === 0;
   return {
     ...file,
-    config: { ...defaults, ...file.config },
+    config: { ...defaults, ...file.config, metrics: file.config?.metrics ?? defaults.metrics },
     enabled: file.enabled ?? true,
     isParsing,
     progress: isParsing ? 0 : undefined,
@@ -95,8 +96,12 @@ function App() {
 
   // Global parsing configuration state
   const [globalParsingConfig, setGlobalParsingConfig] = useState(() => {
-    const stored = localStorage.getItem('globalParsingConfig');
-    return stored ? JSON.parse(stored) : JSON.parse(JSON.stringify(DEFAULT_GLOBAL_PARSING_CONFIG));
+    try {
+      const saved = JSON.parse(localStorage.getItem('globalParsingConfig'));
+      return { ...DEFAULT_GLOBAL_PARSING_CONFIG, ...saved, metrics: saved?.metrics ?? DEFAULT_GLOBAL_PARSING_CONFIG.metrics };
+    } catch {
+      return DEFAULT_GLOBAL_PARSING_CONFIG;
+    }
   });
 
   const initialParsingConfig = useRef(globalParsingConfig);
@@ -290,7 +295,7 @@ function App() {
       progress: 0,
       config: {
         // Use global parsing config as default values
-        metrics: globalParsingConfig.metrics.map(m => ({ ...m })),
+        metrics: globalParsingConfig.metrics,
         dataRange: {
           start: 0,        // start from first data point by default
           end: undefined,  // default to last data point
@@ -352,12 +357,7 @@ function App() {
   }, []);
 
   const handleConfigSave = useCallback((fileId, config) => {
-    setUploadedFiles(prev => prev.map(file => {
-      if (file.id === fileId) {
-        return { ...file, config, isParsing: typeof file.content === 'string', progress: 0 };
-      }
-      return file;
-    }));
+    setUploadedFiles(prev => prev.map(file => file.id === fileId ? updateFileConfig(file, config) : file));
   }, []);
 
   const handleConfigClose = useCallback(() => {
@@ -365,38 +365,25 @@ function App() {
     setConfigFile(null);
   }, []);
 
-  // Handle global parsing config changes
-  const handleGlobalParsingConfigChange = useCallback((newConfig) => {
-    setGlobalParsingConfig(newConfig);
-
-    // Sync parsing config to files that still use the global metrics
-    setUploadedFiles(prev => {
-      const newFiles = prev.map(file => {
-        const fileConfig = file.config || {};
-        const usesGlobalMetrics = !fileConfig.metrics ||
-          JSON.stringify(fileConfig.metrics) === JSON.stringify(globalParsingConfig.metrics);
-
-        if (usesGlobalMetrics || newConfig.useStepKeyword !== globalParsingConfig.useStepKeyword || newConfig.stepKeyword !== globalParsingConfig.stepKeyword) {
-          const newFileConfig = {
-            ...fileConfig,
-            ...(usesGlobalMetrics && {
-              metrics: newConfig.metrics.map(m => ({ ...m }))
-            }),
-            useStepKeyword: newConfig.useStepKeyword,
-            stepKeyword: newConfig.stepKeyword
-          };
-
-          return {
-            ...file,
-            config: newFileConfig,
-            isParsing: typeof file.content === 'string',
-            progress: 0
-          };
-        }
-        return file;
+  const handleGlobalParsingConfigChange = useCallback((patch) => {
+    const next = { ...globalParsingConfig, ...patch };
+    setGlobalParsingConfig(next);
+    const metricsChanged = next.metrics !== globalParsingConfig.metrics;
+    const toggleChanged = next.useStepKeyword !== globalParsingConfig.useStepKeyword;
+    const keywordChanged = next.stepKeyword !== globalParsingConfig.stepKeyword;
+    const previousMetrics = metricsChanged ? JSON.stringify(globalParsingConfig.metrics) : null;
+    setUploadedFiles(prev => prev.map(file => {
+      const config = file.config;
+      const inheritMetrics = metricsChanged && (config.metrics === globalParsingConfig.metrics ||
+        JSON.stringify(config.metrics) === previousMetrics);
+      if (!inheritMetrics && !toggleChanged && !keywordChanged) return file;
+      return updateFileConfig(file, {
+        ...config,
+        ...(inheritMetrics && { metrics: next.metrics }),
+        ...(toggleChanged && { useStepKeyword: next.useStepKeyword }),
+        ...(keywordChanged && { stepKeyword: next.stepKeyword })
       });
-      return newFiles;
-    });
+    }));
   }, [globalParsingConfig]);
 
   // Global keyboard shortcuts. Memoized handlers via inline functions —

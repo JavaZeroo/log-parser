@@ -95,6 +95,28 @@ describe('App configuration persistence', () => {
     }
   });
 
+  it('renames cached series without a parse and keeps the configured step axis', async ({ onTestFinished }) => {
+    const metric = { name: '', mode: 'keyword', keyword: 'loss:' };
+    const config = { metrics: [metric], useStepKeyword: true, stepKeyword: 'iter:' };
+    const points = [{ x: 100, y: 2 }, { x: 300, y: 1 }];
+    localStorage.setItem('globalParsingConfig', JSON.stringify(config));
+    localStorage.setItem('uploadedFiles', JSON.stringify([
+      { id: 'large', name: 'cache.log', config, content: null, isLargeFile: true, metricsData: { loss: points } }
+    ]));
+    const post = vi.spyOn(Worker.prototype, 'postMessage');
+    onTestFinished(() => post.mockRestore());
+    render(<App />);
+    await screen.findByText('cache.log');
+    fireEvent.change(screen.getByLabelText(i18n.t('regex.metricName')), { target: { value: 'Train loss' } });
+    await waitFor(() => {
+      const [file] = JSON.parse(localStorage.getItem('uploadedFiles'));
+      expect(file.metricsData).toEqual({ 'Train loss': points });
+      expect(file.config).toMatchObject({ useStepKeyword: true, stepKeyword: 'iter:' });
+      expect(JSON.parse(localStorage.getItem('globalParsingConfig'))).toEqual(file.config);
+    });
+    expect(post).not.toHaveBeenCalled();
+  });
+
   it('updates progress without rewriting files and scans for anomalies only when enabled', async ({ onTestFinished }) => {
     stubFileReader('loss: 1');
     const post = vi.spyOn(Worker.prototype, 'postMessage');

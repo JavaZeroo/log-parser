@@ -149,7 +149,7 @@ describe('ChartContainer', () => {
         config: { dataRange: { start: 1, end: 3 } },
         metricsData: {
           'loss': [{ x: 0, y: 1 }, { x: 1, y: 2 }, { x: 2, y: 3 }],
-          'metric2': [{ x: 3, y: 4 }, { x: 4, y: 5 }]
+          'accd': [{ x: 3, y: 4 }, { x: 4, y: 5 }]
         }
       },
       {
@@ -159,12 +159,12 @@ describe('ChartContainer', () => {
         config: { dataRange: { start: 1, end: 3 } },
         metricsData: {
           'loss': [{ x: 0, y: 2 }, { x: 1, y: 4 }],
-          'metric2': [{ x: 2, y: 6 }, { x: 3, y: 8 }]
+          'accd': [{ x: 2, y: 6 }, { x: 3, y: 8 }]
         }
       }
     ];
     const metrics = [
-      { keyword: 'loss', mode: 'keyword' },
+      { keyword: 'loss:', mode: 'keyword' },
       { regex: 'acc:(\\d+)', mode: 'regex' },
       {}
     ];
@@ -181,7 +181,7 @@ describe('ChartContainer', () => {
 
     // metric titles
     expect(screen.getAllByText(/loss/)[0]).toBeTruthy();
-    screen.getByText(/metric2/);
+    expect(screen.getAllByText(/accd/)[0]).toBeTruthy();
     screen.getByText(/metric3/);
 
     // data range applied (start 1 end 3 => 2 points for loss)
