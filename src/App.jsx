@@ -91,6 +91,7 @@ function App() {
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [filesLoaded, setFilesLoaded] = useState(false);
   const discardRestoreRef = useRef(false);
+  const lastSnapshot = useRef([]);
 
   // Global parsing configuration state
   const [globalParsingConfig, setGlobalParsingConfig] = useState(() => {
@@ -223,15 +224,15 @@ function App() {
     let cancelled = false;
     loadFilesFromStorage().then(files => {
       if (!cancelled && !discardRestoreRef.current && files.length) {
+        lastSnapshot.current = files;
         const restored = files.map(file => restoreFile(file, initialParsingConfig.current));
         setUploadedFiles(prev => {
           const newNames = new Set(prev.map(file => file.name));
           return [...restored.filter(file => !newNames.has(file.name)), ...prev];
         });
       }
-    }).catch(err => console.warn('Failed to restore uploaded files', err)).finally(() => {
       if (!cancelled) setFilesLoaded(true);
-    });
+    }).catch(err => console.warn('Failed to restore uploaded files', err));
     return () => { cancelled = true; };
   }, []);
 
@@ -250,9 +251,15 @@ function App() {
     if (!filesLoaded || savingDisabledRef.current) return;
     // Smart serialization: for large files, only store metricsData (not raw content).
     // Charts still render after refresh, but re-parsing requires re-upload.
-    const serialized = uploadedFiles.map(({ id, name, enabled, content, config, metricsData }) => {
+    const prior = new Map(lastSnapshot.current.map(file => [file.name, file]));
+    const serialized = uploadedFiles.flatMap(({ id, name, enabled, content, config, metricsData, isParsing, error }) => {
       const isLargeFile = typeof content !== 'string' || content.length > LARGE_FILE_THRESHOLD;
-      return {
+      if (isLargeFile && (isParsing || error)) {
+        // A replacement must finish before it supersedes the last usable cache.
+        const cached = prior.get(name);
+        return cached ? [{ ...cached, enabled }] : [];
+      }
+      return [{
         id,
         name,
         enabled,
@@ -260,8 +267,9 @@ function App() {
         config,
         metricsData: isLargeFile ? metricsData : undefined,
         isLargeFile
-      };
+      }];
     });
+    lastSnapshot.current = serialized;
     saveFilesToStorage(serialized).catch(err => {
       if (err && (err.name === 'QuotaExceededError' || err.code === 22)) {
         savingDisabledRef.current = true;
@@ -418,10 +426,11 @@ function App() {
   // Reset configuration
   const handleResetConfig = useCallback(() => {
     discardRestoreRef.current = true;
+    lastSnapshot.current = [];
     savingDisabledRef.current = true;
     localStorage.removeItem('globalParsingConfig');
     localStorage.removeItem('chartConfig');
-    clearFilesInStorage();
+    clearFilesInStorage().catch(err => console.warn('Failed to clear uploaded files', err));
     setGlobalParsingConfig(JSON.parse(JSON.stringify(DEFAULT_GLOBAL_PARSING_CONFIG)));
     setChartConfig({ ...DEFAULT_CHART_CONFIG });
     setUploadedFiles([]);

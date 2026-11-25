@@ -1,154 +1,200 @@
-// File persistence layer. Prefers IndexedDB (multi-MB capacity) and falls back
-// to localStorage where IndexedDB is unavailable (e.g. jsdom tests, restricted
-// contexts). All keys are stable so legacy localStorage data is migrated on
-// first IndexedDB load.
-
+// IndexedDB keeps list order and configuration separate from raw text or cached
+// points. Each save applies a delta against the last successful transaction.
 const DB_NAME = 'log-parser';
-const DB_VERSION = 1;
-const STORE = 'files';
-const FILES_KEY = 'all';
+const META = 'fileMetadata';
+const DATA = 'fileData';
 export const LEGACY_LS_KEY = 'uploadedFiles';
 const LS_MAX_BYTES = 5 * 1024 * 1024;
 
-const hasIDB = typeof indexedDB !== 'undefined';
+let connection;
+let committed;
+let queue = Promise.resolve();
 
-let dbPromise = null;
+function inOrder(operation) {
+  const result = queue.then(operation);
+  queue = result.catch(() => {});
+  return result;
+}
+
+function splitFiles(files) {
+  return new Map(files.map(({ content, metricsData, ...file }, position) => {
+    const id = file.id ?? crypto.randomUUID();
+    return [id, {
+      meta: { ...file, id, position },
+      data: { id, content, metricsData }
+    }];
+  }));
+}
 
 function openDB() {
-  if (!hasIDB) return Promise.reject(new Error('IndexedDB unavailable'));
-  if (!dbPromise) {
-    dbPromise = new Promise((resolve, reject) => {
-      const req = indexedDB.open(DB_NAME, DB_VERSION);
-      req.onupgradeneeded = () => {
-        const db = req.result;
-        if (!db.objectStoreNames.contains(STORE)) {
-          db.createObjectStore(STORE);
+  if (typeof indexedDB === 'undefined') return Promise.resolve(null);
+  if (!connection) {
+    connection = new Promise(resolve => {
+      const request = indexedDB.open(DB_NAME, 2);
+      let blocked = false;
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        const metadata = db.createObjectStore(META, { keyPath: 'id' });
+        const payloads = db.createObjectStore(DATA, { keyPath: 'id' });
+        if (db.objectStoreNames.contains('files')) {
+          const legacy = request.transaction.objectStore('files').get('all');
+          legacy.onsuccess = () => {
+            for (const { meta, data } of splitFiles(legacy.result || []).values()) {
+              metadata.put(meta);
+              payloads.put(data);
+            }
+            db.deleteObjectStore('files');
+          };
         }
       };
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-      req.onblocked = () => reject(new Error('IndexedDB open blocked'));
-    });
-    dbPromise.catch(() => { dbPromise = null; });
+      request.onsuccess = () => {
+        const db = request.result;
+        if (blocked) { db.close(); return; }
+        db.onversionchange = () => { db.close(); connection = null; committed = null; };
+        resolve(db);
+      };
+      request.onerror = () => resolve(null);
+      request.onblocked = () => { blocked = true; resolve(null); };
+    }).catch(() => null);
   }
-  return dbPromise;
+  return connection;
 }
 
-function quotaError(message) {
-  const err = new Error(message);
-  err.name = 'QuotaExceededError';
-  return err;
-}
-
-function readLegacy() {
-  try {
-    const stored = localStorage.getItem(LEGACY_LS_KEY);
-    if (!stored) return null;
-    const parsed = JSON.parse(stored);
-    return Array.isArray(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-async function idbGetAll() {
-  const db = await openDB();
+function finished(tx) {
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE, 'readonly');
-    const req = tx.objectStore(STORE).get(FILES_KEY);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    tx.oncomplete = resolve;
+    tx.onabort = () => reject(tx.error || new Error('File cache transaction aborted'));
   });
 }
 
-async function idbPut(files) {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE, 'readwrite');
-    if (files.length === 0) {
-      tx.objectStore(STORE).delete(FILES_KEY);
+async function readDatabase(db) {
+  const tx = db.transaction([META, DATA]);
+  const metadata = tx.objectStore(META).getAll();
+  const payloads = tx.objectStore(DATA).getAll();
+  await finished(tx);
+  const byId = new Map(payloads.result.map(data => [data.id, data]));
+  return metadata.result.sort((a, b) => a.position - b.position).map(({ position: _position, ...meta }) => ({
+    ...meta, ...byId.get(meta.id)
+  }));
+}
+
+function sameFields(a, b) {
+  return Object.keys(a).length === Object.keys(b).length &&
+    Object.keys(a).every(key => Object.hasOwn(b, key) && a[key] === b[key]);
+}
+
+async function writeDatabase(db, files, previous) {
+  const next = splitFiles(files);
+  const tx = db.transaction([META, DATA], 'readwrite');
+  const done = finished(tx);
+  const metadata = tx.objectStore(META);
+  const payloads = tx.objectStore(DATA);
+  try {
+    if (!previous) {
+      metadata.clear();
+      payloads.clear();
     } else {
-      tx.objectStore(STORE).put(files, FILES_KEY);
-    }
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-    tx.onabort = () => reject(tx.error || quotaError('IndexedDB transaction aborted'));
-  });
-}
-
-async function idbDelete() {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE, 'readwrite');
-    tx.objectStore(STORE).delete(FILES_KEY);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-}
-
-export async function loadFiles() {
-  if (hasIDB) {
-    try {
-      const data = await idbGetAll();
-      if (Array.isArray(data) && data.length > 0) {
-        // Clear legacy mirror once IDB has authoritative data
-        try { localStorage.removeItem(LEGACY_LS_KEY); } catch { /* ignore */ }
-        return data;
+      for (const id of previous.keys()) {
+        if (!next.has(id)) { metadata.delete(id); payloads.delete(id); }
       }
-      // First-time migration from legacy localStorage
-      const legacy = readLegacy();
-      if (legacy && legacy.length > 0) {
-        try {
-          await idbPut(legacy);
-          localStorage.removeItem(LEGACY_LS_KEY);
-        } catch { /* migration is best-effort */ }
-        return legacy;
-      }
-      return [];
-    } catch {
-      // Fall through to localStorage
     }
+    for (const [id, { meta, data }] of next) {
+      const old = previous?.get(id);
+      if (!old || !sameFields(data, old.data)) {
+        metadata.put(meta);
+        payloads.put(data);
+      } else if (!sameFields(meta, old.meta)) {
+        // A stale tab toggling visibility must not recreate a deleted file.
+        const exists = metadata.getKey(id);
+        exists.onsuccess = () => { if (exists.result !== undefined) metadata.put(meta); };
+      }
+    }
+  } catch (error) {
+    tx.abort();
+    await done.catch(() => {});
+    throw error;
   }
-  return readLegacy() || [];
+  await done;
+  committed = next;
 }
 
-export async function saveFiles(files) {
-  if (hasIDB) {
-    try {
-      await idbPut(files);
-      try { localStorage.removeItem(LEGACY_LS_KEY); } catch { /* ignore */ }
-      return;
-    } catch (err) {
-      if (err && (err.name === 'QuotaExceededError' || err.code === 22)) throw err;
-      // Other IDB errors → fall back to localStorage
-    }
-  }
-  if (!files || files.length === 0) {
-    try { localStorage.removeItem(LEGACY_LS_KEY); } catch { /* ignore */ }
-    return;
-  }
-  const json = JSON.stringify(files);
-  if (json.length > LS_MAX_BYTES) {
-    throw quotaError('Serialized files exceed localStorage limit');
-  }
+function readFallback() {
   try {
-    localStorage.setItem(LEGACY_LS_KEY, json);
-  } catch (err) {
-    if (err instanceof DOMException && err.name === 'QuotaExceededError') {
-      throw err;
+    const value = JSON.parse(localStorage.getItem(LEGACY_LS_KEY));
+    const files = Array.isArray(value) ? value : value?.files;
+    if (Array.isArray(files)) {
+      return { files: files.map(f => f.id != null ? f : { ...f, id: crypto.randomUUID() }), pending: !!value.pending };
     }
-    throw err;
-  }
+  } catch { /* absent or inaccessible */ }
+  return { files: [], pending: false };
 }
 
-export async function clearFiles() {
-  if (hasIDB) {
-    try { await idbDelete(); } catch { /* ignore */ }
-  }
-  try { localStorage.removeItem(LEGACY_LS_KEY); } catch { /* ignore */ }
+function removeFallback() {
+  try { localStorage.removeItem(LEGACY_LS_KEY); } catch { /* unavailable */ }
 }
 
-// Exposed for tests: clears in-memory DB promise so a fresh open is attempted.
-export function _resetForTests() {
-  dbPromise = null;
+function writeFallback(files) {
+  // If IDB was blocked, this snapshot must take precedence when it reopens,
+  // including an explicit clear. A single setItem is atomic on quota failure.
+  const pending = typeof indexedDB !== 'undefined';
+  if (!pending && !files.length) { removeFallback(); return; }
+  const json = JSON.stringify(pending ? { pending, files } : files);
+  if (json.length > LS_MAX_BYTES) {
+    throw new DOMException('Serialized files exceed localStorage limit', 'QuotaExceededError');
+  }
+  localStorage.setItem(LEGACY_LS_KEY, json);
+}
+
+export function loadFiles() {
+  return inOrder(async () => {
+    const fallback = readFallback();
+    const db = await openDB();
+    if (!db) return fallback.files;
+    let files;
+    try {
+      files = await readDatabase(db);
+    } catch (error) {
+      if (fallback.pending || fallback.files.length) return fallback.files;
+      throw error;
+    }
+    if (fallback.pending || (!files.length && fallback.files.length)) {
+      try {
+        await writeDatabase(db, fallback.files, null);
+        removeFallback();
+      } catch { committed = null; } // retry migration on the next save
+      return fallback.files;
+    }
+    committed = splitFiles(files);
+    removeFallback();
+    return files;
+  });
+}
+
+export function saveFiles(files) {
+  return inOrder(async () => {
+    const db = await openDB();
+    if (db) {
+      try {
+        await writeDatabase(db, files, committed);
+        removeFallback();
+        return;
+      } catch (error) {
+        if (error?.name === 'QuotaExceededError' || error?.code === 22) throw error;
+      }
+    }
+    writeFallback(files);
+    committed = null;
+  });
+}
+
+export function clearFiles() {
+  return inOrder(async () => {
+    const db = await openDB();
+    if (db) {
+      await writeDatabase(db, [], null);
+      removeFallback();
+    } else {
+      writeFallback([]);
+    }
+  });
 }
