@@ -7,6 +7,7 @@ import App from '../../App.jsx';
 import i18n from '../../i18n';
 import * as storage from '../../utils/fileStorage.js';
 import * as anomalies from '../../utils/anomalyDetection.js';
+import { parseLog } from '../../utils/parseLog.js';
 
 // Mock chart.js and react-chartjs-2 to avoid canvas requirements
 vi.mock('chart.js', () => {
@@ -60,6 +61,38 @@ describe('App configuration persistence', () => {
 
   afterEach(() => {
     cleanup();
+  });
+
+  it('waits for hydration and recovers source-only and metrics-only files across two reloads', async ({ onTestFinished }) => {
+    const config = { metrics: [{ name: 'Loss', mode: 'keyword', keyword: 'loss:' }], useStepKeyword: true };
+    const points = [{ x: 100, y: 2 }, { x: 200, y: 1 }];
+    const initial = [
+      { id: 'a', name: 'small.log', content: 'step: 100 loss: 2\nstep: 200 loss: 1', config },
+      { id: 'b', name: 'large.log', content: null, isLargeFile: true, metricsData: { Loss: points }, config }
+    ];
+    let finishLoad;
+    const load = vi.spyOn(storage, 'loadFiles').mockImplementationOnce(() => new Promise(resolve => { finishLoad = resolve; }));
+    const save = vi.spyOn(storage, 'saveFiles');
+    const parsed = [];
+    const post = vi.spyOn(Worker.prototype, 'postMessage').mockImplementation(function ({ payload }) {
+      const metricsData = parseLog(payload.content, payload.config);
+      parsed.push({ fileId: payload.fileId, metricsData });
+      this.onmessage({ data: { type: 'PARSE_COMPLETE', payload: { fileId: payload.fileId, metricsData } } });
+    });
+    onTestFinished(() => { load.mockRestore(); save.mockRestore(); post.mockRestore(); });
+    for (let i = 0; i < 2; i++) {
+      const { unmount } = render(<App />);
+      if (i === 0) {
+        expect(save).not.toHaveBeenCalled();
+        finishLoad(initial);
+      }
+      await screen.findByRole('checkbox', { name: i18n.t('filesPanel.enabledAria', { name: 'large.log' }) });
+      await waitFor(() => expect(parsed).toHaveLength(i + 1));
+      expect(parsed[i]).toEqual({ fileId: 'a', metricsData: { Loss: points } });
+      const saved = JSON.parse(localStorage.getItem('uploadedFiles'));
+      expect(saved[1]).toMatchObject({ content: null, isLargeFile: true, metricsData: { Loss: points } });
+      unmount();
+    }
   });
 
   it('updates progress without rewriting files and scans for anomalies only when enabled', async ({ onTestFinished }) => {
@@ -140,7 +173,7 @@ describe('App configuration persistence', () => {
     const user = userEvent.setup();
     render(<App />);
 
-    expect(screen.getByText('saved.log')).toBeInTheDocument();
+    expect(await screen.findByText('saved.log')).toBeInTheDocument();
     expect(screen.getAllByLabelText(i18n.t('useStepKeyword'))[0]).toBeChecked();
 
     // Reset lives in Settings → Experimental → Danger zone now. Open it via the

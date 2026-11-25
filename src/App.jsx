@@ -66,13 +66,18 @@ export const DEFAULT_CHART_CONFIG = {
   experimentalAnnotations: false
 };
 
-function restoreFile(file) {
+function restoreFile(file, defaults) {
+  const hasSource = typeof file.content === 'string';
+  const metricsData = file.metricsData || {};
+  const isParsing = hasSource && Object.keys(metricsData).length === 0;
   return {
     ...file,
+    config: { ...defaults, ...file.config },
     enabled: file.enabled ?? true,
-    isParsing: false,
-    metricsData: file.metricsData || {},
-    needsReupload: file.isLargeFile && !file.content
+    isParsing,
+    progress: isParsing ? 0 : undefined,
+    metricsData,
+    needsReupload: !hasSource
   };
 }
 
@@ -83,25 +88,17 @@ function App() {
   const tRef = useRef(t);
   useEffect(() => { toastRef.current = toast; }, [toast]);
   useEffect(() => { tRef.current = t; }, [t]);
-  // Sync init from legacy localStorage so the first paint matches prior behavior;
-  // an async IndexedDB load below will replace this state if richer data is present.
-  const [uploadedFiles, setUploadedFiles] = useState(() => {
-    const stored = localStorage.getItem('uploadedFiles');
-    if (!stored) return [];
-    try {
-      const parsed = JSON.parse(stored);
-      return parsed.map(restoreFile);
-    } catch {
-      return [];
-    }
-  });
-  const initialLoadDoneRef = useRef(false);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [filesLoaded, setFilesLoaded] = useState(false);
+  const discardRestoreRef = useRef(false);
 
   // Global parsing configuration state
   const [globalParsingConfig, setGlobalParsingConfig] = useState(() => {
     const stored = localStorage.getItem('globalParsingConfig');
     return stored ? JSON.parse(stored) : JSON.parse(JSON.stringify(DEFAULT_GLOBAL_PARSING_CONFIG));
   });
+
+  const initialParsingConfig = useRef(globalParsingConfig);
 
   const [chartConfig, setChartConfig] = useState(() => {
     const stored = localStorage.getItem('chartConfig');
@@ -145,6 +142,7 @@ function App() {
   const savingDisabledRef = useRef(false);
   const enabledFiles = uploadedFiles.filter(file => file.enabled);
   const workerRef = useRef(null);
+  const activeParse = useRef(null);
   // The worker processes one file at a time. Progress only updates its row.
   const [parseProgress, setParseProgress] = useState(null);
 
@@ -174,52 +172,42 @@ function App() {
 
     workerRef.current.onmessage = (e) => {
       const { type, payload } = e.data;
+      const job = activeParse.current;
+      if (!job || job.id !== payload.fileId) return;
       if (type === 'PARSE_PROGRESS') {
         setParseProgress(payload);
-      } else if (type === 'PARSE_COMPLETE') {
+      } else if (type === 'PARSE_COMPLETE' || type === 'PARSE_ERROR') {
+        activeParse.current = null;
         setParseProgress(null);
+        if (type === 'PARSE_ERROR') {
+          toastRef.current.error(tRef.current('toast.parseError', { name: job.name, error: payload.error }));
+        }
         setUploadedFiles(prev => prev.map(file => {
-          if (file.id === payload.fileId) {
-            return {
-              ...file,
-              metricsData: payload.metricsData,
-              isParsing: false,
-              progress: 1
-            };
-          }
-          return file;
+          if (file.id !== job.id || file.content !== job.content || file.config !== job.config) return file;
+          return { ...file, isParsing: false, progress: 1, error: payload.error,
+            metricsData: payload.metricsData ?? file.metricsData };
         }));
-      } else if (type === 'PARSE_ERROR') {
-        setParseProgress(null);
-        console.error('Worker parsing error:', payload.error);
-        setUploadedFiles(prev => {
-          const target = prev.find(f => f.id === payload.fileId);
-          if (target) {
-            toastRef.current.error(
-              tRef.current('toast.parseError', { name: target.name, error: payload.error })
-            );
-          }
-          return prev.map(file => {
-            if (file.id === payload.fileId) {
-              return {
-                ...file,
-                isParsing: false,
-                progress: undefined,
-                error: payload.error
-              };
-            }
-            return file;
-          });
-        });
       }
     };
 
     return () => {
-      if (workerRef.current) {
-        workerRef.current.terminate();
-      }
+      workerRef.current.terminate();
+      workerRef.current = null;
+      activeParse.current = null;
     };
   }, []);
+
+  // A single in-flight job lets an edit supersede work still in the queue.
+  useEffect(() => {
+    if (activeParse.current || !workerRef.current) return;
+    const file = uploadedFiles.find(f => f.isParsing && typeof f.content === 'string');
+    if (!file) return;
+    activeParse.current = file;
+    workerRef.current.postMessage({
+      type: 'PARSE_FILE',
+      payload: { fileId: file.id, content: file.content, config: file.config }
+    });
+  }, [uploadedFiles]);
 
   useEffect(() => {
     if (enabledFiles.length > 0) {
@@ -231,22 +219,18 @@ function App() {
     }
   }, [enabledFiles, baselineFile]);
 
-  // Async load from IndexedDB on mount. Overrides the sync localStorage init
-  // if richer data is present (e.g. after migration or in IDB-capable browsers).
   useEffect(() => {
     let cancelled = false;
     loadFilesFromStorage().then(files => {
-      if (cancelled) return;
-      initialLoadDoneRef.current = true;
-      if (Array.isArray(files) && files.length > 0) {
+      if (!cancelled && !discardRestoreRef.current && files.length) {
+        const restored = files.map(file => restoreFile(file, initialParsingConfig.current));
         setUploadedFiles(prev => {
-          // Avoid overwriting if user already added files during async load
-          if (prev.length > 0) return prev;
-          return files.map(restoreFile);
+          const newNames = new Set(prev.map(file => file.name));
+          return [...restored.filter(file => !newNames.has(file.name)), ...prev];
         });
       }
-    }).catch(() => {
-      initialLoadDoneRef.current = true;
+    }).catch(err => console.warn('Failed to restore uploaded files', err)).finally(() => {
+      if (!cancelled) setFilesLoaded(true);
     });
     return () => { cancelled = true; };
   }, []);
@@ -263,11 +247,11 @@ function App() {
   }, [chartConfig]);
 
   useEffect(() => {
-    if (savingDisabledRef.current) return;
+    if (!filesLoaded || savingDisabledRef.current) return;
     // Smart serialization: for large files, only store metricsData (not raw content).
     // Charts still render after refresh, but re-parsing requires re-upload.
     const serialized = uploadedFiles.map(({ id, name, enabled, content, config, metricsData }) => {
-      const isLargeFile = content && content.length > LARGE_FILE_THRESHOLD;
+      const isLargeFile = typeof content !== 'string' || content.length > LARGE_FILE_THRESHOLD;
       return {
         id,
         name,
@@ -282,12 +266,12 @@ function App() {
       if (err && (err.name === 'QuotaExceededError' || err.code === 22)) {
         savingDisabledRef.current = true;
         console.warn('Storage quota exceeded; uploaded files will not be persisted.');
-        toastRef.current.warning(t('toast.storageQuotaExceeded'));
+        toastRef.current.warning(tRef.current('toast.storageQuotaExceeded'));
       } else {
         console.warn('Failed to persist uploaded files', err);
       }
     });
-  }, [uploadedFiles, t]);
+  }, [filesLoaded, uploadedFiles]);
 
   const handleFilesUploaded = useCallback((files) => {
     const filesWithDefaults = files.map(file => ({
@@ -311,19 +295,6 @@ function App() {
 
     setUploadedFiles(prev => mergeFilesWithReplacement(prev, filesWithDefaults));
 
-    // Trigger worker for new files
-    filesWithDefaults.forEach(file => {
-      if (workerRef.current) {
-        workerRef.current.postMessage({
-          type: 'PARSE_FILE',
-          payload: {
-            fileId: file.id,
-            content: file.content,
-            config: file.config
-          }
-        });
-      }
-    });
   }, [globalParsingConfig]);
 
   // Global file processing function
@@ -375,18 +346,7 @@ function App() {
   const handleConfigSave = useCallback((fileId, config) => {
     setUploadedFiles(prev => prev.map(file => {
       if (file.id === fileId) {
-        // Trigger re-parsing
-        if (workerRef.current) {
-          workerRef.current.postMessage({
-            type: 'PARSE_FILE',
-            payload: {
-              fileId: file.id,
-              content: file.content,
-              config: config
-            }
-          });
-        }
-        return { ...file, config, isParsing: true, progress: 0 };
+        return { ...file, config, isParsing: typeof file.content === 'string', progress: 0 };
       }
       return file;
     }));
@@ -418,22 +378,10 @@ function App() {
             stepKeyword: newConfig.stepKeyword
           };
 
-          // Trigger re-parsing if config changed
-          if (workerRef.current) {
-            workerRef.current.postMessage({
-              type: 'PARSE_FILE',
-              payload: {
-                fileId: file.id,
-                content: file.content,
-                config: newFileConfig
-              }
-            });
-          }
-
           return {
             ...file,
             config: newFileConfig,
-            isParsing: true,
+            isParsing: typeof file.content === 'string',
             progress: 0
           };
         }
@@ -463,11 +411,13 @@ function App() {
   // Clear all uploaded files (but keep parsing config + display preferences).
   // Used by the FilesPanel "Clear all" action.
   const handleClearAllFiles = useCallback(() => {
+    discardRestoreRef.current = true;
     setUploadedFiles([]);
   }, []);
 
   // Reset configuration
   const handleResetConfig = useCallback(() => {
+    discardRestoreRef.current = true;
     savingDisabledRef.current = true;
     localStorage.removeItem('globalParsingConfig');
     localStorage.removeItem('chartConfig');
