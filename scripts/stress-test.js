@@ -1,155 +1,73 @@
-/**
- * Stress test for large file handling
- * Run with: node scripts/stress-test.js
- */
+// Exercise the same parsing, chart comparison and CSV code used by the app.
+import assert from 'node:assert/strict';
+import { performance } from 'node:perf_hooks';
+import { parseLog } from '../src/utils/parseLog.js';
+import { compareSeries } from '../src/utils/compareSeries.js';
+import { buildChartCSV } from '../src/utils/chartExport.js';
 
-import { ValueExtractor } from '../src/utils/ValueExtractor.js';
+const config = {
+  useStepKeyword: true,
+  stepKeyword: 'step:',
+  metrics: [
+    { name: 'Loss', mode: 'keyword', keyword: 'loss:' },
+    { name: 'Grad', mode: 'keyword', keyword: 'grad_norm:' },
+    { name: 'LR', mode: 'regex', regex: 'lr=([\\d.eE+-]+)' }
+  ]
+};
 
-// Generate a large test log file
-function generateTestLog(numLines) {
-  console.log(`\n📝 Generating ${numLines.toLocaleString()} lines of test data...`);
-  const startTime = Date.now();
-
-  const lines = [];
-  for (let i = 0; i < numLines; i++) {
-    const step = i;
-    const loss = Math.random() * 2 + Math.exp(-i / 10000); // Decreasing loss with noise
-    const gradNorm = Math.random() * 0.5 + 0.1;
-    lines.push(`step: ${step} | loss: ${loss.toFixed(6)} | grad_norm: ${gradNorm.toFixed(6)}`);
+function measure(label, run, verify, repetitions = 5) {
+  if (repetitions > 1) verify(run()); // warm up the same workload
+  const times = [];
+  for (let i = 0; i < repetitions; i++) {
+    globalThis.gc?.();
+    const start = performance.now();
+    const result = run();
+    times.push(performance.now() - start);
+    verify(result);
   }
-
-  const content = lines.join('\n');
-  const elapsed = Date.now() - startTime;
-  const sizeBytes = Buffer.byteLength(content, 'utf8');
-  const sizeMB = (sizeBytes / 1024 / 1024).toFixed(2);
-
-  console.log(`   ✓ Generated in ${elapsed}ms`);
-  console.log(`   ✓ Size: ${sizeMB} MB (${sizeBytes.toLocaleString()} bytes)`);
-
-  return { content, sizeBytes };
+  times.sort((a, b) => a - b);
+  const median = times[Math.floor(times.length / 2)].toFixed(1);
+  const sample = repetitions === 1 ? 'single run' : `median of ${repetitions}`;
+  console.log(`${label} | ${median} ms (${sample})`);
 }
 
-// Test ValueExtractor performance
-function testValueExtractor(content) {
-  console.log('\n🔍 Testing ValueExtractor...');
-
-  // Test 1: String input (old way - splits every time)
-  console.log('\n   Test 1: extractByKeyword with string input');
-  let start = Date.now();
-  const result1 = ValueExtractor.extractByKeyword(content, 'loss:');
-  let elapsed = Date.now() - start;
-  console.log(`   ✓ Found ${result1.length.toLocaleString()} matches in ${elapsed}ms`);
-
-  // Test 2: Pre-split lines (optimized way)
-  console.log('\n   Test 2: extractByKeyword with pre-split lines');
-  start = Date.now();
-  const lines = content.split('\n');
-  const splitTime = Date.now() - start;
-  console.log(`   ✓ Split into ${lines.length.toLocaleString()} lines in ${splitTime}ms`);
-
-  start = Date.now();
-  const result2 = ValueExtractor.extractByKeyword(lines, 'loss:');
-  elapsed = Date.now() - start;
-  console.log(`   ✓ Found ${result2.length.toLocaleString()} matches in ${elapsed}ms`);
-
-  // Test 3: Multiple metrics with pre-split lines
-  console.log('\n   Test 3: Multiple metrics with pre-split lines (simulates worker)');
-  start = Date.now();
-  const lossResults = ValueExtractor.extractByKeyword(lines, 'loss:');
-  const gradResults = ValueExtractor.extractByKeyword(lines, 'grad_norm:');
-  elapsed = Date.now() - start;
-  console.log(`   ✓ Loss: ${lossResults.length.toLocaleString()} matches`);
-  console.log(`   ✓ Grad Norm: ${gradResults.length.toLocaleString()} matches`);
-  console.log(`   ✓ Total time: ${elapsed}ms`);
-
-  // Verify data integrity
-  console.log('\n   Verifying data integrity...');
-  if (result1.length === result2.length) {
-    console.log(`   ✓ Match counts are equal: ${result1.length}`);
-  } else {
-    console.log(`   ✗ ERROR: Match counts differ! ${result1.length} vs ${result2.length}`);
-  }
-
-  return { lossResults, gradResults, lines };
+function benchmarkParser(count, repetitions) {
+  const content = Array.from({ length: count }, (_, i) =>
+    `step: ${(i + 1) * 2} | loss: ${(i % 1000) / 1000} | grad_norm: ${(i % 100) / 100} | lr=${i % 97 + 1}e-5`
+  ).join('\n');
+  measure(`Parse ${count} lines × 3 metrics`, () => parseLog(content, config), data => {
+    for (const points of Object.values(data)) assert.equal(points.length, count);
+    const last = count - 1;
+    assert.deepEqual(data.Loss[last], { x: count * 2, y: (last % 1000) / 1000 });
+    assert.deepEqual(data.Grad[last], { x: count * 2, y: (last % 100) / 100 });
+    assert.deepEqual(data.LR[last], { x: count * 2, y: Number(`${last % 97 + 1}e-5`) });
+  }, repetitions);
 }
 
-// Test memory usage
-function testMemoryUsage(label) {
-  const used = process.memoryUsage();
-  console.log(`\n📊 Memory Usage (${label}):`);
-  console.log(`   Heap Used: ${(used.heapUsed / 1024 / 1024).toFixed(2)} MB`);
-  console.log(`   Heap Total: ${(used.heapTotal / 1024 / 1024).toFixed(2)} MB`);
-  console.log(`   RSS: ${(used.rss / 1024 / 1024).toFixed(2)} MB`);
-  return used;
+for (const count of [10_000, 50_000, 100_000, 500_000, 1_000_000]) {
+  benchmarkParser(count, count === 100_000 ? 5 : 1);
 }
 
-// Main test runner
-async function runStressTest() {
-  console.log('═'.repeat(60));
-  console.log('🚀 STRESS TEST FOR LARGE FILE HANDLING');
-  console.log('═'.repeat(60));
-
-  const testCases = [
-    { lines: 10000, name: '10K lines' },
-    { lines: 50000, name: '50K lines' },
-    { lines: 100000, name: '100K lines' },
-    { lines: 500000, name: '500K lines' },
-    { lines: 1000000, name: '1M lines' },
-  ];
-
-  testMemoryUsage('Initial');
-
-  for (const testCase of testCases) {
-    console.log('\n' + '─'.repeat(60));
-    console.log(`📋 TEST CASE: ${testCase.name}`);
-    console.log('─'.repeat(60));
-
-    // Generate test data
-    const { content, sizeBytes } = generateTestLog(testCase.lines);
-
-    // Check if this would be considered a "large file"
-    const LARGE_FILE_THRESHOLD = 5 * 1024 * 1024; // 5MB
-    const isLargeFile = sizeBytes > LARGE_FILE_THRESHOLD;
-    console.log(`\n   Large file threshold: ${isLargeFile ? '⚠️  EXCEEDS' : '✓ Within'} (${(LARGE_FILE_THRESHOLD / 1024 / 1024).toFixed(0)}MB)`);
-
-    // Test ValueExtractor
-    const { lossResults, gradResults } = testValueExtractor(content);
-
-    // Memory after processing
-    testMemoryUsage('After processing');
-
-    // Summary
-    console.log('\n📈 Results Summary:');
-    console.log(`   Lines processed: ${testCase.lines.toLocaleString()}`);
-    console.log(`   Loss data points: ${lossResults.length.toLocaleString()}`);
-    console.log(`   Grad norm data points: ${gradResults.length.toLocaleString()}`);
-
-    // Verify first and last values
-    if (lossResults.length > 0) {
-      console.log(`   First loss value: ${lossResults[0].value.toFixed(6)} (line ${lossResults[0].line})`);
-      console.log(`   Last loss value: ${lossResults[lossResults.length - 1].value.toFixed(6)} (line ${lossResults[lossResults.length - 1].line})`);
-    }
-
-    // Force GC if available
-    if (global.gc) {
-      global.gc();
-      console.log('\n   🧹 Garbage collection triggered');
-    }
-  }
-
-  console.log('\n' + '═'.repeat(60));
-  console.log('✅ STRESS TEST COMPLETE');
-  console.log('═'.repeat(60));
-
-  testMemoryUsage('Final');
-}
-
-// Run the test
-runStressTest()
-  .then(() => {
-    process.exit(0);
-  })
-  .catch((error) => {
-    console.error('❌ Stress test failed:', error);
-    process.exit(1);
+const pointCount = 100_000;
+const base = Array.from({ length: pointCount }, (_, i) => ({ x: i * 2, y: i % 100 + 1 }));
+const target = base.map(({ x, y }) => ({ x, y: y * 1.5 }));
+measure(`Compare 2 series × ${pointCount} points`, () => compareSeries(base, target, 'relative'),
+  ({ points, stats }) => {
+    assert.equal(points.length, pointCount);
+    assert.deepEqual(points[pointCount - 1], { x: (pointCount - 1) * 2, y: 0.5 });
+    assert.equal(stats.meanAbsolute, 25.25);
+    assert.equal(stats.meanRelative, 0.5);
   });
+
+const csvCount = 20_000;
+const datasets = [1, 2, 3].map(offset => ({
+  label: `Run ${offset}`,
+  data: Array.from({ length: csvCount }, (_, i) => ({ x: i, y: i + offset }))
+}));
+measure(`Export CSV for 3 series × ${csvCount} points`, () => buildChartCSV(datasets), csv => {
+  const rows = csv.split('\n');
+  assert.equal(rows.length, csvCount + 1);
+  assert.equal(rows[0], 'step,Run 1,Run 2,Run 3');
+  assert.equal(rows[csvCount], '19999,20000,20001,20002');
+});
+console.log(`Peak process RSS (including fixtures): ${(process.resourceUsage().maxRSS / 1024).toFixed(1)} MiB`);

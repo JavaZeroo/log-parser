@@ -20,13 +20,14 @@ import {
 import zoomPlugin from 'chartjs-plugin-zoom';
 import annotationPlugin from 'chartjs-plugin-annotation';
 import { ImageDown, Copy, FileDown, Minimize2 } from 'lucide-react';
-import { chartToSmallPNG, buildCombinedReport } from '../utils/chartExport.js';
+import { chartToSmallPNG, buildCombinedReport, buildChartCSV } from '../utils/chartExport.js';
 import { ExportMenu } from './ExportMenu.jsx';
 import { getMinSteps } from "../utils/getMinSteps.js";
 import { getMetricTitle } from '../utils/metricHelpers';
 import { maybeDownsample, DEFAULT_DOWNSAMPLE_THRESHOLD } from '../utils/downsample.js';
 import { smooth } from '../utils/smoothing.js';
 import { computeStats } from '../utils/stats.js';
+import { compareSeries } from '../utils/compareSeries.js';
 import { useTranslation } from 'react-i18next';
 import { useToast } from './ToastContext.jsx';
 
@@ -47,14 +48,27 @@ ChartJS.register(
   annotationPlugin
 );
 
+const EMPTY_ANNOTATIONS = [];
+
+function chartSeries(points) {
+  // Chart.js assumes sorted X when parsing is disabled. Positive finite Y
+  // values are already in the internal format of both linear and log scales.
+  let previousX = -Infinity;
+  for (const { x, y } of points) {
+    if (!Number.isFinite(x) || x < previousX || !Number.isFinite(y) || y <= 0) {
+      return { data: points, parsing: true };
+    }
+    previousX = x;
+  }
+  return { data: points, parsing: false };
+}
+
 const ChartWrapper = ({ data, options, chartId, chartTitle, onRegisterChart, onSyncHover, syncRef, chartType = 'line' }) => {
   const chartRef = useRef(null);
 
   const handleChartRef = useCallback((ref) => {
-    if (ref) {
-      chartRef.current = ref;
-      onRegisterChart(chartId, ref, chartTitle);
-    }
+    chartRef.current = ref;
+    onRegisterChart(chartId, ref, chartTitle);
   }, [chartId, chartTitle, onRegisterChart]);
 
   const enhancedOptions = {
@@ -128,7 +142,7 @@ const ChartContainer = forwardRef(function ChartContainer({
   showStats = false,
   chartType = 'line',
   combinedView = false,
-  annotations = [],
+  annotations = EMPTY_ANNOTATIONS,
   anomaliesByFile = {},
   showAnomalies = true
 }, ref) {
@@ -150,6 +164,11 @@ const ChartContainer = forwardRef(function ChartContainer({
   const toast = useToast();
   const syncLockRef = useRef(false);
   const registerChart = useCallback((id, inst, title) => {
+    if (!inst) {
+      chartRefs.current.delete(id);
+      chartTitles.current.delete(id);
+      return;
+    }
     chartRefs.current.set(id, inst);
     if (title) chartTitles.current.set(id, title);
   }, []);
@@ -314,22 +333,7 @@ const ChartContainer = forwardRef(function ChartContainer({
   const exportChartCSV = useCallback((id) => {
     const chart = chartRefs.current.get(id);
     if (!chart) return;
-    const datasets = chart.data.datasets || [];
-    const xValues = new Set();
-    datasets.forEach(ds => {
-      (ds.data || []).forEach(p => xValues.add(p.x));
-    });
-    const sortedX = Array.from(xValues).sort((a, b) => a - b);
-    const header = ['step', ...datasets.map(ds => ds.label || '')];
-    const rows = sortedX.map(x => {
-      const cols = [x];
-      datasets.forEach(ds => {
-        const pt = (ds.data || []).find(p => p.x === x);
-        cols.push(pt ? pt.y : '');
-      });
-      return cols.join(',');
-    });
-    const csv = [header.join(','), ...rows].join('\n');
+    const csv = buildChartCSV(chart.data.datasets || []);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -483,7 +487,7 @@ const ChartContainer = forwardRef(function ChartContainer({
         return {
           type: chartType,
           label: item.name?.replace(/\.(log|txt)$/i, '') || `File ${index + 1}`,
-          data: downsamplePoints(item.data),
+          ...chartSeries(downsamplePoints(item.data)),
           borderColor: color,
           backgroundColor: isBar ? `${color}99` : `${color}33`,
           borderWidth: isBar ? 1 : 2,
@@ -505,47 +509,18 @@ const ChartContainer = forwardRef(function ChartContainer({
     };
   }, [colors, downsamplePoints, chartType]);
 
-  const getComparisonData = (data1, data2, mode) => {
-    const map2 = new Map(data2.map(p => [p.x, p.y]));
-    const result = [];
-    data1.forEach(p1 => {
-      if (map2.has(p1.x)) {
-        const v1 = p1.y;
-        const v2 = map2.get(p1.x);
-        let diff;
-        switch (mode) {
-          case 'absolute':
-            diff = Math.abs(v2 - v1);
-            break;
-          case 'relative-normal':
-            diff = v1 !== 0 ? (v2 - v1) / v1 : 0;
-            break;
-          case 'relative': {
-            const ad = Math.abs(v2 - v1);
-            diff = v1 !== 0 ? ad / Math.abs(v1) : 0;
-            break;
-          }
-          default:
-            diff = v2 - v1;
-        }
-        result.push({ x: p1.x, y: diff });
-      }
-    });
-    return result;
-  };
-
   const getMaxDecimals = useCallback((dataArray) => {
     let maxDecimals = 0;
-    dataArray.forEach(item => {
-      item.data.forEach(point => {
+    for (const item of dataArray) {
+      for (const point of item.data) {
         const valStr = point.y.toString();
-        if (valStr.includes('.')) {
-          const decimals = valStr.split('.')[1].length;
-          if (decimals > maxDecimals) maxDecimals = decimals;
-        }
-      });
-    });
-    return Math.min(maxDecimals, 10); // Cap at 10 to avoid extreme cases
+        const dot = valStr.indexOf('.');
+        if (dot === -1) continue;
+        maxDecimals = Math.max(maxDecimals, valStr.length - dot - 1);
+        if (maxDecimals >= 10) return 10;
+      }
+    }
+    return maxDecimals;
   }, []);
 
   const calculateNiceScale = useCallback((min, max) => {
@@ -623,7 +598,7 @@ const ChartContainer = forwardRef(function ChartContainer({
   const chartOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
-    animation: { duration: 0 },
+    animation: false,
     animations: { colors: false, x: false, y: false },
     hover: { animationDuration: 0 },
     responsiveAnimationDuration: 0,
@@ -747,7 +722,7 @@ const ChartContainer = forwardRef(function ChartContainer({
     elements: { point: { radius: 0 } }
   }), [xRange, onXRangeChange, yAxisType, annotationConfig]);
 
-  const buildComparisonChartData = (dataArray) => {
+  const buildComparisonChartData = useCallback((dataArray) => {
     const baselineVal =
       compareMode === 'relative' || compareMode === 'relative-normal'
         ? relativeBaseline
@@ -757,11 +732,12 @@ const ChartContainer = forwardRef(function ChartContainer({
     const datasets = [];
     const stats = [];
     const addPair = (base, target, colorIdx) => {
-      const diffData = getComparisonData(base.data, target.data, compareMode);
+      const { points, stats: pairStats } = compareSeries(base.data, target.data, compareMode);
       const color = colors[colorIdx % colors.length];
+      const label = `${target.name} vs ${base.name}`;
       datasets.push({
-        label: `${target.name} vs ${base.name}`,
-        data: downsamplePoints(smoothPoints(diffData)),
+        label,
+        ...chartSeries(downsamplePoints(smoothPoints(points))),
         borderColor: color,
         backgroundColor: color,
         borderWidth: 2,
@@ -778,21 +754,7 @@ const ChartContainer = forwardRef(function ChartContainer({
         animation: false,
         animations: { colors: false, x: false, y: false },
       });
-      const normalDiff = getComparisonData(base.data, target.data, 'normal');
-      const absDiff = getComparisonData(base.data, target.data, 'absolute');
-      const relNormalDiff = getComparisonData(base.data, target.data, 'relative-normal');
-      const relDiff = getComparisonData(base.data, target.data, 'relative');
-      const mean = arr => (arr.reduce((s, p) => s + p.y, 0) / arr.length) || 0;
-      const max = arr => arr.reduce((m, p) => (p.y > m ? p.y : m), 0);
-      stats.push({
-        label: `${target.name} vs ${base.name}`,
-        meanNormal: mean(normalDiff),
-        meanAbsolute: mean(absDiff),
-        relativeError: mean(relNormalDiff),
-        meanRelative: mean(relDiff),
-        maxAbsolute: max(absDiff),
-        maxRelative: max(relDiff)
-      });
+      stats.push({ label, ...pairStats });
     };
 
     let colorIdx = 0;
@@ -814,7 +776,7 @@ const ChartContainer = forwardRef(function ChartContainer({
       const baseData = datasets[0].data.map(p => ({ x: p.x, y: baselineVal }));
       datasets.push({
         label: 'Baseline',
-        data: baseData,
+        ...chartSeries(baseData),
         borderColor: '#10b981',
         backgroundColor: '#10b981',
         borderWidth: 2,
@@ -835,7 +797,20 @@ const ChartContainer = forwardRef(function ChartContainer({
     }
 
     return { datasets, stats };
-  };
+  }, [compareMode, multiFileMode, baselineFile, relativeBaseline, absoluteBaseline, colors, downsamplePoints, smoothPoints]);
+
+  const metricNames = useMemo(() => metrics.map(getMetricTitle), [metrics]);
+  const metricDataArrays = useMemo(() => Object.fromEntries(metricNames.map(name => [
+    name, parsedData
+      .filter(file => file.metricsData[name]?.length > 0)
+      .map(file => ({ id: file.id, name: file.name, data: file.metricsData[name] }))
+  ])), [metricNames, parsedData]);
+  const comparisons = useMemo(() => {
+    if (combinedView) return {};
+    return Object.fromEntries(Object.entries(metricDataArrays)
+      .filter(([, series]) => series.length >= 2)
+      .map(([name, series]) => [name, buildComparisonChartData(series)]));
+  }, [combinedView, metricDataArrays, buildComparisonChartData]);
 
   if (parsedData.length === 0) {
     return (
@@ -847,14 +822,6 @@ const ChartContainer = forwardRef(function ChartContainer({
       </div>
     );
   }
-
-  const metricNames = metrics.map((m, idx) => getMetricTitle(m, idx));
-  const metricDataArrays = {};
-  metricNames.forEach(name => {
-    metricDataArrays[name] = parsedData
-      .filter(file => file.metricsData[name] && file.metricsData[name].length > 0)
-      .map(file => ({ id: file.id, name: file.name, data: file.metricsData[name] }));
-  });
 
   // Color anomaly markers by severity so high-severity events scream and
   // low-severity (plateau) recede into the background.
@@ -904,7 +871,7 @@ const ChartContainer = forwardRef(function ChartContainer({
     };
   };
 
-  const metricElements = metrics.map((metric, idx) => {
+  const renderMetric = (metric, idx) => {
     const key = metric.name || metric.keyword || `metric${idx + 1}`;
     const dataArray = metricDataArrays[key] || [];
     const showComparison = dataArray.length >= 2;
@@ -994,7 +961,7 @@ const ChartContainer = forwardRef(function ChartContainer({
     let stats = null;
     let comparisonChart = null;
     if (showComparison) {
-      const compResult = buildComparisonChartData(dataArray);
+      const compResult = comparisons[key];
       stats = compResult.stats.length > 0 ? compResult.stats : null;
 
       // Calculate comparison range
@@ -1154,7 +1121,7 @@ const ChartContainer = forwardRef(function ChartContainer({
         )}
       </div>
     );
-  });
+  };
 
   if (combinedView && metrics.length >= 1) {
     // Build a single chart with all metric×file datasets.
@@ -1176,7 +1143,7 @@ const ChartContainer = forwardRef(function ChartContainer({
         combinedDatasets.push({
           type: chartType,
           label: `${name} · ${file.name.replace(/\.(log|txt)$/i, '')}`,
-          data: downsamplePoints(smoothed),
+          ...chartSeries(downsamplePoints(smoothed)),
           borderColor: color,
           backgroundColor: isBar ? `${color}99` : `${color}33`,
           borderWidth: isBar ? 1 : 2,
@@ -1263,9 +1230,9 @@ const ChartContainer = forwardRef(function ChartContainer({
   // shows only the charts themselves, no global export chrome.
   return (
     <div className="grid grid-cols-2 gap-3">
-      {metricElements}
+      {metrics.map(renderMetric)}
     </div>
   );
 });
 
-export default ChartContainer;
+export default React.memo(ChartContainer);

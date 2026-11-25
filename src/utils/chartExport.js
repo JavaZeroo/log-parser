@@ -11,6 +11,24 @@ const MIN_DIM = { w: 240, h: 120 };
 const FONT_STACK = 'Inter, "Inter Variable", ui-sans-serif, system-ui, sans-serif';
 const MONO_STACK = '"JetBrains Mono", "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
 
+export function buildChartCSV(datasets) {
+  const steps = new Set();
+  const valuesByStep = datasets.map(dataset => {
+    const values = new Map();
+    for (const { x, y } of dataset.data || []) {
+      steps.add(x);
+      // A CSV cell uses the first point for a repeated step.
+      if (!values.has(x)) values.set(x, y);
+    }
+    return values;
+  });
+  const rows = [['step', ...datasets.map(ds => ds.label || '')].join(',')];
+  for (const x of Array.from(steps).sort((a, b) => a - b)) {
+    rows.push([x, ...valuesByStep.map(values => values.get(x))].join(','));
+  }
+  return rows.join('\n');
+}
+
 // Brand palette — matches the Log Analyzer logo gradient + sidebar accents.
 const BRAND = {
   gradStart: '#3b82f6', // blue-500

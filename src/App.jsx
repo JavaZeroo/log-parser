@@ -145,11 +145,13 @@ function App() {
   const savingDisabledRef = useRef(false);
   const enabledFiles = uploadedFiles.filter(file => file.enabled);
   const workerRef = useRef(null);
+  // The worker processes one file at a time. Progress only updates its row.
+  const [parseProgress, setParseProgress] = useState(null);
 
-  // Pre-compute anomalies for every enabled file × metric. Memoized so this
-  // only re-runs when metricsData changes (after worker completes a parse).
+  // The panel and chart markers both consume these results when enabled.
   const anomaliesByFile = useMemo(() => {
     const out = {};
+    if (!chartConfig.experimentalAnomalies) return out;
     uploadedFiles.forEach(file => {
       if (!file.enabled || !file.metricsData) return;
       const entry = {};
@@ -164,7 +166,7 @@ function App() {
       if (hasAny) out[file.id] = entry;
     });
     return out;
-  }, [uploadedFiles]);
+  }, [uploadedFiles, chartConfig.experimentalAnomalies]);
 
   // Initialize Web Worker
   useEffect(() => {
@@ -173,13 +175,9 @@ function App() {
     workerRef.current.onmessage = (e) => {
       const { type, payload } = e.data;
       if (type === 'PARSE_PROGRESS') {
-        setUploadedFiles(prev => prev.map(file => {
-          if (file.id === payload.fileId) {
-            return { ...file, progress: payload.progress };
-          }
-          return file;
-        }));
+        setParseProgress(payload);
       } else if (type === 'PARSE_COMPLETE') {
+        setParseProgress(null);
         setUploadedFiles(prev => prev.map(file => {
           if (file.id === payload.fileId) {
             return {
@@ -192,6 +190,7 @@ function App() {
           return file;
         }));
       } else if (type === 'PARSE_ERROR') {
+        setParseProgress(null);
         console.error('Worker parsing error:', payload.error);
         setUploadedFiles(prev => {
           const target = prev.find(f => f.id === payload.fileId);
@@ -707,6 +706,7 @@ function App() {
 
               <FilesPanel
                 files={uploadedFiles}
+                parseProgress={parseProgress}
                 onFilesUploaded={handleFilesUploaded}
                 onFileRemove={handleFileRemove}
                 onFileToggle={handleFileToggle}
@@ -935,8 +935,8 @@ function App() {
               showStats={chartConfig.showStats}
               chartType={chartConfig.chartType}
               combinedView={chartConfig.combinedView}
-              annotations={chartConfig.experimentalAnnotations ? chartConfig.annotations : []}
-              anomaliesByFile={chartConfig.experimentalAnomalies ? anomaliesByFile : {}}
+              annotations={chartConfig.experimentalAnnotations ? chartConfig.annotations : undefined}
+              anomaliesByFile={anomaliesByFile}
               showAnomalies={chartConfig.experimentalAnomalies && chartConfig.showAnomalies !== false}
             />
           </section>

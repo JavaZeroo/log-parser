@@ -29,6 +29,7 @@ function ProgressBar({ value }) {
 // - Header has a "Clear all" trash icon to wipe everything in one click.
 export function FilesPanel({
   files,
+  parseProgress,
   onFilesUploaded,
   onFileRemove,
   onFileToggle,
@@ -227,7 +228,7 @@ export function FilesPanel({
                       </div>
                     </div>
                     {file.isParsing && typeof file.progress === 'number' && (
-                      <ProgressBar value={file.progress} />
+                      <ProgressBar value={parseProgress && parseProgress.fileId === file.id ? parseProgress.progress : file.progress} />
                     )}
                   </div>
                 </li>

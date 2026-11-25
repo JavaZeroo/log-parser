@@ -256,6 +256,30 @@ no numbers here`;
   });
 
   describe('Step extraction', () => {
+    it('shares the line step across matches and falls back to each metric\'s own count', async () => {
+      await sendWorkerMessage('PARSE_FILE', {
+        fileId: 'mixed',
+        content: '  ITER: -2 LOSS: -1.5e-2 r4 R2\r\nr8\nloss: 2\niter: 0 loss: 3 r5\n',
+        config: {
+          useStepKeyword: true, stepKeyword: 'iter:',
+          metrics: [
+            { name: 'Loss', mode: 'keyword', keyword: 'loss:' },
+            { name: 'R', mode: 'regex', regex: '(?=r(\\d))' }
+          ]
+        }
+      });
+      expect(self.postMessage).toHaveBeenLastCalledWith({
+        type: 'PARSE_COMPLETE',
+        payload: {
+          fileId: 'mixed',
+          metricsData: {
+            Loss: [{ x: -2, y: -0.015 }, { x: 1, y: 2 }, { x: 0, y: 3 }],
+            R: [{ x: -2, y: 4 }, { x: -2, y: 2 }, { x: 2, y: 8 }, { x: 0, y: 5 }]
+          }
+        }
+      });
+    });
+
     it('should extract step numbers when useStepKeyword is enabled', async () => {
       const content = `step: 100 loss: 1.0
 step: 200 loss: 0.8

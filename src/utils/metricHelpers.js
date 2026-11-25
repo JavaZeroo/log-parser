@@ -1,9 +1,7 @@
 import { Target, Code } from 'lucide-react';
-
-export const MATCH_MODES = {
-  KEYWORD: 'keyword',
-  REGEX: 'regex'
-};
+import { MATCH_MODES } from './ValueExtractor.js';
+export { MATCH_MODES };
+export { getMetricTitle } from './parseLog.js';
 
 export const MODE_CONFIG = {
   [MATCH_MODES.KEYWORD]: {
@@ -19,13 +17,3 @@ export const MODE_CONFIG = {
     example: 'loss:\\s*([\\d.eE+-]+)'
   }
 };
-
-export function getMetricTitle(metric, index) {
-  if (metric.name && metric.name.trim()) return metric.name.trim();
-  if (metric.keyword) return metric.keyword.replace(/[:：]/g, '').trim();
-  if (metric.regex) {
-    const sanitized = metric.regex.replace(/[^a-zA-Z0-9_]/g, '').trim();
-    return sanitized || `metric${index + 1}`;
-  }
-  return `metric${index + 1}`;
-}

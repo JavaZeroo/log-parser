@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import ChartContainer from '../ChartContainer';
 import i18n from '../../i18n';
+import * as comparison from '../../utils/compareSeries.js';
 
 // Mock chart.js and react-chartjs-2 to avoid canvas requirements
 vi.mock('chart.js', () => {
@@ -237,5 +238,48 @@ describe('ChartContainer', () => {
       { x: 0, y: 3 },
       { x: 1, y: 4 }
     ]);
+  });
+
+  it('builds comparisons only for separate charts and reuses them across range changes', () => {
+    const compare = vi.spyOn(comparison, 'compareSeries');
+    try {
+      const props = {
+        files: ['a', 'b'].map((name, i) => ({
+          id: name, name, metricsData: { Loss: [{ x: 0, y: i }, { x: 1, y: i + 1 }] }
+        })),
+        metrics: [{ name: 'Loss' }], compareMode: 'absolute',
+        onXRangeChange: vi.fn(), onMaxStepChange: vi.fn()
+      };
+      const { rerender } = render(<ChartContainer {...props} combinedView />);
+      expect(compare).not.toHaveBeenCalled();
+      rerender(<ChartContainer {...props} combinedView={false} />);
+      expect(compare).toHaveBeenCalledTimes(1);
+      rerender(<ChartContainer {...props} xRange={{ min: 1, max: 2 }} />);
+      expect(compare).toHaveBeenCalledTimes(1);
+      rerender(<ChartContainer {...props} compareMode="relative" />);
+      expect(compare).toHaveBeenCalledTimes(2);
+    } finally {
+      compare.mockRestore();
+    }
+  });
+
+  it('passes sorted finite positive points directly to the renderer on either Y scale', () => {
+    const series = [
+      [{ x: 1, y: 2 }, { x: 1, y: 3 }, { x: 5, y: 4 }],
+      [{ x: 5, y: 1 }, { x: 1, y: 2 }],
+      [{ x: 1, y: 0 }, { x: 2, y: -3 }]
+    ];
+    const props = {
+      files: series.map((data, i) => ({ name: `run${i}`, metricsData: { Loss: data } })),
+      metrics: [{ name: 'Loss' }], combinedView: true,
+      onXRangeChange: vi.fn(), onMaxStepChange: vi.fn()
+    };
+    const { rerender } = render(<ChartContainer {...props} />);
+    for (const scale of ['linear', 'log']) {
+      rerender(<ChartContainer {...props} yAxisType={scale} />);
+      const { data } = __lineProps.at(-1);
+      expect(data.datasets.map(dataset => dataset.parsing)).toEqual([false, true, true]);
+      expect(data.datasets.map(dataset => dataset.data)).toEqual(series);
+    }
   });
 });

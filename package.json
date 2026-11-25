@@ -11,7 +11,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run --coverage",
-    "test:stress": "node scripts/stress-test.js"
+    "test:stress": "node --expose-gc scripts/stress-test.js"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.2.8",

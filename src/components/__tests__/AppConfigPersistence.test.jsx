@@ -1,10 +1,12 @@
 import React from 'react';
-import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, cleanup, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import App from '../../App.jsx';
 import i18n from '../../i18n';
+import * as storage from '../../utils/fileStorage.js';
+import * as anomalies from '../../utils/anomalyDetection.js';
 
 // Mock chart.js and react-chartjs-2 to avoid canvas requirements
 vi.mock('chart.js', () => {
@@ -58,6 +60,36 @@ describe('App configuration persistence', () => {
 
   afterEach(() => {
     cleanup();
+  });
+
+  it('updates progress without rewriting files and scans for anomalies only when enabled', async ({ onTestFinished }) => {
+    stubFileReader('loss: 1');
+    const post = vi.spyOn(Worker.prototype, 'postMessage');
+    const save = vi.spyOn(storage, 'saveFiles');
+    const detect = vi.spyOn(anomalies, 'detectAnomalies');
+    onTestFinished(() => {
+      post.mockRestore();
+      save.mockRestore();
+      detect.mockRestore();
+    });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.upload(screen.getByLabelText(i18n.t('fileUpload.aria')), new File(['loss: 1'], 'run.log'));
+    const { fileId } = post.mock.calls[0][0].payload;
+    const worker = post.mock.instances[0];
+    save.mockClear();
+    act(() => worker.onmessage({ data: { type: 'PARSE_PROGRESS', payload: { fileId, progress: 0.5 } } }));
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '50');
+    expect(save).not.toHaveBeenCalled();
+    const points = [{ x: 0, y: 1 }];
+    act(() => worker.onmessage({ data: { type: 'PARSE_COMPLETE', payload: { fileId, metricsData: { Loss: points } } } }));
+    expect(screen.queryByRole('progressbar')).toBeNull();
+    expect(detect).not.toHaveBeenCalled();
+
+    await user.click(screen.getByLabelText(i18n.t('settings.aria')));
+    await user.click(screen.getByRole('tab', { name: i18n.t('settings.tabExperimental') }));
+    await user.click(screen.getByRole('checkbox', { name: new RegExp(i18n.t('anomalies.title')) }));
+    expect(detect).toHaveBeenCalledWith(points);
   });
 
   it('saves and restores config from localStorage', async () => {

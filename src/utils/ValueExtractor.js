@@ -5,6 +5,61 @@ export const MATCH_MODES = {
   REGEX: 'regex'
 };
 
+// Search the original line starting just after the case-insensitive keyword.
+export function compileKeyword(keyword, numberPattern) {
+  const needle = keyword.toLowerCase();
+  return (line, lowerLine) => {
+    const index = lowerLine.indexOf(needle);
+    if (index === -1) return null;
+    numberPattern.lastIndex = index + keyword.length;
+    return numberPattern.exec(line)?.[0] ?? null;
+  };
+}
+
+// Both the preview and the worker use these matching rules. Only the preview
+// needs a match object with the source text and line number.
+export function compileValueMatcher(mode, pattern) {
+  if (mode === MATCH_MODES.KEYWORD) {
+    const readNumber = compileKeyword(pattern, /[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g);
+    return (line, lowerLine, emit) => {
+      const number = readNumber(line, lowerLine);
+      if (number !== null) emit(parseFloat(number));
+    };
+  }
+
+  let regex;
+  try {
+    regex = new RegExp(pattern, 'gi');
+  } catch {
+    return null;
+  }
+  return (line, _lowerLine, emit) => {
+    let match;
+    while ((match = regex.exec(line)) !== null) {
+      // exec does not advance past a zero-width match (e.g. a lookahead).
+      if (match[0].length === 0) regex.lastIndex++;
+      const value = parseFloat(match[1]);
+      if (!Number.isNaN(value)) emit(value);
+    }
+  };
+}
+
+function collectMatches(lines, mode, pattern) {
+  const results = [];
+  if (lines.length === 0) return results;
+  const matchLine = compileValueMatcher(mode, pattern);
+  if (!matchLine) return results;
+  const isKeyword = mode === MATCH_MODES.KEYWORD;
+  lines.forEach((line, index) => {
+    matchLine(line, isKeyword ? line.toLowerCase() : null, value => {
+      const match = { value, line: index + 1, text: line.trim() };
+      if (isKeyword) match.format = 'Keyword Match';
+      results.push(match);
+    });
+  });
+  return results;
+}
+
 // Value extractor class
 export class ValueExtractor {
   // Helper to get lines array - accepts either content string or pre-split lines array
@@ -16,37 +71,7 @@ export class ValueExtractor {
 
   // Keyword match - now accepts either content string or pre-split lines array
   static extractByKeyword(contentOrLines, keyword) {
-    const results = [];
-    const lines = this.getLines(contentOrLines);
-    if (lines.length === 0) return results;
-
-    // Number regex supporting scientific notation
-    const numberRegex = /[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/;
-    const keywordLower = keyword.toLowerCase();
-
-    lines.forEach((line, lineIndex) => {
-      // Find keyword (case-insensitive)
-      const keywordIndex = line.toLowerCase().indexOf(keywordLower);
-      if (keywordIndex !== -1) {
-        // Find first number after the keyword
-        const afterKeyword = line.substring(keywordIndex + keyword.length);
-        const numberMatch = afterKeyword.match(numberRegex);
-        
-        if (numberMatch) {
-          const value = parseFloat(numberMatch[0]);
-          if (!isNaN(value)) {
-            results.push({
-              value,
-              line: lineIndex + 1,
-              text: line.trim(),
-              format: 'Keyword Match'
-            });
-          }
-        }
-      }
-    });
-    
-    return results;
+    return collectMatches(this.getLines(contentOrLines), MATCH_MODES.KEYWORD, keyword);
   }
 
   // Column position match - now accepts either content string or pre-split lines array
@@ -149,31 +174,6 @@ export class ValueExtractor {
 
   // Regex match (original functionality) - now accepts either content string or pre-split lines array
   static extractByRegex(contentOrLines, regex) {
-    const results = [];
-    const lines = this.getLines(contentOrLines);
-    if (lines.length === 0) return results;
-
-    try {
-      const regexObj = new RegExp(regex, 'gi');
-      lines.forEach((line, lineIndex) => {
-        const matches = [...line.matchAll(regexObj)];
-        matches.forEach(match => {
-          if (match[1]) {
-            const value = parseFloat(match[1]);
-            if (!isNaN(value)) {
-              results.push({
-                value,
-                line: lineIndex + 1,
-                text: line.trim()
-              });
-            }
-          }
-        });
-      });
-    } catch {
-      // Invalid regex
-    }
-
-    return results;
+    return collectMatches(this.getLines(contentOrLines), MATCH_MODES.REGEX, regex);
   }
 }
