@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import App from '../../App.jsx';
 import i18n from '../../i18n';
+import { ToastProvider } from '../ToastContext.jsx';
 import * as storage from '../../utils/fileStorage.js';
 import * as anomalies from '../../utils/anomalyDetection.js';
 import { parseLog } from '../../utils/parseLog.js';
@@ -145,6 +146,34 @@ describe('App configuration persistence', () => {
     await user.click(screen.getByRole('tab', { name: i18n.t('settings.tabExperimental') }));
     await user.click(screen.getByRole('checkbox', { name: new RegExp(i18n.t('anomalies.title')) }));
     expect(detect).toHaveBeenCalledWith(points);
+  });
+
+  it('orders overlapping drops and keeps readable files when another read fails', async ({ onTestFinished }) => {
+    const readers = [];
+    vi.stubGlobal('FileReader', class {
+      readAsText() { readers.push(this); }
+    });
+    onTestFinished(() => vi.unstubAllGlobals());
+    render(<ToastProvider><App /></ToastProvider>);
+    const run = new File([], 'run.log');
+    const broken = new File([], 'broken.log');
+    const dropZone = screen.getByRole('button', { name: i18n.t('fileUpload.drag') });
+    fireEvent.drop(dropZone, { dataTransfer: { files: [run, broken] } });
+    fireEvent.drop(document, { dataTransfer: { files: [run] } });
+    expect(readers).toHaveLength(3);
+    await act(async () => {
+      readers[2].onload({ target: { result: 'new' } });
+      readers[1].onerror();
+      readers[0].onload({ target: { result: 'old' } });
+    });
+    expect(await screen.findByRole('alert')).toHaveTextContent('broken.log');
+    expect(JSON.parse(localStorage.getItem('uploadedFiles'))).toMatchObject([{ name: 'run.log', content: 'new' }]);
+
+    fireEvent.drop(document, { dataTransfer: { files: [broken] } });
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('filesPanel.clearAll') }));
+    await act(async () => readers[3].onload({ target: { result: 'late' } }));
+    expect(localStorage.getItem('uploadedFiles')).toBeNull();
+    expect(screen.queryByRole('list', { name: i18n.t('fileList.loaded', { count: 1 }) })).toBeNull();
   });
 
   it('saves and restores config from localStorage', async () => {

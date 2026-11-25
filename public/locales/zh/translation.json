@@ -249,6 +249,7 @@
   "shortcuts.escape": "关闭对话框或帮助",
   "shortcuts.toggleSidebar": "切换侧栏",
   "shortcuts.toggleCombined": "切换合并视图",
+  "toast.fileReadError": "无法读取 {{name}}，请重新选择文件。",
   "toast.parseError": "解析 {{name}} 失败：{{error}}",
   "toast.parseComplete": "已解析 {{name}}",
   "toast.storageQuotaExceeded": "存储空间已满，本次会话将不再持久化文件。",

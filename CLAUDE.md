@@ -47,8 +47,7 @@ This document provides comprehensive guidance for AI assistants (like Claude) wo
 │   │   ├── ChartContainer.jsx     # Main chart rendering
 │   │   ├── ComparisonControls.jsx # Multi-file comparison UI
 │   │   ├── FileConfigModal.jsx    # Per-file config dialog
-│   │   ├── FileList.jsx           # File list with enable/disable
-│   │   ├── FileUpload.jsx         # Upload component
+│   │   ├── FilesPanel.jsx         # Upload, visibility and file list actions
 │   │   ├── Header.jsx             # Header with language/theme toggle
 │   │   ├── RegexControls.jsx      # Global parsing config
 │   │   ├── ResizablePanel.jsx     # Draggable chart height
@@ -335,7 +334,7 @@ npm run test:coverage  # Run with coverage report
    ```javascript
    it('should toggle file when checkbox clicked', async () => {
      const onToggle = vi.fn();
-     render(<FileList files={mockFiles} onFileToggle={onToggle} />);
+     render(<FilesPanel files={mockFiles} onFileToggle={onToggle} />);
      await userEvent.click(screen.getByRole('checkbox'));
      expect(onToggle).toHaveBeenCalledWith(0, false);
    });

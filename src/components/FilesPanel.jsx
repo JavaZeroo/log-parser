@@ -30,7 +30,7 @@ function ProgressBar({ value }) {
 export function FilesPanel({
   files,
   parseProgress,
-  onFilesUploaded,
+  onFilesSelected,
   onFileRemove,
   onFileToggle,
   onFileConfig,
@@ -43,52 +43,17 @@ export function FilesPanel({
   const fileInputRef = useRef(null);
   const [isDragOver, setIsDragOver] = useState(false);
 
-  // ----- file reading (lifted from FileUpload) ----------------------------
-  const processFiles = useCallback(
-    (rawFiles) => {
-      const fileArray = Array.from(rawFiles);
-      if (fileArray.length === 0) return;
-      const processed = fileArray.map((file) => ({
-        file,
-        name: file.name,
-        id: Math.random().toString(36).substr(2, 9),
-        data: null,
-        content: null
-      }));
-      Promise.all(
-        processed.map(
-          (fileObj) =>
-            new Promise((resolve) => {
-              const reader = new FileReader();
-              reader.onload = (e) => {
-                fileObj.content = e.target.result;
-                resolve(fileObj);
-              };
-              reader.readAsText(fileObj.file);
-            })
-        )
-      ).then((done) => onFilesUploaded(done));
-    },
-    [onFilesUploaded]
-  );
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    onFilesSelected(e.dataTransfer.files);
+  };
 
-  const handleDrop = useCallback(
-    (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setIsDragOver(false);
-      processFiles(e.dataTransfer.files);
-    },
-    [processFiles]
-  );
-
-  const handleFileSelect = useCallback(
-    (e) => {
-      processFiles(e.target.files);
-      e.target.value = '';
-    },
-    [processFiles]
-  );
+  const handleFileSelect = (e) => {
+    onFilesSelected(e.target.files);
+    e.target.value = '';
+  };
 
   const openPicker = useCallback(() => {
     fileInputRef.current?.click();

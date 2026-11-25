@@ -1,9 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation, Trans } from 'react-i18next';
-import { FileUpload } from './components/FileUpload';
 import { FilesPanel } from './components/FilesPanel.jsx';
 import { RegexControls } from './components/RegexControls';
-import { FileList } from './components/FileList';
 import ChartContainer from './components/ChartContainer';
 import { ComparisonControls } from './components/ComparisonControls';
 import { FileConfigModal } from './components/FileConfigModal';
@@ -19,6 +17,7 @@ import { ExportMenu } from './components/ExportMenu.jsx';
 import { useCollapsedSection } from './utils/useCollapsedSection.js';
 import { useKeyboardShortcuts } from './utils/useKeyboardShortcuts.js';
 import { PanelLeftClose, PanelLeftOpen, HelpCircle, Settings as SettingsIcon, Github, FileBarChart, Copy, Download } from 'lucide-react';
+import { readLogFiles } from './utils/readLogFiles.js';
 import { mergeFilesWithReplacement } from './utils/mergeFiles.js';
 import { useToast } from './components/ToastContext.jsx';
 import { loadFiles as loadFilesFromStorage, saveFiles as saveFilesToStorage, clearFiles as clearFilesInStorage } from './utils/fileStorage.js';
@@ -91,7 +90,7 @@ function App() {
   useEffect(() => { tRef.current = t; }, [t]);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [filesLoaded, setFilesLoaded] = useState(false);
-  const discardRestoreRef = useRef(false);
+  const importQueue = useRef({ pending: Promise.resolve() });
   const lastSnapshot = useRef([]);
 
   // Global parsing configuration state
@@ -104,7 +103,7 @@ function App() {
     }
   });
 
-  const initialParsingConfig = useRef(globalParsingConfig);
+  const parsingConfigRef = useRef(globalParsingConfig);
 
   const [chartConfig, setChartConfig] = useState(() => {
     const stored = localStorage.getItem('chartConfig');
@@ -124,7 +123,6 @@ function App() {
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [configFile, setConfigFile] = useState(null);
   const [globalDragOver, setGlobalDragOver] = useState(false);
-  const [, setDragCounter] = useState(0);
   const [xRange, setXRange] = useState({ min: undefined, max: undefined });
   const [yRange, setYRange] = useState({ min: undefined, max: undefined });
   const [maxStep, setMaxStep] = useState(0);
@@ -227,10 +225,11 @@ function App() {
 
   useEffect(() => {
     let cancelled = false;
+    const queue = importQueue.current;
     loadFilesFromStorage().then(files => {
-      if (!cancelled && !discardRestoreRef.current && files.length) {
+      if (!cancelled && importQueue.current === queue && files.length) {
         lastSnapshot.current = files;
-        const restored = files.map(file => restoreFile(file, initialParsingConfig.current));
+        const restored = files.map(file => restoreFile(file, parsingConfigRef.current));
         setUploadedFiles(prev => {
           const newNames = new Set(prev.map(file => file.name));
           return [...restored.filter(file => !newNames.has(file.name)), ...prev];
@@ -238,11 +237,15 @@ function App() {
       }
       if (!cancelled) setFilesLoaded(true);
     }).catch(err => console.warn('Failed to restore uploaded files', err));
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      importQueue.current = { pending: Promise.resolve() };
+    };
   }, []);
 
   // Persist configuration to localStorage
   useEffect(() => {
+    parsingConfigRef.current = globalParsingConfig;
     if (savingDisabledRef.current) return;
     localStorage.setItem('globalParsingConfig', JSON.stringify(globalParsingConfig));
   }, [globalParsingConfig]);
@@ -286,60 +289,28 @@ function App() {
     });
   }, [filesLoaded, uploadedFiles]);
 
-  const handleFilesUploaded = useCallback((files) => {
-    const filesWithDefaults = files.map(file => ({
-      ...file,
-      enabled: true,
-      metricsData: {}, // Initialize empty
-      isParsing: true, // Mark as parsing
-      progress: 0,
-      config: {
-        // Use global parsing config as default values
-        metrics: globalParsingConfig.metrics,
-        dataRange: {
-          start: 0,        // start from first data point by default
-          end: undefined,  // default to last data point
-          useRange: false  // keep for backward compatibility but disabled by default
-        },
-        useStepKeyword: globalParsingConfig.useStepKeyword,
-        stepKeyword: globalParsingConfig.stepKeyword
-      }
-    }));
-
-    setUploadedFiles(prev => mergeFilesWithReplacement(prev, filesWithDefaults));
-
-  }, [globalParsingConfig]);
-
-  // Global file processing function
-  const processGlobalFiles = useCallback((files) => {
-    const fileArray = Array.from(files);
-
-    if (fileArray.length === 0) return;
-
-    const processedFiles = fileArray.map(file => ({
-      file,
-      name: file.name,
-      id: Math.random().toString(36).substr(2, 9),
-      data: null,
-      content: null
-    }));
-
-    // Read file contents
-    Promise.all(
-      processedFiles.map(fileObj =>
-        new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            fileObj.content = e.target.result;
-            resolve(fileObj);
-          };
-          reader.readAsText(fileObj.file);
-        })
-      )
-    ).then(files => {
-      handleFilesUploaded(files);
+  const handleFileSelection = useCallback((selection) => {
+    if (!selection.length) return;
+    const queue = importQueue.current;
+    // Read batches concurrently, but apply same-name replacements in selection order.
+    queue.pending = Promise.all([queue.pending, readLogFiles(selection)]).then(([, { loaded, failed }]) => {
+      if (queue !== importQueue.current) return;
+      failed.forEach(name => toastRef.current.error(tRef.current('toast.fileReadError', { name })));
+      if (!loaded.length) return;
+      const files = loaded.map(file => ({
+        ...file,
+        enabled: true,
+        metricsData: {},
+        isParsing: true,
+        progress: 0,
+        config: {
+          ...parsingConfigRef.current,
+          dataRange: { start: 0, end: undefined, useRange: false }
+        }
+      }));
+      setUploadedFiles(prev => mergeFilesWithReplacement(prev, files));
     });
-  }, [handleFilesUploaded]);
+  }, []);
 
   const handleFileRemove = useCallback((index) => {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));
@@ -406,13 +377,13 @@ function App() {
   // Clear all uploaded files (but keep parsing config + display preferences).
   // Used by the FilesPanel "Clear all" action.
   const handleClearAllFiles = useCallback(() => {
-    discardRestoreRef.current = true;
+    importQueue.current = { pending: Promise.resolve() };
     setUploadedFiles([]);
   }, []);
 
   // Reset configuration
   const handleResetConfig = useCallback(() => {
-    discardRestoreRef.current = true;
+    importQueue.current = { pending: Promise.resolve() };
     lastSnapshot.current = [];
     savingDisabledRef.current = true;
     localStorage.removeItem('globalParsingConfig');
@@ -426,63 +397,41 @@ function App() {
     }, 0);
   }, []);
 
-  // Global drag event handlers
-  const handleGlobalDragEnter = useCallback((e) => {
-    e.preventDefault();
-    setDragCounter(prev => prev + 1);
-
-    // Check if files are included
-    if (e.dataTransfer.types.includes('Files')) {
-      setGlobalDragOver(true);
-    }
-  }, []);
-
-  const handleGlobalDragOver = useCallback((e) => {
-    e.preventDefault();
-    // Set drag effect
-    e.dataTransfer.dropEffect = 'copy';
-  }, []);
-
-  const handleGlobalDragLeave = useCallback((e) => {
-    e.preventDefault();
-    setDragCounter(prev => {
-      const newCount = prev - 1;
-      if (newCount === 0) {
-        setGlobalDragOver(false);
-      }
-      return newCount;
-    });
-  }, []);
-
-  const handleGlobalDrop = useCallback((e) => {
-    e.preventDefault();
-    setGlobalDragOver(false);
-    setDragCounter(0);
-
-    if (e.dataTransfer.files.length > 0) {
-      processGlobalFiles(e.dataTransfer.files);
-    }
-  }, [processGlobalFiles]);
-
-  // Add global drag listeners
   useEffect(() => {
-    const handleDragEnter = (e) => handleGlobalDragEnter(e);
-    const handleDragOver = (e) => handleGlobalDragOver(e);
-    const handleDragLeave = (e) => handleGlobalDragLeave(e);
-    const handleDrop = (e) => handleGlobalDrop(e);
-
+    let depth = 0;
+    const handleDragEnter = e => {
+      e.preventDefault();
+      if (e.dataTransfer.types.includes('Files')) {
+        depth++;
+        setGlobalDragOver(true);
+      }
+    };
+    const handleDragOver = e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    };
+    const handleDragLeave = e => {
+      e.preventDefault();
+      depth = Math.max(0, depth - 1);
+      if (depth === 0) setGlobalDragOver(false);
+    };
+    const handleDrop = e => {
+      e.preventDefault();
+      depth = 0;
+      setGlobalDragOver(false);
+      handleFileSelection(e.dataTransfer.files);
+    };
     document.addEventListener('dragenter', handleDragEnter);
     document.addEventListener('dragover', handleDragOver);
     document.addEventListener('dragleave', handleDragLeave);
     document.addEventListener('drop', handleDrop);
-
     return () => {
       document.removeEventListener('dragenter', handleDragEnter);
       document.removeEventListener('dragover', handleDragOver);
       document.removeEventListener('dragleave', handleDragLeave);
       document.removeEventListener('drop', handleDrop);
     };
-  }, [handleGlobalDragEnter, handleGlobalDragOver, handleGlobalDragLeave, handleGlobalDrop]);
+  }, [handleFileSelection]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-700 relative page-fade-in">
@@ -653,7 +602,7 @@ function App() {
               <FilesPanel
                 files={uploadedFiles}
                 parseProgress={parseProgress}
-                onFilesUploaded={handleFilesUploaded}
+                onFilesSelected={handleFileSelection}
                 onFileRemove={handleFileRemove}
                 onFileToggle={handleFileToggle}
                 onFileConfig={handleFileConfig}

@@ -249,6 +249,7 @@
   "shortcuts.escape": "Close dialog or help",
   "shortcuts.toggleSidebar": "Toggle sidebar",
   "shortcuts.toggleCombined": "Toggle combined view",
+  "toast.fileReadError": "Could not read {{name}}. Please select the file again.",
   "toast.parseError": "Failed to parse {{name}}: {{error}}",
   "toast.parseComplete": "Parsed {{name}}",
   "toast.storageQuotaExceeded": "Storage limit reached. File persistence has been disabled for this session.",
