@@ -51,7 +51,8 @@
 
   /* Reduced motion support */
   @media (prefers-reduced-motion: reduce) {
-    * {
+    *, *::before, *::after {
+      scroll-behavior: auto !important;
       animation: none !important;
       transition: none !important;
     }
@@ -197,131 +198,55 @@ input[type="checkbox"]:focus {
   outline-offset: 2px;
 }
 
-/* Full-page drag animation */
-@keyframes dragOverlayFadeIn {
-  from { 
-    opacity: 0; 
+:root {
+  --motion-fast: 140ms;
+  --motion-panel: 220ms;
+  --motion-ease: cubic-bezier(.2,.75,.25,1);
+}
+
+.workspace-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 1fr auto;
+  gap: .75rem;
+  transition: grid-template-rows var(--motion-panel) var(--motion-ease), gap var(--motion-panel) var(--motion-ease);
+}
+.workspace-layout[data-sidebar-open=false] { grid-template-rows: 0fr auto; gap: 0; }
+.workspace-sidebar {
+  min-height: 0;
+  min-width: 0;
+  transition: opacity var(--motion-fast) ease-out;
+}
+.workspace-sidebar[inert] { opacity: 0; }
+
+@screen xl {
+  .workspace-layout {
+    grid-template-columns: 22rem minmax(0, 1fr);
+    grid-template-rows: auto;
+    transition-property: grid-template-columns, gap;
   }
-  to { 
-    opacity: 1; 
+  .workspace-layout[data-sidebar-open=false] {
+    grid-template-columns: 0rem minmax(0, 1fr);
+    grid-template-rows: auto;
   }
 }
 
-@keyframes dragModalScaleIn {
-  from { 
-    opacity: 0; 
-    transform: scale(0.95) translateY(10px); 
-  }
-  to { 
-    opacity: 1; 
-    transform: scale(1) translateY(0); 
-  }
+.smooth-collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition: grid-template-rows var(--motion-panel) var(--motion-ease), opacity var(--motion-fast) ease-out;
 }
+.smooth-collapse[aria-hidden=true] { grid-template-rows: 0fr; opacity: 0; }
+.collapse-chevron { transition: transform var(--motion-panel) var(--motion-ease); }
 
-@keyframes dragIconBounce {
-  0%, 20%, 53%, 80%, 100% {
-    transform: translateY(0);
-  }
-  40%, 43% {
-    transform: translateY(-8px);
-  }
-  70% {
-    transform: translateY(-4px);
-  }
-  90% {
-    transform: translateY(-2px);
-  }
-}
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes panel-in { from { opacity: 0; transform: translateY(6px) scale(.99); } }
+@keyframes menu-in { from { opacity: 0; transform: translateY(-3px) scale(.98); } }
 
-.drag-overlay-fade-in {
-  animation: dragOverlayFadeIn 0.1s ease-out;
-}
-
-.drag-modal-scale-in {
-  animation: dragModalScaleIn 0.15s ease-out;
-}
-
-.drag-icon-bounce {
-  animation: dragIconBounce 1s infinite;
-}
-
-/* Disable drag animation when prefers-reduced-motion is set */
-@media (prefers-reduced-motion: reduce) {
-  .drag-overlay-fade-in,
-  .drag-modal-scale-in,
-  .drag-icon-bounce {
-    animation: none !important;
-  }
-}
-
-/* Page entrance animation */
-@keyframes pageFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.page-fade-in {
-  animation: pageFadeIn 0.5s ease-out;
-}
-
-/* Sidebar cards stagger entrance — 40ms apart, small translateY for a "settling in" feel.
-   `backwards` fill keeps each card invisible until its delay elapses. */
-@keyframes cardSettleIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.sidebar-stagger > * {
-  animation: cardSettleIn 0.3s ease-out backwards;
-}
-
-/* Per-tab content fade — keyed on tab id so each switch retriggers. */
-@keyframes tabFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(2px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.tab-fade {
-  animation: tabFadeIn 0.18s ease-out;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .tab-fade {
-    animation: none !important;
-  }
-}
-.sidebar-stagger > *:nth-child(1) { animation-delay: 0ms; }
-.sidebar-stagger > *:nth-child(2) { animation-delay: 40ms; }
-.sidebar-stagger > *:nth-child(3) { animation-delay: 80ms; }
-.sidebar-stagger > *:nth-child(4) { animation-delay: 120ms; }
-.sidebar-stagger > *:nth-child(5) { animation-delay: 160ms; }
-.sidebar-stagger > *:nth-child(6) { animation-delay: 200ms; }
-.sidebar-stagger > *:nth-child(7) { animation-delay: 240ms; }
-
-@media (prefers-reduced-motion: reduce) {
-  .page-fade-in,
-  .sidebar-stagger > * {
-    animation: none !important;
-  }
-}
+.drag-overlay-fade-in, .tab-fade, .page-fade-in { animation: fade-in var(--motion-fast) ease-out; }
+.drag-modal-scale-in { animation: panel-in var(--motion-panel) var(--motion-ease); }
+.export-dropdown { animation: menu-in var(--motion-fast) var(--motion-ease); }
 
 /* Gradient text animation */
 @keyframes gradientShift {
@@ -357,7 +282,7 @@ input[type="checkbox"]:focus {
 }
 
 .toast-enter {
-  animation: toastSlideIn 0.18s ease-out;
+  animation: toastSlideIn var(--motion-panel) var(--motion-ease);
 }
 
 @media (prefers-reduced-motion: reduce) {

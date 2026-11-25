@@ -451,7 +451,7 @@ function App() {
             <div className="mb-6">
               <div className="relative">
                 <svg
-                  className="mx-auto h-20 w-20 text-blue-600 drag-icon-bounce"
+                  className="mx-auto h-20 w-20 text-blue-600"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -491,10 +491,10 @@ function App() {
           still-visible aside. */}
       <button
         onClick={() => setSidebarVisible(true)}
-        className={`fixed top-3 left-3 z-40 p-2 bg-white dark:bg-gray-800 rounded-full shadow-md text-gray-600 dark:text-gray-200 hover:text-gray-800 dark:hover:text-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-opacity duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+        className={`fixed top-3 left-3 z-40 p-2 bg-white dark:bg-gray-800 rounded-full shadow-md text-gray-600 dark:text-gray-200 hover:text-gray-800 dark:hover:text-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-opacity duration-150 ease-out ${
           sidebarVisible
             ? 'opacity-0 pointer-events-none'
-            : 'opacity-100 delay-200'
+            : 'opacity-100 delay-100'
         }`}
         aria-label={t('showToolbar')}
         aria-hidden={sidebarVisible}
@@ -507,23 +507,13 @@ function App() {
 
         <main
           id="main-content"
-          className="flex flex-col xl:grid transition-[grid-template-columns,gap] duration-[320ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
-          style={{
-            // Synchronous layout shift: sidebar track and gap animate together
-            // with the same timing as the chart area's implicit re-fill, so
-            // both halves of the screen settle in one motion.
-            gridTemplateColumns: sidebarVisible ? '22rem minmax(0, 1fr)' : '0rem minmax(0, 1fr)',
-            columnGap: sidebarVisible ? '0.75rem' : '0',
-            rowGap: '0.75rem'
-          }}
+          className="workspace-layout"
+          data-sidebar-open={sidebarVisible}
           role="main"
         >
             <aside
-              className={`sidebar-stagger overflow-hidden transition-opacity duration-[260ms] ease-[cubic-bezier(0.4,0,0.2,1)] ${
-                sidebarVisible
-                  ? 'opacity-100'
-                  : 'opacity-0 pointer-events-none xl:visible invisible xl:h-auto h-0'
-              }`}
+              className="workspace-sidebar overflow-hidden"
+              inert={!sidebarVisible}
               role="complementary"
               aria-label={t('sidebar.controlPanel')}
               aria-hidden={!sidebarVisible}

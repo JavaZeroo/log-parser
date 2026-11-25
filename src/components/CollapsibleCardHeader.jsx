@@ -47,7 +47,7 @@ export function CollapsibleCardHeader({
       >
         <ChevronDown
           size={14}
-          className={`text-gray-500 transition-transform ${open ? '' : '-rotate-90'}`}
+          className={`text-gray-500 collapse-chevron ${open ? '' : '-rotate-90'}`}
           aria-hidden="true"
         />
         {headingChildren}

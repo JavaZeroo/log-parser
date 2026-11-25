@@ -6,18 +6,18 @@ import { SmoothCollapse } from './SmoothCollapse.jsx';
 import { useCollapsedSection } from '../utils/useCollapsedSection.js';
 
 function ProgressBar({ value }) {
-  const pct = Math.max(0, Math.min(1, value)) * 100;
+  const progress = Math.max(0, Math.min(1, value));
   return (
     <div
       className="mt-1 h-1 w-full bg-gray-200 dark:bg-gray-600 rounded overflow-hidden"
       role="progressbar"
       aria-valuemin={0}
       aria-valuemax={100}
-      aria-valuenow={Math.round(pct)}
+      aria-valuenow={Math.round(progress * 100)}
     >
       <div
-        className="h-full bg-blue-500 transition-[width] duration-150 ease-out"
-        style={{ width: `${pct}%` }}
+        className="h-full origin-left bg-blue-500 transition-transform duration-150 ease-out"
+        style={{ transform: `scaleX(${progress})` }}
       />
     </div>
   );
