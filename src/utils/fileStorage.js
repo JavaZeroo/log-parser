@@ -1,5 +1,6 @@
 // IndexedDB keeps list order and configuration separate from raw text or cached
 // points. Each save applies a delta against the last successful transaction.
+import { newFileId } from './readLogFiles.js';
 const DB_NAME = 'log-parser';
 const META = 'fileMetadata';
 const DATA = 'fileData';
@@ -8,6 +9,7 @@ const LS_MAX_BYTES = 5 * 1024 * 1024;
 
 let connection;
 let committed;
+let fallbackMode = 'merge';
 let queue = Promise.resolve();
 
 function inOrder(operation) {
@@ -18,7 +20,7 @@ function inOrder(operation) {
 
 function splitFiles(files) {
   return new Map(files.map(({ content, metricsData, ...file }, position) => {
-    const id = file.id ?? crypto.randomUUID();
+    const id = file.id ?? newFileId();
     return [id, {
       meta: { ...file, id, position },
       data: { id, content, metricsData }
@@ -26,12 +28,11 @@ function splitFiles(files) {
   }));
 }
 
-function openDB() {
+function openDB(onBlocked) {
   if (typeof indexedDB === 'undefined') return Promise.resolve(null);
   if (!connection) {
     connection = new Promise(resolve => {
       const request = indexedDB.open(DB_NAME, 2);
-      let blocked = false;
       request.onupgradeneeded = () => {
         const db = request.result;
         const metadata = db.createObjectStore(META, { keyPath: 'id' });
@@ -49,12 +50,12 @@ function openDB() {
       };
       request.onsuccess = () => {
         const db = request.result;
-        if (blocked) { db.close(); return; }
         db.onversionchange = () => { db.close(); connection = null; committed = null; };
         resolve(db);
       };
       request.onerror = () => resolve(null);
-      request.onblocked = () => { blocked = true; resolve(null); };
+      // The browser resumes this upgrade when the older tab closes.
+      request.onblocked = () => onBlocked?.();
     }).catch(() => null);
   }
   return connection;
@@ -104,9 +105,20 @@ async function writeDatabase(db, files, previous) {
         metadata.put(meta);
         payloads.put(data);
       } else if (!sameFields(meta, old.meta)) {
-        // A stale tab toggling visibility must not recreate a deleted file.
-        const exists = metadata.getKey(id);
-        exists.onsuccess = () => { if (exists.result !== undefined) metadata.put(meta); };
+        // Apply only this tab's edits. A different tab may have renamed a
+        // cached series or removed the file since this snapshot was loaded.
+        const request = metadata.get(id);
+        request.onsuccess = () => {
+          const row = request.result;
+          if (!row) return;
+          for (const key of Object.keys(old.meta)) {
+            if (!Object.hasOwn(meta, key)) delete row[key];
+          }
+          for (const [key, value] of Object.entries(meta)) {
+            if (value !== old.meta[key] || !Object.hasOwn(old.meta, key)) row[key] = value;
+          }
+          metadata.put(row);
+        };
       }
     }
   } catch (error) {
@@ -123,10 +135,13 @@ function readFallback() {
     const value = JSON.parse(localStorage.getItem(LEGACY_LS_KEY));
     const files = Array.isArray(value) ? value : value?.files;
     if (Array.isArray(files)) {
-      return { files: files.map(f => f.id != null ? f : { ...f, id: crypto.randomUUID() }), pending: !!value.pending };
+      return {
+        files: files.map(f => f.id != null ? f : { ...f, id: newFileId() }),
+        mode: value.pending === true ? 'replace' : value.pending
+      };
     }
   } catch { /* absent or inaccessible */ }
-  return { files: [], pending: false };
+  return { files: [] };
 }
 
 function removeFallback() {
@@ -134,10 +149,8 @@ function removeFallback() {
 }
 
 function writeFallback(files) {
-  // If IDB was blocked, this snapshot must take precedence when it reopens,
-  // including an explicit clear. A single setItem is atomic on quota failure.
-  const pending = typeof indexedDB !== 'undefined';
-  if (!pending && !files.length) { removeFallback(); return; }
+  const pending = typeof indexedDB !== 'undefined' && fallbackMode;
+  if (!files.length && pending !== 'replace') { removeFallback(); return; }
   const json = JSON.stringify(pending ? { pending, files } : files);
   if (json.length > LS_MAX_BYTES) {
     throw new DOMException('Serialized files exceed localStorage limit', 'QuotaExceededError');
@@ -145,26 +158,40 @@ function writeFallback(files) {
   localStorage.setItem(LEGACY_LS_KEY, json);
 }
 
-export function loadFiles() {
+export function loadFiles(onBlocked) {
   return inOrder(async () => {
+    const db = await openDB(onBlocked);
     const fallback = readFallback();
-    const db = await openDB();
+    fallbackMode = fallback.mode === 'replace' ? 'replace' : 'merge';
     if (!db) return fallback.files;
+
     let files;
     try {
       files = await readDatabase(db);
-    } catch (error) {
-      if (fallback.pending || fallback.files.length) return fallback.files;
-      throw error;
-    }
-    if (fallback.pending || (!files.length && fallback.files.length)) {
-      try {
-        await writeDatabase(db, fallback.files, null);
-        removeFallback();
-      } catch { committed = null; } // retry migration on the next save
+    } catch {
+      // Keep new imports in the fallback until the existing cache can be read.
+      db.close();
+      connection = Promise.resolve(null);
+      committed = null;
       return fallback.files;
     }
+
     committed = splitFiles(files);
+    fallbackMode = 'replace';
+    if (fallback.mode || (!files.length && fallback.files.length)) {
+      if (fallback.mode === 'merge') {
+        const byName = new Map(files.map(file => [file.name ?? file.id, file]));
+        for (const file of fallback.files) byName.set(file.name ?? file.id, file);
+        files = [...byName.values()];
+      } else {
+        files = fallback.files;
+      }
+      try {
+        await writeDatabase(db, files, committed);
+      } catch {
+        return files; // Keep the fallback and retry from the last commit on save.
+      }
+    }
     removeFallback();
     return files;
   });
@@ -176,6 +203,7 @@ export function saveFiles(files) {
     if (db) {
       try {
         await writeDatabase(db, files, committed);
+        fallbackMode = 'replace';
         removeFallback();
         return;
       } catch (error) {
@@ -183,13 +211,13 @@ export function saveFiles(files) {
       }
     }
     writeFallback(files);
-    committed = null;
   });
 }
 
 export function clearFiles() {
   return inOrder(async () => {
     const db = await openDB();
+    fallbackMode = 'replace';
     if (db) {
       await writeDatabase(db, [], null);
       removeFallback();

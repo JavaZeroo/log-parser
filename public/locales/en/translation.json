@@ -251,6 +251,7 @@
   "shortcuts.escape": "Close dialog or help",
   "shortcuts.toggleSidebar": "Toggle sidebar",
   "shortcuts.toggleCombined": "Toggle combined view",
+  "toast.cacheUpgradeBlocked": "Close older tabs of this app to finish upgrading your log cache.",
   "toast.fileReadError": "Could not read {{name}}. Please select the file again.",
   "toast.parseError": "Failed to parse {{name}}: {{error}}",
   "toast.parseComplete": "Parsed {{name}}",

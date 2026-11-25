@@ -67,12 +67,16 @@ export const DEFAULT_CHART_CONFIG = {
 };
 
 function restoreFile(file, defaults) {
+  const saved = file.config;
+  const config = saved?.metrics && saved.useStepKeyword != null && saved.stepKeyword != null
+    ? saved
+    : { ...defaults, ...saved, metrics: saved?.metrics ?? defaults.metrics };
   const hasSource = typeof file.content === 'string';
   const metricsData = file.metricsData || {};
   const isParsing = hasSource && Object.keys(metricsData).length === 0;
   return {
     ...file,
-    config: { ...defaults, ...file.config, metrics: file.config?.metrics ?? defaults.metrics },
+    config,
     enabled: file.enabled ?? true,
     isParsing,
     progress: isParsing ? 0 : undefined,
@@ -226,7 +230,7 @@ function App() {
   useEffect(() => {
     let cancelled = false;
     const queue = importQueue.current;
-    loadFilesFromStorage().then(files => {
+    loadFilesFromStorage(() => toastRef.current.info(tRef.current('toast.cacheUpgradeBlocked'))).then(files => {
       if (!cancelled && importQueue.current === queue && files.length) {
         lastSnapshot.current = files;
         const restored = files.map(file => restoreFile(file, parsingConfigRef.current));
@@ -378,6 +382,7 @@ function App() {
   // Used by the FilesPanel "Clear all" action.
   const handleClearAllFiles = useCallback(() => {
     importQueue.current = { pending: Promise.resolve() };
+    clearFilesInStorage().catch(err => console.warn('Failed to clear uploaded files', err));
     setUploadedFiles([]);
   }, []);
 

@@ -24,10 +24,10 @@ This document provides comprehensive guidance for AI assistants (like Claude) wo
    - Match previews and keyword recommendations run in a separate on-demand worker. It counts every match and keeps up to three examples per file and metric.
    - Communication via postMessage/onmessage pattern
 
-3. **LocalStorage Persistence**
-   - Uploaded files and parsing configs persist across sessions
-   - 5MB storage limit with quota handling
-   - Config saved on every change (with safeguards)
+3. **Browser storage**
+   - IndexedDB stores ordered file metadata separately from raw text or cached series. A visibility toggle writes one metadata record.
+   - Small logs are parsed again on reload. Logs over the 5 MiB text threshold retain their parsed series.
+   - Preferences use localStorage. File imports can fall back to localStorage when IndexedDB is unavailable.
 
 4. **Global Drag-and-Drop**
    - Full-page drag overlay for intuitive file uploads
@@ -77,7 +77,7 @@ This document provides comprehensive guidance for AI assistants (like Claude) wo
 ### App.jsx (Main Application)
 - **Central State Management**: Manages all uploaded files, parsing configs, comparison modes
 - **Web Worker Coordination**: Initializes worker, dispatches parsing jobs, handles results
-- **LocalStorage Persistence**: Saves/loads state with quota handling
+- Restores file data from IndexedDB before writing changes and persists preferences in localStorage.
 - **Global Event Handlers**: Drag-and-drop overlay, file processing
 - **Key State**:
   - `uploadedFiles`: Array of file objects with content, config, metricsData
@@ -305,10 +305,10 @@ This document provides comprehensive guidance for AI assistants (like Claude) wo
    - Never parse in main thread (blocks UI)
    - Use `isParsing` flag to show loading states
 
-2. **LocalStorage Quotas**
-   - Maximum 5MB per file to avoid QuotaExceededError
-   - Graceful degradation: disable persistence if quota exceeded
-   - Use `savingDisabledRef` to prevent repeated localStorage writes
+2. **Cache size and recovery**
+   - The localStorage fallback caps a serialized snapshot at 5 MiB of text. IndexedDB uses the browser's quota.
+   - An older tab can hold the previous database version open. Closing it lets the new tab finish migration.
+   - A quota error pauses subsequent saves for the session and leaves the current logs available in memory.
 
 3. **Chart Rendering**
    - Use `useMemo` for chart data preparation
@@ -354,10 +354,9 @@ npm run test:coverage  # Run with coverage report
 
 ## Troubleshooting Common Issues
 
-### Issue: LocalStorage Quota Exceeded
-- **Symptom**: Console warning "LocalStorage quota exceeded"
-- **Solution**: Automatic - persistence disabled, files stay in memory only
-- **Prevention**: Don't upload files >5MB, implement file size warning
+### Storage quota exceeded
+
+The app shows a storage warning and keeps the files in memory. The last successfully committed cache remains available on reload.
 
 ### Issue: Worker Not Parsing
 - **Symptom**: Files stuck in "parsing" state
@@ -378,7 +377,7 @@ npm run test:coverage  # Run with coverage report
 
 - **No Backend**: Purely client-side, all data stays in browser
 - **File Processing**: Files never uploaded to servers
-- **LocalStorage**: User data persists locally only
+- IndexedDB and localStorage keep user data in the browser.
 - **XSS Prevention**: React escapes content by default, avoid `dangerouslySetInnerHTML`
 - **Dependency Updates**: Regular npm audit, dependabot PRs
 
@@ -394,7 +393,7 @@ npm run test:coverage  # Run with coverage report
 ## Key Technical Decisions
 
 1. **Why Web Workers?**: Parsing large logs blocks UI; workers keep app responsive
-2. **Why LocalStorage?**: Simple persistence without backend; files reload on refresh
+2. IndexedDB supports per-file writes and restores large series across page loads.
 3. **Why No State Library?**: React's built-in state sufficient for current complexity
 4. **Why Vite?**: Fast HMR, modern build tool, excellent DX
 5. **Why Chart.js?**: Robust, flexible, good React integration, zoom plugin

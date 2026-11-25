@@ -251,6 +251,7 @@
   "shortcuts.escape": "关闭对话框或帮助",
   "shortcuts.toggleSidebar": "切换侧栏",
   "shortcuts.toggleCombined": "切换合并视图",
+  "toast.cacheUpgradeBlocked": "请关闭打开本应用旧版的标签页，以完成日志缓存升级。",
   "toast.fileReadError": "无法读取 {{name}}，请重新选择文件。",
   "toast.parseError": "解析 {{name}} 失败：{{error}}",
   "toast.parseComplete": "已解析 {{name}}",
